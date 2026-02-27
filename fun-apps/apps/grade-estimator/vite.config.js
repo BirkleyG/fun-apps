@@ -3,5 +3,6 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
-  base: "/fun-apps/grade-estimator/"
+  base: "/fun-apps/grade-estimator/",
+  server: { port: 5175 }
 });

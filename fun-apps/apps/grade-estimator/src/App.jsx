@@ -1,14 +1,25 @@
 import { useState, useEffect, useRef } from "react";
+import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
+import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { auth, db, provider } from "./firebase";
 
 // ─── Storage helpers ──────────────────────────────────────────────────────────
-async function loadStorage(key) {
-  try {
-    const raw = window.localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
+const APP_DOC_ID = "grade-estimator";
+const getAppDocRef = (uid) => doc(db, "users", uid, "apps", APP_DOC_ID);
+
+async function loadStorage(uid) {
+  const snapshot = await getDoc(getAppDocRef(uid));
+  return snapshot.exists() ? snapshot.data() : null;
 }
-async function saveStorage(key, val) {
-  try { window.localStorage.setItem(key, JSON.stringify(val)); } catch {}
+async function saveStorage(uid, val) {
+  await setDoc(
+    getAppDocRef(uid),
+    {
+      ...val,
+      updatedAt: serverTimestamp()
+    },
+    { merge: true }
+  );
 }
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
@@ -17,6 +28,10 @@ const DEFAULT_SETTINGS = {
   aMinusThreshold: 90,
   worstCaseFill: 50,
   fillStrategy: "avg_known_estimated",
+};
+const DEFAULT_ANALYZER_STATE = {
+  selectedClassId: "",
+  entries: {}
 };
 
 let _id = 0;
@@ -1098,35 +1113,107 @@ function Settings({ settings, setSettings }) {
 
 // ─── ROOT APP ─────────────────────────────────────────────────────────────────
 
+function AuthGate({ authReady, user, onSignIn }) {
+  if (!authReady) {
+    return (
+      <div className="app">
+        <main className="main">
+          <div className="card">
+            <div className="page-title">Loading...</div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (user) return null;
+
+  return (
+    <div className="app">
+      <main className="main">
+        <div className="card" style={{ maxWidth: 520, margin: "64px auto 0" }}>
+          <div className="page-title">Grade Estimator</div>
+          <div className="page-subtitle" style={{ marginBottom: 20 }}>
+            Sign in with Google to save your data to Firebase.
+          </div>
+          <button className="btn btn-primary" onClick={onSignIn}>
+            Sign in with Google
+          </button>
+        </div>
+      </main>
+    </div>
+  );
+}
+
 export default function App() {
   const [page, setPage]         = useState("builder");
   const [classes, setClasses]   = useState([]);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [user, setUser]         = useState(null);
+  const [authReady, setAuthReady] = useState(false);
   const [loaded, setLoaded]     = useState(false);
+  const [saveState, setSaveState] = useState("idle");
+  const saveTimerRef = useRef(null);
 
   // Shared state: analyzer entries + selected class, persisted, read by Sandbox
-  const [analyzerState, setAnalyzerState] = useState({
-    selectedClassId: "",
-    entries: {}, // { [classId]: { [catId]: { grade, mode } } }
-  });
+  const [analyzerState, setAnalyzerState] = useState(DEFAULT_ANALYZER_STATE);
 
   useEffect(() => {
-    (async () => {
-      const [sc, ss, sa] = await Promise.all([
-        loadStorage("grade-classes"),
-        loadStorage("grade-settings"),
-        loadStorage("grade-analyzer"),
-      ]);
-      if (sc) setClasses(sc);
-      if (ss) setSettings(s => ({ ...DEFAULT_SETTINGS, ...ss }));
-      if (sa) setAnalyzerState(sa);
-      setLoaded(true);
-    })();
+    const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
+      setUser(nextUser);
+      setAuthReady(true);
+    });
+    return () => unsubscribe();
   }, []);
 
-  useEffect(() => { if (loaded) saveStorage("grade-classes",  classes);       }, [classes,       loaded]);
-  useEffect(() => { if (loaded) saveStorage("grade-settings", settings);      }, [settings,      loaded]);
-  useEffect(() => { if (loaded) saveStorage("grade-analyzer", analyzerState); }, [analyzerState, loaded]);
+  useEffect(() => {
+    if (!authReady) return;
+    if (!user) {
+      setClasses([]);
+      setSettings(DEFAULT_SETTINGS);
+      setAnalyzerState(DEFAULT_ANALYZER_STATE);
+      setLoaded(false);
+      setSaveState("idle");
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const remote = await loadStorage(user.uid);
+        if (cancelled) return;
+        setClasses(Array.isArray(remote?.classes) ? remote.classes : []);
+        setSettings(remote?.settings ? { ...DEFAULT_SETTINGS, ...remote.settings } : DEFAULT_SETTINGS);
+        setAnalyzerState(remote?.analyzerState ?? DEFAULT_ANALYZER_STATE);
+        setLoaded(true);
+      } catch {
+        if (cancelled) return;
+        setClasses([]);
+        setSettings(DEFAULT_SETTINGS);
+        setAnalyzerState(DEFAULT_ANALYZER_STATE);
+        setLoaded(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authReady, user]);
+
+  useEffect(() => {
+    if (!user || !loaded) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+
+    setSaveState("saving");
+    saveTimerRef.current = setTimeout(() => {
+      saveStorage(user.uid, { classes, settings, analyzerState })
+        .then(() => setSaveState("saved"))
+        .catch(() => setSaveState("error"));
+    }, 500);
+
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, [classes, settings, analyzerState, loaded, user]);
 
   const tabs = [
     { id: "builder",  label: "Class Builder"  },
@@ -1134,6 +1221,34 @@ export default function App() {
     { id: "sandbox",  label: "Sandbox"        },
     { id: "settings", label: "Settings"       },
   ];
+
+  if (!user) {
+    return (
+      <>
+        <style>{css}</style>
+        <AuthGate
+          authReady={authReady}
+          user={user}
+          onSignIn={() => signInWithPopup(auth, provider).catch(() => undefined)}
+        />
+      </>
+    );
+  }
+
+  if (!loaded) {
+    return (
+      <>
+        <style>{css}</style>
+        <div className="app">
+          <main className="main">
+            <div className="card">
+              <div className="page-title">Loading your data...</div>
+            </div>
+          </main>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -1146,6 +1261,14 @@ export default function App() {
               {t.label}
             </button>
           ))}
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+            <span className="page-subtitle" style={{ marginTop: 0 }}>
+              {saveState === "saving" ? "Saving..." : saveState === "saved" ? "Saved" : saveState === "error" ? "Save error" : ""}
+            </span>
+            <button className="btn btn-ghost btn-sm" onClick={() => signOut(auth)}>
+              Sign out
+            </button>
+          </div>
         </nav>
         <main className="main">
           {page === "builder"  && <ClassBuilder  classes={classes} setClasses={setClasses} />}
