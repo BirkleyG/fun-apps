@@ -57,12 +57,21 @@ jobs:
         working-directory: fun-apps/apps/grade-estimator
         run: npm run build
 
+      - name: Install Coin Atlas deps
+        working-directory: fun-apps/apps/coin-atlas
+        run: npm install
+
+      - name: Build Coin Atlas
+        working-directory: fun-apps/apps/coin-atlas
+        run: npm run build
+
       - name: Assemble site
         run: |
-          mkdir -p site/bible-tracker site/grade-estimator
+          mkdir -p site/bible-tracker site/grade-estimator site/coin-atlas
           cp -R fun-apps/apps/launcher/dist/. site/
           cp -R fun-apps/apps/bible-tracker/dist/. site/bible-tracker/
           cp -R fun-apps/apps/grade-estimator/dist/. site/grade-estimator/
+          cp -R fun-apps/apps/coin-atlas/dist/. site/coin-atlas/
 
       - name: Upload pages artifact
         uses: actions/upload-pages-artifact@v3

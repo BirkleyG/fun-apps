@@ -5,6 +5,7 @@ This repo contains three Vite apps:
 - Launcher app (apps/launcher)
 - Bible Reading Tracker (apps/bible-tracker)
 - Grade Estimator (apps/grade-estimator)
+- Coin Atlas (apps/coin-atlas)
 
 ## Folder Structure
 
@@ -14,6 +15,7 @@ fun-apps/
     launcher/
     bible-tracker/
     grade-estimator/
+    coin-atlas/
   README.md
 ```
 
@@ -33,6 +35,7 @@ By default, the launcher links to the hosted app paths. For local development, p
 # apps/launcher/.env
 VITE_BIBLE_APP_URL=http://localhost:5174
 VITE_GRADE_ESTIMATOR_URL=http://localhost:5175
+VITE_COIN_ATLAS_URL=http://localhost:5176
 ```
 
 ### Build
@@ -117,6 +120,41 @@ cd apps/grade-estimator
 npm run build
 ```
 
+## Coin Atlas App
+
+### Firebase Setup
+
+Coin Atlas uses Firebase Authentication (Google) + Firestore in the same shared `fun-apps` project.
+
+Set environment variables:
+
+```
+# apps/coin-atlas/.env
+VITE_FIREBASE_API_KEY=...
+VITE_FIREBASE_AUTH_DOMAIN=...
+VITE_FIREBASE_PROJECT_ID=...
+VITE_FIREBASE_STORAGE_BUCKET=...
+VITE_FIREBASE_MESSAGING_SENDER_ID=...
+VITE_FIREBASE_APP_ID=...
+```
+
+An example file is provided at `apps/coin-atlas/.env.example`.
+
+### Run Locally
+
+```
+cd apps/coin-atlas
+npm install
+npm run dev
+```
+
+### Build
+
+```
+cd apps/coin-atlas
+npm run build
+```
+
 ## Firestore Security Rules (Example)
 
 Use per-user access rules similar to the following:
@@ -149,6 +187,7 @@ service cloud.firestore {
   - Launcher at `/fun-apps/`
   - Bible Tracker at `/fun-apps/bible-tracker/`
   - Grade Estimator at `/fun-apps/grade-estimator/`
+  - Coin Atlas at `/fun-apps/coin-atlas/`
 - For GitHub Pages builds, set repository secrets for:
   - `VITE_FIREBASE_API_KEY`
   - `VITE_FIREBASE_AUTH_DOMAIN`

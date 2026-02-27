@@ -8,9 +8,15 @@ const getGradeEstimatorUrl = () => {
   return envUrl && envUrl.trim().length > 0 ? envUrl : "./grade-estimator/";
 };
 
+const getCoinAtlasUrl = () => {
+  const envUrl = import.meta.env.VITE_COIN_ATLAS_URL as string | undefined;
+  return envUrl && envUrl.trim().length > 0 ? envUrl : "./coin-atlas/";
+};
+
 export default function App() {
   const bibleUrl = getBibleUrl();
   const gradeEstimatorUrl = getGradeEstimatorUrl();
+  const coinAtlasUrl = getCoinAtlasUrl();
 
   return (
     <div className="page">
@@ -42,6 +48,15 @@ export default function App() {
           >
             <div className="tile__title">Grade Estimator</div>
             <div className="tile__subtitle">Class builder, analyzer, and scenario sandbox</div>
+          </button>
+          <button
+            className="tile"
+            onClick={() => {
+              window.location.href = coinAtlasUrl;
+            }}
+          >
+            <div className="tile__title">Coin Atlas</div>
+            <div className="tile__subtitle">Track world coin and bill collection progress</div>
           </button>
         </div>
       </section>
