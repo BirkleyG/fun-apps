@@ -2,60 +2,76 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
   increment,
-  query,
   setDoc,
   Timestamp,
-  where
+  writeBatch
 } from "firebase/firestore";
 import { onAuthStateChanged, signInWithPopup, signOut, User } from "firebase/auth";
 import { auth, db, provider } from "./firebase";
-import { books, plans, PlanType } from "./data/bible";
+import { getChapterLabel, plans, PlanType } from "./data/bible";
+import { EventDoc, ProgressDoc, UserDoc } from "./types";
+import Chapters from "./pages/Chapters";
+import Analytics from "./pages/Analytics";
+import Profile from "./pages/Profile";
 
-type UserDoc = {
-  uid: string;
-  displayName: string;
-  planType: PlanType;
-  createdAt: Timestamp;
+const BATCH_LIMIT = 450;
+
+type ResumeInfo = {
+  firstUnreadId: string | null;
+  lastCompletedId: string | null;
 };
 
-type ProgressDoc = {
-  completed?: boolean;
-  completedAt?: Timestamp;
-  reads?: number;
-  lastReadAt?: Timestamp;
+const computeResumeInfo = (plan: string[], progressMap: Record<string, ProgressDoc>): ResumeInfo => {
+  const firstUnreadId = plan.find((chapterId) => !progressMap[chapterId]?.completed) ?? null;
+  let lastCompletedByOrder: string | null = null;
+  let lastCompletedByTime: { id: string; time: number } | null = null;
+
+  for (const chapterId of plan) {
+    const progress = progressMap[chapterId];
+    if (!progress?.completed) continue;
+    lastCompletedByOrder = chapterId;
+    if (progress.completedAt) {
+      const time = progress.completedAt.toMillis();
+      if (!lastCompletedByTime || time >= lastCompletedByTime.time) {
+        lastCompletedByTime = { id: chapterId, time };
+      }
+    }
+  }
+
+  return {
+    firstUnreadId,
+    lastCompletedId: lastCompletedByTime?.id ?? lastCompletedByOrder
+  };
 };
 
-type EventDoc = {
-  type: "read";
-  chapterId: string;
-  source: "plan" | "extra";
-  at: Timestamp;
+const seedResumeProgress = async (uid: string, plan: string[], resumeIndex: number) => {
+  if (resumeIndex <= 0) return;
+  const chaptersToSeed = plan.slice(0, resumeIndex);
+  for (let i = 0; i < chaptersToSeed.length; i += BATCH_LIMIT) {
+    const batch = writeBatch(db);
+    const chunk = chaptersToSeed.slice(i, i + BATCH_LIMIT);
+    for (const chapterId of chunk) {
+      const docRef = doc(db, "users", uid, "progress", chapterId);
+      batch.set(
+        docRef,
+        {
+          completed: true,
+          completedAt: null,
+          lastReadAt: null,
+          reads: 0,
+          lastPlanEventId: null
+        },
+        { merge: true }
+      );
+    }
+    await batch.commit();
+  }
 };
-
-const dayKey = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const startOfDay = (date: Date) => {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
-};
-
-const addDays = (date: Date, delta: number) => {
-  const d = new Date(date);
-  d.setDate(d.getDate() + delta);
-  return d;
-};
-
-const pad3 = (value: number) => value.toString().padStart(3, "0");
 
 const AuthScreen = () => {
   const [error, setError] = useState<string | null>(null);
@@ -85,7 +101,11 @@ const AuthScreen = () => {
 
 const Onboarding = ({ user, onComplete }: { user: User; onComplete: (doc: UserDoc) => void }) => {
   const [planType, setPlanType] = useState<PlanType>("asWritten");
+  const [startMode, setStartMode] = useState<"begin" | "resume" | null>(null);
+  const [resumeIndex, setResumeIndex] = useState(0);
   const [saving, setSaving] = useState(false);
+
+  const plan = useMemo(() => plans[planType], [planType]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -97,6 +117,11 @@ const Onboarding = ({ user, onComplete }: { user: User; onComplete: (doc: UserDo
       createdAt: Timestamp.now()
     };
     await setDoc(docRef, userDoc);
+
+    if (startMode === "resume" && resumeIndex > 0) {
+      await seedResumeProgress(user.uid, plan, resumeIndex);
+    }
+
     onComplete(userDoc);
   };
 
@@ -121,10 +146,45 @@ const Onboarding = ({ user, onComplete }: { user: User; onComplete: (doc: UserDo
               checked={planType === "chronological"}
               onChange={() => setPlanType("chronological")}
             />
-            Chronological (placeholder)
+            Chronological order
           </label>
         </div>
-        <button className="primary" onClick={handleSave} disabled={saving}>
+
+        <h3>Start at the Beginning or Resume a Plan</h3>
+        <div className="choice-row">
+          <button
+            className={`choice ${startMode === "begin" ? "choice--active" : ""}`}
+            onClick={() => setStartMode("begin")}
+          >
+            Start at the Beginning
+          </button>
+          <button
+            className={`choice ${startMode === "resume" ? "choice--active" : ""}`}
+            onClick={() => setStartMode("resume")}
+          >
+            Resume a Plan
+          </button>
+        </div>
+
+        {startMode === "resume" ? (
+          <div className="field">
+            <label>Choose your current chapter</label>
+            <select value={resumeIndex} onChange={(event) => setResumeIndex(Number(event.target.value))}>
+              {plan.map((chapterId, index) => (
+                <option key={chapterId} value={index}>
+                  {getChapterLabel(chapterId)}
+                </option>
+              ))}
+            </select>
+            <p className="muted">All chapters before this will be marked complete without logging events.</p>
+          </div>
+        ) : null}
+
+        <button
+          className="primary"
+          onClick={handleSave}
+          disabled={saving || startMode === null}
+        >
           {saving ? "Saving..." : "Continue"}
         </button>
       </div>
@@ -132,230 +192,18 @@ const Onboarding = ({ user, onComplete }: { user: User; onComplete: (doc: UserDo
   );
 };
 
-const AnalyticsView = ({
-  totalChapters,
-  completedCount,
-  events
-}: {
-  totalChapters: number;
-  completedCount: number;
-  events: EventDoc[];
-}) => {
-  const now = new Date();
-  const start7 = startOfDay(addDays(now, -6));
-  const start14 = startOfDay(addDays(now, -13));
-
-  const eventsLast7 = events.filter((event) => event.at.toDate() >= start7).length;
-  const eventsLast14 = events.filter((event) => event.at.toDate() >= start14).length;
-
-  const avgLast7 = (eventsLast7 / 7).toFixed(1);
-
-  const daysWithReads = new Set(events.map((event) => dayKey(event.at.toDate())));
-  let streak = 0;
-  for (let offset = 0; ; offset += 1) {
-    const key = dayKey(addDays(now, -offset));
-    if (daysWithReads.has(key)) {
-      streak += 1;
-    } else {
-      break;
-    }
-  }
-
-  let etaLabel = "N/A";
-  if (completedCount >= totalChapters) {
-    etaLabel = "Completed";
-  } else if (eventsLast14 > 0) {
-    const pace = eventsLast14 / 14;
-    const remaining = totalChapters - completedCount;
-    const daysNeeded = Math.ceil(remaining / pace);
-    const etaDate = addDays(now, daysNeeded);
-    etaLabel = etaDate.toLocaleDateString();
-  }
-
-  return (
-    <div className="panel">
-      <h2>Analytics</h2>
-      <div className="stats">
-        <div className="stat">
-          <div className="stat__label">Completed</div>
-          <div className="stat__value">
-            {completedCount} / {totalChapters}
-          </div>
-        </div>
-        <div className="stat">
-          <div className="stat__label">Chapters per day (7d)</div>
-          <div className="stat__value">{avgLast7}</div>
-        </div>
-        <div className="stat">
-          <div className="stat__label">Current streak</div>
-          <div className="stat__value">{streak} days</div>
-        </div>
-        <div className="stat">
-          <div className="stat__label">ETA finish</div>
-          <div className="stat__value">{etaLabel}</div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const ChaptersView = ({
-  plan,
-  progressMap,
-  onReadChapter,
-  onAddExtra
-}: {
-  plan: string[];
-  progressMap: Record<string, ProgressDoc>;
-  onReadChapter: (chapterId: string) => void;
-  onAddExtra: (chapterId: string) => void;
-}) => {
-  const [showModal, setShowModal] = useState(false);
-  const [bookIndex, setBookIndex] = useState(0);
-  const [chapterNumber, setChapterNumber] = useState(1);
-
-  useEffect(() => {
-    const maxChapters = books[bookIndex].chapterCount;
-    if (chapterNumber > maxChapters) {
-      setChapterNumber(1);
-    }
-  }, [bookIndex, chapterNumber]);
-
-  const handleAddExtra = () => {
-    const book = books[bookIndex];
-    const chapterId = `${book.abbr}-${pad3(chapterNumber)}`;
-    onAddExtra(chapterId);
-    setShowModal(false);
-  };
-
-  return (
-    <div className="panel">
-      <div className="panel__header">
-        <h2>Chapters</h2>
-        <button className="secondary" onClick={() => setShowModal(true)}>
-          Add Extra Chapter
-        </button>
-      </div>
-      <div className="chapter-list">
-        {plan.map((chapterId) => {
-          const progress = progressMap[chapterId];
-          const completed = Boolean(progress?.completed);
-          return (
-            <button
-              key={chapterId}
-              data-chapter-id={chapterId}
-              className={`chapter ${completed ? "chapter--done" : ""}`}
-              onClick={() => onReadChapter(chapterId)}
-            >
-              <span>{chapterId}</span>
-              <span className="chapter__status">{completed ? "Completed" : "Tap to complete"}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {showModal ? (
-        <div className="modal-backdrop" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(event) => event.stopPropagation()}>
-            <h3>Add Extra Chapter</h3>
-            <label className="field">
-              Book
-              <select
-                value={bookIndex}
-                onChange={(event) => setBookIndex(Number(event.target.value))}
-              >
-                {books.map((book, index) => (
-                  <option key={book.abbr} value={index}>
-                    {book.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              Chapter
-              <select
-                value={chapterNumber}
-                onChange={(event) => setChapterNumber(Number(event.target.value))}
-              >
-                {Array.from({ length: books[bookIndex].chapterCount }, (_, index) => index + 1).map(
-                  (value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  )
-                )}
-              </select>
-            </label>
-            <div className="modal__actions">
-              <button className="secondary" onClick={() => setShowModal(false)}>
-                Cancel
-              </button>
-              <button className="primary" onClick={handleAddExtra}>
-                Log Reading
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </div>
-  );
-};
-
-const ProfileView = ({
-  user,
-  userDoc,
-  onUpdateName
-}: {
-  user: User;
-  userDoc: UserDoc;
-  onUpdateName: (name: string) => void;
-}) => {
-  const [name, setName] = useState(userDoc.displayName);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    setName(userDoc.displayName);
-  }, [userDoc.displayName]);
-
-  const handleSave = async () => {
-    setSaving(true);
-    await onUpdateName(name);
-    setSaving(false);
-  };
-
-  return (
-    <div className="panel">
-      <h2>Profile</h2>
-      <div className="field">
-        <label>Display name</label>
-        <input value={name} onChange={(event) => setName(event.target.value)} />
-      </div>
-      <div className="field">
-        <label>Plan type</label>
-        <div className="pill">{userDoc.planType}</div>
-      </div>
-      <div className="profile-actions">
-        <button className="primary" onClick={handleSave} disabled={saving}>
-          {saving ? "Saving..." : "Save"}
-        </button>
-        <button className="secondary" onClick={() => signOut(auth)}>
-          Log out
-        </button>
-      </div>
-      <p className="muted">Signed in as {user.email}</p>
-    </div>
-  );
-};
-
 const MainApp = ({ user, userDoc, onUserDocUpdate }: { user: User; userDoc: UserDoc; onUserDocUpdate: (doc: UserDoc) => void }) => {
   const [tabIndex, setTabIndex] = useState(1);
+  const [pageKey, setPageKey] = useState(1);
+  const [pageDirection, setPageDirection] = useState<"left" | "right">("left");
   const [progressMap, setProgressMap] = useState<Record<string, ProgressDoc>>({});
   const [events, setEvents] = useState<EventDoc[]>([]);
   const [loadingProgress, setLoadingProgress] = useState(true);
   const [loadingEvents, setLoadingEvents] = useState(true);
+  const [resumeInfo, setResumeInfo] = useState<ResumeInfo>({ firstUnreadId: null, lastCompletedId: null });
   const touchStartX = useRef<number | null>(null);
 
-  const plan = plans[userDoc.planType];
+  const plan = useMemo(() => plans[userDoc.planType], [userDoc.planType]);
 
   useEffect(() => {
     const loadProgress = async () => {
@@ -366,20 +214,16 @@ const MainApp = ({ user, userDoc, onUserDocUpdate }: { user: User; userDoc: User
         data[docSnap.id] = docSnap.data() as ProgressDoc;
       });
       setProgressMap(data);
+      setResumeInfo(computeResumeInfo(plan, data));
       setLoadingProgress(false);
     };
 
     const loadEvents = async () => {
       setLoadingEvents(true);
-      const thirtyDaysAgo = addDays(new Date(), -30);
-      const eventsQuery = query(
-        collection(db, "users", user.uid, "events"),
-        where("at", ">=", Timestamp.fromDate(thirtyDaysAgo))
-      );
-      const snapshot = await getDocs(eventsQuery);
+      const snapshot = await getDocs(collection(db, "users", user.uid, "events"));
       const data: EventDoc[] = [];
       snapshot.forEach((docSnap) => {
-        data.push(docSnap.data() as EventDoc);
+        data.push({ id: docSnap.id, ...(docSnap.data() as Omit<EventDoc, "id">) });
       });
       setEvents(data);
       setLoadingEvents(false);
@@ -387,59 +231,126 @@ const MainApp = ({ user, userDoc, onUserDocUpdate }: { user: User; userDoc: User
 
     loadProgress();
     loadEvents();
-  }, [user.uid]);
+  }, [user.uid, plan]);
 
-  const completedCount = useMemo(() => {
-    return plan.filter((chapterId) => progressMap[chapterId]?.completed).length;
-  }, [plan, progressMap]);
+  const updateResumeFromMap = (nextMap: Record<string, ProgressDoc>) => {
+    setResumeInfo(computeResumeInfo(plan, nextMap));
+  };
 
-  const handleReadChapter = async (chapterId: string) => {
+  const handleToggleChapter = async (chapterId: string) => {
+    const existing = progressMap[chapterId];
     const now = Timestamp.now();
-    const docRef = doc(db, "users", user.uid, "progress", chapterId);
-    await setDoc(
-      docRef,
-      {
+
+    if (!existing?.completed) {
+      const tempEventId = `temp-${Date.now()}`;
+      const optimisticProgress: ProgressDoc = {
+        ...existing,
         completed: true,
         completedAt: now,
         lastReadAt: now,
-        reads: increment(1)
-      },
-      { merge: true }
-    );
-    await addDoc(collection(db, "users", user.uid, "events"), {
-      type: "read",
-      chapterId,
-      source: "plan",
-      at: now
-    });
+        reads: (existing?.reads ?? 0) + 1,
+        lastPlanEventId: tempEventId
+      };
+      const previousProgress = progressMap;
+      const previousEvents = events;
 
+      setEvents((prev) => [...prev, { id: tempEventId, type: "read", chapterId, source: "plan", at: now }]);
+      setProgressMap((prev) => {
+        const updated = { ...prev, [chapterId]: optimisticProgress };
+        updateResumeFromMap(updated);
+        return updated;
+      });
+
+      try {
+        const eventRef = await addDoc(collection(db, "users", user.uid, "events"), {
+          type: "read",
+          chapterId,
+          source: "plan",
+          at: now
+        });
+        const docRef = doc(db, "users", user.uid, "progress", chapterId);
+        await setDoc(
+          docRef,
+          {
+            completed: true,
+            completedAt: now,
+            lastReadAt: now,
+            reads: increment(1),
+            lastPlanEventId: eventRef.id
+          },
+          { merge: true }
+        );
+        setEvents((prev) => prev.map((event) => (event.id === tempEventId ? { ...event, id: eventRef.id } : event)));
+        setProgressMap((prev) => {
+          const updated = {
+            ...prev,
+            [chapterId]: {
+              ...prev[chapterId],
+              lastPlanEventId: eventRef.id,
+              completedAt: now,
+              lastReadAt: now
+            }
+          };
+          updateResumeFromMap(updated);
+          return updated;
+        });
+      } catch (error) {
+        setEvents(previousEvents);
+        setProgressMap(previousProgress);
+      }
+      return;
+    }
+
+    const previousProgress = progressMap;
+    const previousEvents = events;
+    const nextReads = Math.max(0, (existing?.reads ?? 0) - (existing?.lastPlanEventId ? 1 : 0));
+
+    setEvents((prev) => prev.filter((event) => event.id !== existing?.lastPlanEventId));
     setProgressMap((prev) => {
-      const existing = prev[chapterId];
-      return {
+      const updated = {
         ...prev,
         [chapterId]: {
           ...existing,
-          completed: true,
-          completedAt: now,
-          lastReadAt: now,
-          reads: (existing?.reads ?? 0) + 1
+          completed: false,
+          completedAt: null,
+          lastPlanEventId: null,
+          reads: nextReads,
+          lastReadAt: nextReads > 0 ? existing?.lastReadAt ?? null : null
         }
       };
+      updateResumeFromMap(updated);
+      return updated;
     });
-    setEvents((prev) => [...prev, { type: "read", chapterId, source: "plan", at: now }]);
 
-    const index = plan.indexOf(chapterId);
-    for (let i = index + 1; i < plan.length; i += 1) {
-      const nextId = plan[i];
-      if (!progressMap[nextId]?.completed && nextId !== chapterId) {
-        setTimeout(() => {
-          const el = document.querySelector(`[data-chapter-id="${nextId}"]`);
-          if (el) {
-            el.scrollIntoView({ behavior: "smooth", block: "center" });
-          }
-        }, 0);
-        break;
+    try {
+      if (existing?.lastPlanEventId) {
+        const eventDocRef = doc(db, "users", user.uid, "events", existing.lastPlanEventId);
+        await deleteDoc(eventDocRef);
       }
+
+      const docRef = doc(db, "users", user.uid, "progress", chapterId);
+      const updates: ProgressDoc = {
+        completed: false,
+        completedAt: null,
+        lastPlanEventId: null,
+        lastReadAt: nextReads > 0 ? existing?.lastReadAt ?? null : null
+      };
+
+      if (existing?.lastPlanEventId) {
+        await setDoc(
+          docRef,
+          {
+            ...updates,
+            reads: increment(-1)
+          },
+          { merge: true }
+        );
+      } else {
+        await setDoc(docRef, updates, { merge: true });
+      }
+    } catch (error) {
+      setEvents(previousEvents);
+      setProgressMap(previousProgress);
     }
   };
 
@@ -454,7 +365,7 @@ const MainApp = ({ user, userDoc, onUserDocUpdate }: { user: User; userDoc: User
       },
       { merge: true }
     );
-    await addDoc(collection(db, "users", user.uid, "events"), {
+    const eventRef = await addDoc(collection(db, "users", user.uid, "events"), {
       type: "read",
       chapterId,
       source: "extra",
@@ -462,17 +373,17 @@ const MainApp = ({ user, userDoc, onUserDocUpdate }: { user: User; userDoc: User
     });
 
     setProgressMap((prev) => {
-      const existing = prev[chapterId];
+      const existingProgress = prev[chapterId];
       return {
         ...prev,
         [chapterId]: {
-          ...existing,
+          ...existingProgress,
           lastReadAt: now,
-          reads: (existing?.reads ?? 0) + 1
+          reads: (existingProgress?.reads ?? 0) + 1
         }
       };
     });
-    setEvents((prev) => [...prev, { type: "read", chapterId, source: "extra", at: now }]);
+    setEvents((prev) => [...prev, { id: eventRef.id, type: "read", chapterId, source: "extra", at: now }]);
   };
 
   const handleUpdateName = async (name: string) => {
@@ -491,9 +402,19 @@ const MainApp = ({ user, userDoc, onUserDocUpdate }: { user: User; userDoc: User
     const delta = event.changedTouches[0].clientX - touchStartX.current;
     if (Math.abs(delta) > 60) {
       if (delta < 0) {
-        setTabIndex((prev) => Math.min(prev + 1, 2));
+        setTabIndex((prev) => {
+          const next = Math.min(prev + 1, 2);
+          setPageDirection("left");
+          setPageKey((key) => key + 1);
+          return next;
+        });
       } else {
-        setTabIndex((prev) => Math.max(prev - 1, 0));
+        setTabIndex((prev) => {
+          const next = Math.max(prev - 1, 0);
+          setPageDirection("right");
+          setPageKey((key) => key + 1);
+          return next;
+        });
       }
     }
     touchStartX.current = null;
@@ -509,30 +430,63 @@ const MainApp = ({ user, userDoc, onUserDocUpdate }: { user: User; userDoc: User
             <p>Loading your data...</p>
           </div>
         ) : null}
-        {!isLoading && tabIndex === 0 ? (
-          <AnalyticsView totalChapters={plan.length} completedCount={completedCount} events={events} />
-        ) : null}
-        {!isLoading && tabIndex === 1 ? (
-          <ChaptersView
-            plan={plan}
-            progressMap={progressMap}
-            onReadChapter={handleReadChapter}
-            onAddExtra={handleAddExtra}
-          />
-        ) : null}
-        {!isLoading && tabIndex === 2 ? (
-          <ProfileView user={user} userDoc={userDoc} onUpdateName={handleUpdateName} />
+        {!isLoading ? (
+          <div key={pageKey} className={`page page--${pageDirection}`}>
+            {tabIndex === 0 ? (
+              <Analytics plan={plan} progressMap={progressMap} events={events} />
+            ) : null}
+            {tabIndex === 1 ? (
+              <Chapters
+                plan={plan}
+                progressMap={progressMap}
+                onToggleChapter={handleToggleChapter}
+                onAddExtra={handleAddExtra}
+                resumeInfo={resumeInfo}
+                autoScrollKey={`${user.uid}:${userDoc.planType}`}
+              />
+            ) : null}
+            {tabIndex === 2 ? (
+              <Profile
+                user={user}
+                userDoc={userDoc}
+                events={events}
+                onUpdateName={handleUpdateName}
+                onLogout={() => signOut(auth)}
+              />
+            ) : null}
+          </div>
         ) : null}
       </main>
 
       <nav className="bottom-nav">
-        <button className={tabIndex === 0 ? "active" : ""} onClick={() => setTabIndex(0)}>
+        <button
+          className={tabIndex === 0 ? "active" : ""}
+          onClick={() => {
+            setPageDirection(tabIndex > 0 ? "right" : "left");
+            setPageKey((key) => key + 1);
+            setTabIndex(0);
+          }}
+        >
           Analytics
         </button>
-        <button className={tabIndex === 1 ? "active" : ""} onClick={() => setTabIndex(1)}>
+        <button
+          className={tabIndex === 1 ? "active" : ""}
+          onClick={() => {
+            setPageDirection(tabIndex > 1 ? "right" : "left");
+            setPageKey((key) => key + 1);
+            setTabIndex(1);
+          }}
+        >
           Chapters
         </button>
-        <button className={tabIndex === 2 ? "active" : ""} onClick={() => setTabIndex(2)}>
+        <button
+          className={tabIndex === 2 ? "active" : ""}
+          onClick={() => {
+            setPageDirection(tabIndex > 2 ? "right" : "left");
+            setPageKey((key) => key + 1);
+            setTabIndex(2);
+          }}
+        >
           Profile
         </button>
       </nav>
