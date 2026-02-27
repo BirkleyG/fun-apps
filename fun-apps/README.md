@@ -102,5 +102,5 @@ service cloud.firestore {
 
 ## Notes
 
-- The launcher uses `VITE_BIBLE_APP_URL` to decide where to link. If unset, it defaults to `/bible`.
-- When deploying both apps under the same host, serve the Bible Tracker at `/bible` and leave the launcher default unchanged.
+- The launcher uses `VITE_BIBLE_APP_URL` to decide where to link. If unset, it defaults to `./bible-tracker/`.
+- This repository includes `.github/workflows/deploy-pages.yml`, which publishes the launcher at `/fun-apps/` and Bible Tracker at `/fun-apps/bible-tracker/` on GitHub Pages.

@@ -1,8 +1,6 @@
-import React from "react";
-
 const getBibleUrl = () => {
   const envUrl = import.meta.env.VITE_BIBLE_APP_URL as string | undefined;
-  return envUrl && envUrl.trim().length > 0 ? envUrl : "/bible";
+  return envUrl && envUrl.trim().length > 0 ? envUrl : "./bible-tracker/";
 };
 
 export default function App() {
