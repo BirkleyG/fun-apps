@@ -42,11 +42,20 @@ jobs:
         working-directory: fun-apps/apps/bible-tracker
         run: npm run build
 
+      - name: Install Grade Estimator deps
+        working-directory: fun-apps/apps/grade-estimator
+        run: npm install
+
+      - name: Build Grade Estimator
+        working-directory: fun-apps/apps/grade-estimator
+        run: npm run build
+
       - name: Assemble site
         run: |
-          mkdir -p site/bible-tracker
+          mkdir -p site/bible-tracker site/grade-estimator
           cp -R fun-apps/apps/launcher/dist/. site/
           cp -R fun-apps/apps/bible-tracker/dist/. site/bible-tracker/
+          cp -R fun-apps/apps/grade-estimator/dist/. site/grade-estimator/
 
       - name: Upload pages artifact
         uses: actions/upload-pages-artifact@v3

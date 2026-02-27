@@ -4,6 +4,7 @@ This repo contains two independent Vite React TypeScript apps:
 
 - Launcher app (apps/launcher)
 - Bible Reading Tracker (apps/bible-tracker)
+- Grade Estimator (apps/grade-estimator)
 
 ## Folder Structure
 
@@ -12,6 +13,7 @@ fun-apps/
   apps/
     launcher/
     bible-tracker/
+    grade-estimator/
   README.md
 ```
 
@@ -103,4 +105,8 @@ service cloud.firestore {
 ## Notes
 
 - The launcher uses `VITE_BIBLE_APP_URL` to decide where to link. If unset, it defaults to `./bible-tracker/`.
-- This repository includes `.github/workflows/deploy-pages.yml`, which publishes the launcher at `/fun-apps/` and Bible Tracker at `/fun-apps/bible-tracker/` on GitHub Pages.
+- The launcher uses `VITE_GRADE_ESTIMATOR_URL` to decide where to link. If unset, it defaults to `./grade-estimator/`.
+- This repository includes `.github/workflows/deploy-pages.yml`, which publishes:
+  - Launcher at `/fun-apps/`
+  - Bible Tracker at `/fun-apps/bible-tracker/`
+  - Grade Estimator at `/fun-apps/grade-estimator/`
