@@ -3,3 +3,6 @@ dist
 .env
 .env.*
 .DS_Store
+.firebase
+firebase-debug.log
+*.tsbuildinfo
