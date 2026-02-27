@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import * as d3 from "d3";
 import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { addDoc, collection, getDocs, query } from "firebase/firestore";
 import { auth, db, provider } from "./firebase";
 
 /* ===================== DATA ===================== */
@@ -90,7 +90,6 @@ const HIST = [
 ];
 
 const CONTINENTS = {AS:"Asia",EU:"Europe",AF:"Africa",NA:"North America",SA:"South America",OC:"Oceania"};
-const CONTRIBUTORS = ["Birkley","Justin"];
 
 /* ===================== STYLES ===================== */
 
@@ -107,7 +106,7 @@ const INJECT_STYLES = () => {
     .ca-ttl{font-family:var(--fd);font-size:21px;font-weight:700;color:var(--gold);letter-spacing:.3px}
     .ca-sub{font-size:12px;color:var(--muted);margin-top:1px}
     .ca-pbadge{background:var(--goldd);border:1px solid var(--goldb);border-radius:20px;padding:5px 13px;font-family:var(--fd);font-size:13px;color:var(--goldl);pointer-events:all;cursor:pointer}
-    .ca-map{flex:1;overflow:hidden;background:#05101a;position:relative}
+    .ca-map{flex:1;min-height:0;overflow:hidden;background:#05101a;position:relative}
     .ca-map svg{width:100%;height:100%}
     .ca-map path{cursor:pointer;transition:opacity .12s}
     .ca-map path:hover{opacity:.8}
@@ -186,27 +185,20 @@ const INJECT_STYLES = () => {
 };
 
 /* ===================== STORAGE ===================== */
-const APP_DOC_ID = "coin-atlas";
-const getAppDocRef = (uid) => doc(db, "users", uid, "apps", APP_DOC_ID);
+const entriesCollectionRef = collection(db, "sharedApps", "coin-atlas", "entries");
 
-async function loadData(uid) {
+async function loadData() {
   try {
-    const snapshot = await getDoc(getAppDocRef(uid));
-    const data = snapshot.data();
-    return Array.isArray(data?.entries) ? data.entries : [];
+    const snapshot = await getDocs(query(entriesCollectionRef));
+    return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
   } catch {
     return [];
   }
 }
-async function saveData(uid, entries) {
-  await setDoc(
-    getAppDocRef(uid),
-    {
-      entries,
-      updatedAt: serverTimestamp()
-    },
-    { merge: true }
-  );
+
+async function saveEntry(entry) {
+  const docRef = await addDoc(entriesCollectionRef, entry);
+  return docRef.id;
 }
 
 /* ===================== UTILS ===================== */
@@ -223,6 +215,7 @@ function WorldMap({ entries, onCountryClick, filterType, filterContributor }) {
   const [geoData, setGeoData] = useState(null);
   const [tooltip, setTooltip] = useState(null);
   const [ready, setReady] = useState(false);
+  const [size, setSize] = useState({ w: 0, h: 0 });
 
   const collectedSet = useMemo(() => {
     const s = new Map();
@@ -262,11 +255,28 @@ function WorldMap({ entries, onCountryClick, filterType, filterContributor }) {
   }, [ready]);
 
   useEffect(() => {
-    if (!geoData || !svgRef.current || !containerRef.current) return;
-    const W = containerRef.current.clientWidth;
-    const H = containerRef.current.clientHeight;
+    if (!containerRef.current) return;
+    const update = () => {
+      const w = containerRef.current?.clientWidth ?? 0;
+      const h = containerRef.current?.clientHeight ?? 0;
+      setSize({ w, h });
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(containerRef.current);
+    window.addEventListener("orientationchange", update);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("orientationchange", update);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!geoData || !svgRef.current) return;
+    const W = Math.max(size.w, 1);
+    const H = Math.max(size.h, 1);
     const svg = d3.select(svgRef.current);
-    svg.attr("viewBox", `0 0 ${W} ${H}`).attr("width", W).attr("height", H);
+    svg.attr("viewBox", `0 0 ${W} ${H}`);
     const proj = d3.geoNaturalEarth1().fitSize([W, H], geoData).translate([W/2, H/2]);
     const path = d3.geoPath().projection(proj);
 
@@ -302,7 +312,7 @@ function WorldMap({ entries, onCountryClick, filterType, filterContributor }) {
     svg.selectAll("path.border").data([{type:"Sphere"}]).join("path")
       .attr("class","border").attr("d", path).attr("fill","none")
       .attr("stroke","rgba(201,168,76,0.12)").attr("stroke-width",0.8);
-  }, [geoData, collectedSet, onCountryClick]);
+  }, [geoData, collectedSet, onCountryClick, size]);
 
   return (
     <div ref={containerRef} className="ca-map">
@@ -327,12 +337,12 @@ function WorldMap({ entries, onCountryClick, filterType, filterContributor }) {
 }
 
 /* ===================== ADD MODAL ===================== */
-function AddModal({ onClose, onSave, preCountryId }) {
+function AddModal({ onClose, onSave, preCountryId, contributorOptions, currentContributor }) {
   const [step, setStep] = useState(preCountryId ? 1 : 0);
   const [etype, setEtype] = useState("modern");
   const [countryId, setCountryId] = useState(preCountryId ? String(preCountryId) : "");
   const [histId, setHistId] = useState("");
-  const [contributor, setContributor] = useState(CONTRIBUTORS[0]);
+  const [contributor, setContributor] = useState(currentContributor);
   const [items, setItems] = useState([{id:uid(),type:"coin",denomination:"",year:"",notes:""}]);
   const [appliesTo, setAppliesTo] = useState([]);
   const [search, setSearch] = useState("");
@@ -456,12 +466,15 @@ function AddModal({ onClose, onSave, preCountryId }) {
         {step===1 && (
           <div className="ca-sec">
             <div className="ca-lbl">Who added this?</div>
-            <div style={{display:"flex",gap:8}}>
-              {CONTRIBUTORS.map(c=>(
-                <button key={c} className={`ca-tgl ${contributor===c?"on":""}`}
-                  onClick={()=>setContributor(c)}>{c}</button>
+            <select
+              className="ca-sel"
+              value={contributor}
+              onChange={(e) => setContributor(e.target.value)}
+            >
+              {contributorOptions.map((c) => (
+                <option key={c} value={c}>{c}</option>
               ))}
-            </div>
+            </select>
             {displayName && (
               <div style={{marginTop:14,padding:"10px 14px",background:"var(--sur2)",borderRadius:"var(--r)",fontSize:14,color:"var(--muted)"}}>
                 Adding items for <span style={{color:"var(--goldl)",fontFamily:"var(--fd)"}}>{displayName}</span>
@@ -534,7 +547,7 @@ function AddModal({ onClose, onSave, preCountryId }) {
 }
 
 /* ===================== COUNTRY DETAIL ===================== */
-function CountryDetail({ countryId, entries, onClose, onAdd }) {
+function CountryDetail({ countryId, entries, onClose, onAdd, contributorOptions }) {
   const [ft, setFt] = useState("all");
   const [fc, setFc] = useState("all");
   const cinfo = CD[countryId];
@@ -583,7 +596,7 @@ function CountryDetail({ countryId, entries, onClose, onAdd }) {
             {f==="all"?"All":f==="coin"?"🪙 Coins":"💵 Bills"}
           </button>
         ))}
-        {["all",...CONTRIBUTORS].map(c=>(
+        {["all", ...contributorOptions].map(c=>(
           <button key={c} className={`ca-chip ${fc===c?"on":""}`} onClick={()=>setFc(c)}>
             {c==="all"?"Everyone":c}
           </button>
@@ -630,7 +643,7 @@ function CountryDetail({ countryId, entries, onClose, onAdd }) {
 }
 
 /* ===================== STATS PAGE ===================== */
-function StatsPage({ entries }) {
+function StatsPage({ entries, contributorOptions }) {
   const s = useMemo(() => {
     const byC = new Map();
     entries.forEach(e => {
@@ -650,7 +663,7 @@ function StatsPage({ entries }) {
     const coins=allItems.filter(i=>i.type==="coin").length;
     const bills=allItems.filter(i=>i.type==="bill").length;
     const byCon={};
-    CONTRIBUTORS.forEach(c=>{byCon[c]={countries:new Set(),items:0,coins:0,bills:0};});
+    contributorOptions.forEach(c=>{byCon[c]={countries:new Set(),items:0,coins:0,bills:0};});
     entries.forEach(e=>{
       const cv=byCon[e.contributor]; if(!cv)return;
       getCountries(e).forEach(cid=>cv.countries.add(cid));
@@ -700,7 +713,7 @@ function StatsPage({ entries }) {
 
       <div style={{background:"var(--sur)",border:"1px solid var(--goldb)",borderRadius:"var(--r)",padding:"14px 16px",marginBottom:12}}>
         <div style={{fontFamily:"var(--fd)",fontSize:16,fontWeight:600,color:"var(--gold)",marginBottom:12}}>Collectors</div>
-        {CONTRIBUTORS.map(c=>{
+        {contributorOptions.map(c=>{
           const inf=s.byCon[c];
           return (
             <div key={c} style={{marginBottom:12,paddingBottom:12,borderBottom:"1px solid var(--sur2)"}}>
@@ -743,7 +756,7 @@ function StatsPage({ entries }) {
 }
 
 /* ===================== MAIN ===================== */
-function CoinAtlasApp({ uid }) {
+function CoinAtlasApp({ currentContributor }) {
   const [entries, setEntries] = useState([]);
   const [page, setPage] = useState("map");
   const [showAdd, setShowAdd] = useState(false);
@@ -753,32 +766,32 @@ function CoinAtlasApp({ uid }) {
   const [filterCon, setFilterCon] = useState("all");
   const [loaded, setLoaded] = useState(false);
   const [saveState, setSaveState] = useState("idle");
-  const saveTimerRef = useRef(null);
 
   useEffect(() => {
     INJECT_STYLES();
-    loadData(uid).then(e => { setEntries(e); setLoaded(true); });
-  }, [uid]);
+    loadData().then(e => { setEntries(e); setLoaded(true); });
+  }, []);
 
-  useEffect(() => {
-    if (!loaded) return;
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    setSaveState("saving");
-    saveTimerRef.current = setTimeout(() => {
-      saveData(uid, entries)
-        .then(() => setSaveState("saved"))
-        .catch(() => setSaveState("error"));
-    }, 450);
-
-    return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    };
-  }, [entries, loaded, uid]);
-
-  const handleSave = useCallback((entry) => {
-    setEntries(prev => {
-      return [...prev, entry];
+  const contributorOptions = useMemo(() => {
+    const options = new Set([currentContributor]);
+    entries.forEach((entry) => {
+      if (entry.contributor) options.add(entry.contributor);
     });
+    return Array.from(options);
+  }, [entries, currentContributor]);
+
+  const handleSave = useCallback(async (entry) => {
+    const tempId = `temp-${Date.now()}`;
+    setEntries((prev) => [...prev, { ...entry, id: tempId }]);
+    setSaveState("saving");
+    try {
+      const savedId = await saveEntry(entry);
+      setEntries((prev) => prev.map((e) => (e.id === tempId ? { ...e, id: savedId } : e)));
+      setSaveState("saved");
+    } catch {
+      setEntries((prev) => prev.filter((e) => e.id !== tempId));
+      setSaveState("error");
+    }
   }, []);
 
   const handleAddForCountry = useCallback((id) => {
@@ -822,7 +835,7 @@ function CoinAtlasApp({ uid }) {
               </button>
             </div>
           </div>
-          <div style={{flex:1,display:"flex",flexDirection:"column",paddingTop:70}}>
+          <div style={{flex:1,minHeight:0,display:"flex",flexDirection:"column",paddingTop:70}}>
             <WorldMap
               entries={entries}
               onCountryClick={id=>setSelCountry(id)}
@@ -834,7 +847,7 @@ function CoinAtlasApp({ uid }) {
                 <button key={v} className={`ca-chip ${filterType===v?"on":""}`} onClick={()=>setFilterType(v)}>{l}</button>
               ))}
               <div style={{width:1,background:"var(--sur3)",margin:"3px 2px",flexShrink:0}}/>
-              {["all",...CONTRIBUTORS].map(c=>(
+              {["all", ...contributorOptions].map(c=>(
                 <button key={c} className={`ca-chip ${filterCon===c?"on":""}`} onClick={()=>setFilterCon(c)}>
                   {c==="all"?"Everyone":c}
                 </button>
@@ -850,7 +863,7 @@ function CoinAtlasApp({ uid }) {
           <div style={{padding:"14px 16px 0",borderBottom:"1px solid var(--goldb)"}}>
             <div className="ca-ttl" style={{fontSize:22,marginBottom:8}}>Stats</div>
           </div>
-          <StatsPage entries={entries}/>
+          <StatsPage entries={entries} contributorOptions={contributorOptions}/>
         </div>
       )}
 
@@ -861,6 +874,7 @@ function CoinAtlasApp({ uid }) {
           entries={entries}
           onClose={()=>setSelCountry(null)}
           onAdd={handleAddForCountry}
+          contributorOptions={contributorOptions}
         />
       )}
 
@@ -875,6 +889,8 @@ function CoinAtlasApp({ uid }) {
           onClose={()=>{ setShowAdd(false); setPreCountry(null); }}
           onSave={handleSave}
           preCountryId={preCountry}
+          contributorOptions={contributorOptions}
+          currentContributor={currentContributor}
         />
       )}
 
@@ -939,5 +955,9 @@ export default function CoinAtlas() {
     );
   }
 
-  return <CoinAtlasApp uid={user.uid} />;
+  const currentContributor =
+    (user.displayName && user.displayName.trim()) ||
+    (user.email ? user.email.split("@")[0] : "Collector");
+
+  return <CoinAtlasApp currentContributor={currentContributor} />;
 }
