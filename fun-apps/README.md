@@ -149,3 +149,10 @@ service cloud.firestore {
   - Launcher at `/fun-apps/`
   - Bible Tracker at `/fun-apps/bible-tracker/`
   - Grade Estimator at `/fun-apps/grade-estimator/`
+- For GitHub Pages builds, set repository secrets for:
+  - `VITE_FIREBASE_API_KEY`
+  - `VITE_FIREBASE_AUTH_DOMAIN`
+  - `VITE_FIREBASE_PROJECT_ID`
+  - `VITE_FIREBASE_STORAGE_BUCKET`
+  - `VITE_FIREBASE_MESSAGING_SENDER_ID`
+  - `VITE_FIREBASE_APP_ID`
