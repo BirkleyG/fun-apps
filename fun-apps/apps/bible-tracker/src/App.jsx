@@ -1,14 +1,27 @@
 ﻿// @ts-nocheck
 import { useState, useEffect, useRef } from "react";
+import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
+import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { auth, db, provider } from "./firebase";
 
-const storage = {
-  get: async (key) => ({ value: localStorage.getItem(key) }),
-  set: async (key, value) => {
-    localStorage.setItem(key, value);
-    return true;
-  }
-};
+const APP_DOC_ID = "bible-tracker";
+const getAppDocRef = (uid) => doc(db, "users", uid, "apps", APP_DOC_ID);
 
+async function loadAppData(uid) {
+  const snapshot = await getDoc(getAppDocRef(uid));
+  return snapshot.exists() ? snapshot.data() : null;
+}
+
+async function saveAppData(uid, payload) {
+  await setDoc(
+    getAppDocRef(uid),
+    {
+      ...payload,
+      updatedAt: serverTimestamp()
+    },
+    { merge: true }
+  );
+}
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // ICONS
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1270,6 +1283,8 @@ function ChapterList({ t, goal, onComplete, onUncomplete, autoScroll }) {
 // MAIN APP
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function App() {
+  const [user, setUser] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
   const [goals, setGoals] = useState([]);
   const [activeGoalId, setActiveGoalId] = useState(null);
   const [randomReadings, setRandomReadings] = useState([]);
@@ -1280,32 +1295,60 @@ export default function App() {
   const [showPicker, setShowPicker] = useState(false);
   const [confettiOrigin, setConfettiOrigin] = useState(null);
   const [loaded, setLoaded] = useState(false);
+  const [saveState, setSaveState] = useState("idle");
+  const saveTimerRef = useRef(null);
 
   const t = settings.darkMode ? D : L;
 
-  useEffect(()=>{
-    async function load(){
-      try{
-        const [g,ag,rr,s]=await Promise.all([
-          storage.get("sc_goals").catch(()=>null),
-          storage.get("sc_active").catch(()=>null),
-          storage.get("sc_random").catch(()=>null),
-          storage.get("sc_settings").catch(()=>null),
-        ]);
-        if(g?.value) setGoals(JSON.parse(g.value));
-        if(ag?.value) setActiveGoalId(ag.value);
-        if(rr?.value) setRandomReadings(JSON.parse(rr.value));
-        if(s?.value) setSettings(p=>({...p,...JSON.parse(s.value)}));
-      }catch(e){}
-      setLoaded(true);
-    }
-    load();
-  },[]);
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
+      setUser(nextUser);
+      setAuthReady(true);
+    });
+    return () => unsubscribe();
+  }, []);
 
-  useEffect(()=>{if(loaded) storage.set("sc_goals",JSON.stringify(goals)).catch(()=>{});},[goals,loaded]);
-  useEffect(()=>{if(loaded) storage.set("sc_active",activeGoalId||"").catch(()=>{});},[activeGoalId,loaded]);
-  useEffect(()=>{if(loaded) storage.set("sc_random",JSON.stringify(randomReadings)).catch(()=>{});},[randomReadings,loaded]);
-  useEffect(()=>{if(loaded) storage.set("sc_settings",JSON.stringify(settings)).catch(()=>{});},[settings,loaded]);
+  useEffect(() => {
+    if (!authReady) return;
+    if (!user) {
+      setLoaded(false);
+      setGoals([]);
+      setActiveGoalId(null);
+      setRandomReadings([]);
+      setSettings({darkMode:false,crossGoalSharing:false,autoScroll:true,audio:true});
+      setSaveState("idle");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await loadAppData(user.uid);
+        if (cancelled) return;
+        setGoals(Array.isArray(data?.goals) ? data.goals : []);
+        setActiveGoalId(data?.activeGoalId || null);
+        setRandomReadings(Array.isArray(data?.randomReadings) ? data.randomReadings : []);
+        if (data?.settings) setSettings((p) => ({ ...p, ...data.settings }));
+      } catch (e) {
+      } finally {
+        if (!cancelled) setLoaded(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [authReady, user]);
+
+  useEffect(() => {
+    if (!loaded || !user) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    setSaveState("saving");
+    saveTimerRef.current = setTimeout(() => {
+      saveAppData(user.uid, { goals, activeGoalId, randomReadings, settings })
+        .then(() => setSaveState("saved"))
+        .catch(() => setSaveState("error"));
+    }, 500);
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, [goals, activeGoalId, randomReadings, settings, loaded, user]);
 
   const activeGoal = goals.find(g=>g.id===activeGoalId)||null;
 
@@ -1345,6 +1388,23 @@ export default function App() {
   const activeGoals = goals.filter(g=>new Set((g.readings||[]).map(r=>r.chapter)).size<g.chapters.length||g.chapters.length===0);
   const compGoals  = goals.filter(g=>g.chapters.length>0&&new Set((g.readings||[]).map(r=>r.chapter)).size>=g.chapters.length);
 
+  if(!authReady) return (
+    <div style={{width:"100%",height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:L.bg}}>
+      <div style={{textAlign:"center"}}><Icon type="book" size={32} color={L.accL}/><p style={{fontFamily:"'Playfair Display',serif",color:L.textM,fontSize:"15px",marginTop:"12px"}}>Checking sign-inâ€¦</p></div>
+    </div>
+  );
+
+  if(!user) return (
+    <div style={{width:"100%",height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:L.bg,padding:"24px"}}>
+      <div style={{textAlign:"center",maxWidth:"360px"}}>
+        <Icon type="book" size={36} color={L.accL}/>
+        <p style={{fontFamily:"'Playfair Display',serif",color:L.text,fontSize:"20px",marginTop:"12px"}}>Scripture</p>
+        <p style={{fontSize:"14px",color:L.textM,marginTop:"8px",marginBottom:"16px"}}>Sign in with Google to sync across devices.</p>
+        <button onClick={()=>signInWithPopup(auth,provider).catch(()=>undefined)} style={{padding:"10px 18px",borderRadius:"10px",border:"none",background:L.acc,color:"#fff",cursor:"pointer",fontSize:"14px",fontWeight:600}}>Sign in with Google</button>
+      </div>
+    </div>
+  );
+
   if(!loaded) return (
     <div style={{width:"100%",height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:L.bg}}>
       <div style={{textAlign:"center"}}><Icon type="book" size={32} color={L.accL}/><p style={{fontFamily:"'Playfair Display',serif",color:L.textM,fontSize:"15px",marginTop:"12px"}}>Loadingâ€¦</p></div>
@@ -1366,7 +1426,10 @@ export default function App() {
               <Icon type="book" size={22} color={t.acc}/>
               <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:"21px",color:t.text,fontWeight:700,letterSpacing:"-0.02em"}}>Scripture</h1>
             </div>
-            <div style={{display:"flex",gap:"6px"}}>
+            <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
+              <span style={{fontSize:"11px",color:t.textM,marginRight:"4px"}}>
+                {saveState==="saving"?"Saving...":saveState==="saved"?"Saved":saveState==="error"?"Save error":""}
+              </span>
               <button onClick={()=>setShowRandom(true)} style={{padding:"6px 10px",borderRadius:"8px",border:`1px solid ${t.border}`,background:t.bg,color:t.textM,cursor:"pointer",display:"flex",alignItems:"center",gap:"5px"}}>
                 <Icon type="bookmark" size={14} color={t.textM}/>
                 <span style={{fontSize:"13px"}}>Log</span>
@@ -1374,6 +1437,9 @@ export default function App() {
               <button onClick={()=>setShowNewGoal(true)} style={{padding:"6px 12px",borderRadius:"8px",border:"none",background:t.acc,color:"#fff",cursor:"pointer",display:"flex",alignItems:"center",gap:"5px"}}>
                 <Icon type="plus" size={14} color="#fff"/>
                 <span style={{fontSize:"13px",fontWeight:600}}>Plan</span>
+              </button>
+              <button onClick={()=>signOut(auth).catch(()=>undefined)} style={{padding:"6px 10px",borderRadius:"8px",border:`1px solid ${t.border}`,background:t.bg,color:t.textM,cursor:"pointer",fontSize:"12px"}}>
+                Sign out
               </button>
             </div>
           </div>
@@ -1445,4 +1511,5 @@ export default function App() {
     </>
   );
 }
+
 

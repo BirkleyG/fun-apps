@@ -1,16 +1,17 @@
 {
   "name": "Bible Tracker",
   "short_name": "Bible Tracker",
-  "start_url": "/",
+  "start_url": "/fun-apps/bible-tracker/",
+  "scope": "/fun-apps/bible-tracker/",
   "display": "standalone",
   "background_color": "#0b0a07",
   "theme_color": "#0b0a07",
   "icons": [
     {
-      "src": "/icon.svg",
+      "src": "/fun-apps/bible-tracker/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any"
+      "purpose": "any maskable"
     }
   ]
 }
