@@ -1,0 +1,17 @@
+{
+  "name": "Bob's Books",
+  "short_name": "BobBooks",
+  "start_url": "/fun-apps/bobs-books/",
+  "scope": "/fun-apps/bobs-books/",
+  "display": "standalone",
+  "background_color": "#0d0905",
+  "theme_color": "#0d0905",
+  "icons": [
+    {
+      "src": "/fun-apps/bobs-books/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

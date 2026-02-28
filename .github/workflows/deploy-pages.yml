@@ -65,13 +65,22 @@ jobs:
         working-directory: fun-apps/apps/coin-atlas
         run: npm run build
 
+      - name: Install Bob's Books deps
+        working-directory: fun-apps/apps/bobs-books
+        run: npm install
+
+      - name: Build Bob's Books
+        working-directory: fun-apps/apps/bobs-books
+        run: npm run build
+
       - name: Assemble site
         run: |
-          mkdir -p site/bible-tracker site/grade-estimator site/coin-atlas
+          mkdir -p site/bible-tracker site/grade-estimator site/coin-atlas site/bobs-books
           cp -R fun-apps/apps/launcher/dist/. site/
           cp -R fun-apps/apps/bible-tracker/dist/. site/bible-tracker/
           cp -R fun-apps/apps/grade-estimator/dist/. site/grade-estimator/
           cp -R fun-apps/apps/coin-atlas/dist/. site/coin-atlas/
+          cp -R fun-apps/apps/bobs-books/dist/. site/bobs-books/
 
       - name: Upload pages artifact
         uses: actions/upload-pages-artifact@v3

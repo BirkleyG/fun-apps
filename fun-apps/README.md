@@ -6,6 +6,7 @@ This repo contains three Vite apps:
 - Bible Reading Tracker (apps/bible-tracker)
 - Grade Estimator (apps/grade-estimator)
 - Coin Atlas (apps/coin-atlas)
+- Bob's Books (apps/bobs-books)
 
 ## Folder Structure
 
@@ -16,6 +17,7 @@ fun-apps/
     bible-tracker/
     grade-estimator/
     coin-atlas/
+    bobs-books/
   README.md
 ```
 
@@ -36,6 +38,7 @@ By default, the launcher links to the hosted app paths. For local development, p
 VITE_BIBLE_APP_URL=http://localhost:5174
 VITE_GRADE_ESTIMATOR_URL=http://localhost:5175
 VITE_COIN_ATLAS_URL=http://localhost:5176
+VITE_BOBS_BOOKS_URL=http://localhost:5177
 ```
 
 ### Build
@@ -155,6 +158,41 @@ cd apps/coin-atlas
 npm run build
 ```
 
+## Bob's Books App
+
+### Firebase Setup
+
+Bob's Books uses Firebase Authentication (Google) + Firestore and should use the same shared `fun-apps` Firebase project.
+
+Set environment variables:
+
+```
+# apps/bobs-books/.env
+VITE_FIREBASE_API_KEY=...
+VITE_FIREBASE_AUTH_DOMAIN=...
+VITE_FIREBASE_PROJECT_ID=...
+VITE_FIREBASE_STORAGE_BUCKET=...
+VITE_FIREBASE_MESSAGING_SENDER_ID=...
+VITE_FIREBASE_APP_ID=...
+```
+
+An example file is provided at `apps/bobs-books/.env.example`.
+
+### Run Locally
+
+```
+cd apps/bobs-books
+npm install
+npm run dev
+```
+
+### Build
+
+```
+cd apps/bobs-books
+npm run build
+```
+
 ## Firestore Security Rules (Example)
 
 Use per-user access rules similar to the following:
@@ -191,6 +229,7 @@ service cloud.firestore {
   - Bible Tracker at `/fun-apps/bible-tracker/`
   - Grade Estimator at `/fun-apps/grade-estimator/`
   - Coin Atlas at `/fun-apps/coin-atlas/`
+  - Bob's Books at `/fun-apps/bobs-books/`
 - For GitHub Pages builds, set repository secrets for:
   - `VITE_FIREBASE_API_KEY`
   - `VITE_FIREBASE_AUTH_DOMAIN`

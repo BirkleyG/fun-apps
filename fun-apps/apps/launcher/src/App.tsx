@@ -13,10 +13,16 @@ const getCoinAtlasUrl = () => {
   return envUrl && envUrl.trim().length > 0 ? envUrl : "./coin-atlas/";
 };
 
+const getBobsBooksUrl = () => {
+  const envUrl = import.meta.env.VITE_BOBS_BOOKS_URL as string | undefined;
+  return envUrl && envUrl.trim().length > 0 ? envUrl : "./bobs-books/";
+};
+
 export default function App() {
   const bibleUrl = getBibleUrl();
   const gradeEstimatorUrl = getGradeEstimatorUrl();
   const coinAtlasUrl = getCoinAtlasUrl();
+  const bobsBooksUrl = getBobsBooksUrl();
 
   return (
     <div className="page">
@@ -57,6 +63,15 @@ export default function App() {
           >
             <div className="tile__title">Coin Atlas</div>
             <div className="tile__subtitle">Track world coin and bill collection progress</div>
+          </button>
+          <button
+            className="tile"
+            onClick={() => {
+              window.location.href = bobsBooksUrl;
+            }}
+          >
+            <div className="tile__title">Bob's Books</div>
+            <div className="tile__subtitle">Personal library tracker, sessions, and reading goals</div>
           </button>
         </div>
       </section>
