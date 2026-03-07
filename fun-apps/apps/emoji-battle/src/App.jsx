@@ -17,26 +17,26 @@ import {
 } from "firebase/firestore";
 import { auth, db, provider } from "./firebase";
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ===========================================================
    EMOJI DEFINITIONS
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+=========================================================== */
 const ED = {
-  grin:         { e:"ðŸ˜€", n:"Grin",         bp:0, tags:["basic","yellow","face"],               play:false, req:null, rt:null, rules:"The default starter piece. Exists to be upgraded or transformed.", onp:null },
-  upside_down:  { e:"ðŸ™ƒ", n:"Upside Down",  bp:0, tags:["yellow","face","upside_down"],          play:true,  req:null, rt:null, rules:"Low-value setup piece. Enables ðŸ¥´ Woozy payoff when placed.", onp:null },
-  sick:         { e:"ðŸ¤§", n:"Sick",          bp:0, tags:["yellow","face","sick"],                 play:true,  req:null, rt:null, rules:"On Play: Choose another slot in your army â€” it becomes ðŸ˜€ Grin. Cannot target itself.", onp:"sick" },
-  heart:        { e:"â¤ï¸",n:"Heart",         bp:1, tags:["heart","red"],                          play:true,  req:null, rt:null, rules:"Simple 1-point card. Gets +1 from ðŸ’œ Purple Heart.", onp:null },
-  purple_heart: { e:"ðŸ’œ", n:"Purple Heart", bp:0, tags:["heart","purple"],                       play:true,  req:null, rt:null, rules:"Ongoing: Other hearts in your army gain +1 point each. Does not buff itself.", onp:null },
-  black_heart:  { e:"ðŸ–¤", n:"Black Heart",  bp:3, tags:["heart","black"],                        play:true,  req:null, rt:null, rules:"Ongoing: Neither player may play any heart emoji while this is on the board.", onp:null },
-  fire:         { e:"ðŸ”¥", n:"Fire",          bp:3, tags:["fire","red"],                           play:true,  req:null, rt:null, rules:"Solid 3-point mid-range piece. Future-proofed against the water package.", onp:null },
-  cool:         { e:"ðŸ˜Ž", n:"Cool",          bp:2, tags:["yellow","face","cool"],                 play:true,  req:"two_non_basic",       rt:"Req: â‰¥2 non-basic emojis in your army",          rules:"Requires 2+ non-basic emojis in your army to play.", onp:null },
-  laugh:        { e:"ðŸ˜‚", n:"Laugh",         bp:3, tags:["yellow","face","laugh"],                play:true,  req:"opp_two_zero",        rt:"Req: Opponent has â‰¥2 zero-point emojis",         rules:"Requires opponent has 2+ emojis with 0 base points.", onp:null },
-  kiss:         { e:"ðŸ˜˜", n:"Kiss",          bp:2, tags:["yellow","face","kiss"],                 play:true,  req:"across_4plus",        rt:"Req: Must face a â‰¥4bp opposing emoji",           rules:"Must be placed facing a â‰¥4bp emoji. Ongoing: The opposing lane emoji scores half (rounded up).", onp:null },
-  dizzy:        { e:"ðŸ˜µâ€ðŸ’«",n:"Dizzy",      bp:3, tags:["yellow","face","dizzy"],                play:true,  req:"two_non_yellow",      rt:"Req: â‰¥2 non-yellow colors in your army",         rules:"Requires 2+ non-yellow colors in army. On Play: Swap your Left and Right emojis.", onp:"swap" },
-  melt:         { e:"ðŸ« ", n:"Melt",          bp:0, tags:["yellow","face","melt"],                 play:true,  req:null, rt:null, rules:"On Play: This emoji locks itself until the end of your opponent's next turn.", onp:"selflock" },
-  wild:         { e:"ðŸ¤ª", n:"Wild",          bp:0, tags:["yellow","face","wild"],                 play:true,  req:null, rt:null, rules:"On Play: All ðŸ˜€ Grin in your army become ðŸ™ƒ Upside Down.", onp:"wild" },
-  woozy:        { e:"ðŸ¥´", n:"Woozy",         bp:2, tags:["yellow","face","upside_down_payoff"],   play:true,  req:"replace_upside",      rt:"Req: Must replace a ðŸ™ƒ Upside Down",             rules:"Must replace an Upside Down ðŸ™ƒ to play. Direct payoff for the ðŸ™ƒ package.", onp:null },
-  angel:        { e:"ðŸ˜‡", n:"Angel",         bp:2, tags:["yellow","face","holy"],                 play:true,  req:"yellow_and_colored",  rt:"Req: â‰¥1 yellow + â‰¥1 colored emoji in army",     rules:"Requires 1+ yellow and 1+ colored emoji. Ongoing: All opposing ðŸ˜ˆ Devil score 0.", onp:null },
-  devil:        { e:"ðŸ˜ˆ", n:"Devil",         bp:5, tags:["purple","face","devil"],                play:true,  req:"opp_3col_no_devil",   rt:"Req: Opponent â‰¥3 unique colors. Only 1 ðŸ˜ˆ total", rules:"Highest base value. Req: opponent has 3+ unique colors. Only 1 ðŸ˜ˆ may exist on the entire board.", onp:null },
+  grin:         { e:"😀", n:"Grin",         bp:0, tags:["basic","yellow","face"],               play:false, req:null, rt:null, rules:"The default starter piece. Exists to be upgraded or transformed.", onp:null },
+  upside_down:  { e:"🙃", n:"Upside Down",  bp:0, tags:["yellow","face","upside_down"],          play:true,  req:null, rt:null, rules:"Low-value setup piece. Enables 🥴 Woozy payoff when placed.", onp:null },
+  sick:         { e:"🤧", n:"Sick",          bp:0, tags:["yellow","face","sick"],                 play:true,  req:null, rt:null, rules:"On Play: Choose another slot in your army — it becomes 😀 Grin. Cannot target itself.", onp:"sick" },
+  heart:        { e:"❤️", n:"Heart",         bp:1, tags:["heart","red"],                          play:true,  req:null, rt:null, rules:"Simple 1-point card. Gets +1 from 💜 Purple Heart.", onp:null },
+  purple_heart: { e:"💜", n:"Purple Heart", bp:0, tags:["heart","purple"],                       play:true,  req:null, rt:null, rules:"Ongoing: Other hearts in your army gain +1 point each. Does not buff itself.", onp:null },
+  black_heart:  { e:"🖤", n:"Black Heart",  bp:3, tags:["heart","black"],                        play:true,  req:null, rt:null, rules:"Ongoing: Neither player may play any heart emoji while this is on the board.", onp:null },
+  fire:         { e:"🔥", n:"Fire",          bp:3, tags:["fire","red"],                           play:true,  req:null, rt:null, rules:"Solid 3-point mid-range piece. Future-proofed against the water package.", onp:null },
+  cool:         { e:"😎", n:"Cool",          bp:2, tags:["yellow","face","cool"],                 play:true,  req:"two_non_basic",       rt:"Req: ≥2 non-basic emojis in your army",          rules:"Requires 2+ non-basic emojis in your army to play.", onp:null },
+  laugh:        { e:"😂", n:"Laugh",         bp:3, tags:["yellow","face","laugh"],                play:true,  req:"opp_two_zero",        rt:"Req: Opponent has ≥2 zero-point emojis",         rules:"Requires opponent has 2+ emojis with 0 base points.", onp:null },
+  kiss:         { e:"😘", n:"Kiss",          bp:2, tags:["yellow","face","kiss"],                 play:true,  req:"across_4plus",        rt:"Req: Must face a ≥4bp opposing emoji",           rules:"Must be placed facing a ≥4bp emoji. Ongoing: The opposing lane emoji scores half (rounded up).", onp:null },
+  dizzy:        { e:"😵‍💫",n:"Dizzy",      bp:3, tags:["yellow","face","dizzy"],                play:true,  req:"two_non_yellow",      rt:"Req: ≥2 non-yellow colors in your army",         rules:"Requires 2+ non-yellow colors in army. On Play: Swap your Left and Right emojis.", onp:"swap" },
+  melt:         { e:"🫠", n:"Melt",          bp:0, tags:["yellow","face","melt"],                 play:true,  req:null, rt:null, rules:"On Play: This emoji locks itself until the end of your opponent's next turn.", onp:"selflock" },
+  wild:         { e:"🤪", n:"Wild",          bp:0, tags:["yellow","face","wild"],                 play:true,  req:null, rt:null, rules:"On Play: All 😀 Grin in your army become 🙃 Upside Down.", onp:"wild" },
+  woozy:        { e:"🥴", n:"Woozy",         bp:2, tags:["yellow","face","upside_down_payoff"],   play:true,  req:"replace_upside",      rt:"Req: Must replace a 🙃 Upside Down",             rules:"Must replace an Upside Down 🙃 to play. Direct payoff for the 🙃 package.", onp:null },
+  angel:        { e:"😇", n:"Angel",         bp:2, tags:["yellow","face","holy"],                 play:true,  req:"yellow_and_colored",  rt:"Req: ≥1 yellow + ≥1 colored emoji in army",     rules:"Requires 1+ yellow and 1+ colored emoji. Ongoing: All opposing 😈 Devil score 0.", onp:null },
+  devil:        { e:"😈", n:"Devil",         bp:5, tags:["purple","face","devil"],                play:true,  req:"opp_3col_no_devil",   rt:"Req: Opponent ≥3 unique colors. Only 1 😈 total", rules:"Highest base value. Req: opponent has 3+ unique colors. Only 1 😈 may exist on the entire board.", onp:null },
 };
 
 const PIDS   = Object.entries(ED).filter(([,v])=>v.play).map(([k])=>k);
@@ -61,9 +61,9 @@ const getPlayerName = (user) => {
   return "Player";
 };
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ===========================================================
    GAME LOGIC
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+=========================================================== */
 const mkSlot = (id="grin") => ({ eid:id, locked:false, lu:null });
 const hBlocked = as => as.some(a=>a.some(s=>s.eid==="black_heart"));
 const dExists  = as => as.some(a=>a.some(s=>s.eid==="devil"));
@@ -74,21 +74,21 @@ const getRound = gs => Math.floor(gs.ct/2)+1;
 
 function checkGlobal(as, pid, eid) {
   const def=ED[eid], mine=as[pid], opp=as[1-pid];
-  if (def.tags.includes("heart") && hBlocked(as)) return "Hearts blocked â€” ðŸ–¤ is on the board.";
+  if (def.tags.includes("heart") && hBlocked(as)) return "Hearts blocked — 🖤 is on the board.";
   const r=def.req; if (!r) return null;
-  if (r==="two_non_basic" && mine.filter(s=>s.eid!=="grin").length<2) return "Need â‰¥2 non-basic emojis in your army.";
-  if (r==="opp_two_zero" && opp.filter(s=>ED[s.eid].bp===0).length<2) return "Opponent needs â‰¥2 zero-point emojis.";
+  if (r==="two_non_basic" && mine.filter(s=>s.eid!=="grin").length<2) return "Need ≥2 non-basic emojis in your army.";
+  if (r==="opp_two_zero" && opp.filter(s=>ED[s.eid].bp===0).length<2) return "Opponent needs ≥2 zero-point emojis.";
   if (r==="two_non_yellow") {
     const cs=new Set(); mine.forEach(s=>ED[s.eid].tags.forEach(t=>{ if(NYC.includes(t)) cs.add(t); }));
-    if (cs.size<2) return "Need â‰¥2 non-yellow colors in your army.";
+    if (cs.size<2) return "Need ≥2 non-yellow colors in your army.";
   }
   if (r==="yellow_and_colored") {
-    if (!mine.some(s=>ED[s.eid].tags.includes("yellow"))) return "Need â‰¥1 yellow emoji.";
-    if (!mine.some(s=>NYC.some(c=>ED[s.eid].tags.includes(c)))) return "Need â‰¥1 colored emoji.";
+    if (!mine.some(s=>ED[s.eid].tags.includes("yellow"))) return "Need ≥1 yellow emoji.";
+    if (!mine.some(s=>NYC.some(c=>ED[s.eid].tags.includes(c)))) return "Need ≥1 colored emoji.";
   }
   if (r==="opp_3col_no_devil") {
-    if (dExists(as)) return "Only 1 ðŸ˜ˆ may exist on the board.";
-    if (getColors(opp).size<3) return "Opponent needs â‰¥3 unique colors.";
+    if (dExists(as)) return "Only 1 😈 may exist on the board.";
+    if (getColors(opp).size<3) return "Opponent needs ≥3 unique colors.";
   }
   return null;
 }
@@ -96,7 +96,7 @@ function checkGlobal(as, pid, eid) {
 function checkSlot(as, pid, eid, si) {
   const def=ED[eid], mine=as[pid], opp=as[1-pid], r=def.req;
   if (r==="across_4plus" && ED[opp[si].eid].bp<4) return `${ED[opp[si].eid].n} has <4 base pts.`;
-  if (r==="replace_upside" && mine[si].eid!=="upside_down") return "Must replace a ðŸ™ƒ Upside Down.";
+  if (r==="replace_upside" && mine[si].eid!=="upside_down") return "Must replace a 🙃 Upside Down.";
   return null;
 }
 
@@ -114,7 +114,7 @@ function getOffers(gs) {
 
 function slotErr(gs, eid, si) {
   const pid=getAP(gs);
-  if (!canRepl(gs.as[pid][si],gs.ct)) return "Slot is locked ðŸ”’";
+  if (!canRepl(gs.as[pid][si],gs.ct)) return "Slot is locked 🔒";
   const ge=checkGlobal(gs.as,pid,eid); if (ge) return ge;
   return checkSlot(gs.as,pid,eid,si);
 }
@@ -125,7 +125,7 @@ function calcScores(as) {
     const lanes=army.map((sl,s)=>{
       const def=ED[sl.eid]; let base=def.bp,buff=0,supp=false,suppMsg=null,half=false;
       if (def.tags.includes("heart")&&sl.eid!=="purple_heart"&&army.some(x=>x.eid==="purple_heart")) buff+=1;
-      if (sl.eid==="devil"&&opp.some(x=>x.eid==="angel")) { supp=true; suppMsg="ðŸ˜‡ Angel suppresses ðŸ˜ˆ"; }
+      if (sl.eid==="devil"&&opp.some(x=>x.eid==="angel")) { supp=true; suppMsg="😇 Angel suppresses 😈"; }
       let fin=supp?0:base+buff;
       if (!supp&&opp[s].eid==="kiss") { fin=Math.ceil(fin/2); half=true; }
       return {eid:sl.eid,e:def.e,name:def.n,base,buff,supp,suppMsg,half,fin};
@@ -141,13 +141,13 @@ function applyMove(gs, eid, si) {
   s.hist.push({turn:s.ct,pid,eid,si});
   if (def.onp==="wild") {
     let cnt=0; for (let sl=0;sl<3;sl++) if (s.as[pid][sl].eid==="grin"&&sl!==si) { s.as[pid][sl].eid="upside_down"; cnt++; }
-    if (cnt>0) evts.push(`ðŸ¤ª Wild transformed ${cnt} ðŸ˜€ â†’ ðŸ™ƒ`);
+    if (cnt>0) evts.push(`🤪 Wild transformed ${cnt} 😀 → 🙃`);
   }
   if (def.onp==="swap") {
     const tmp=s.as[pid][0]; s.as[pid][0]=s.as[pid][2]; s.as[pid][2]=tmp;
-    evts.push("ðŸ˜µâ€ðŸ’« Dizzy swapped Left â†” Right positions");
+    evts.push("😵‍💫 Dizzy swapped Left ↔ Right positions");
   }
-  if (def.onp==="selflock") { s.as[pid][si].locked=true; s.as[pid][si].lu=s.ct+1; evts.push("ðŸ«  Melt locked until end of opponent's next turn"); }
+  if (def.onp==="selflock") { s.as[pid][si].locked=true; s.as[pid][si].lu=s.ct+1; evts.push("🫠 Melt locked until end of opponent's next turn"); }
   evts.forEach(e=>s.log.push(e));
   if (def.onp==="sick") { s.pend={type:"sick",pid,si}; s.phase="ec"; }
   else { s.ct+=1; if (s.ct>=10) { s.phase="ended"; s.sc=calcScores(s.as); s.winner=s.sc[0].total>s.sc[1].total?0:s.sc[1].total>s.sc[0].total?1:-1; } else s.phase="sel"; }
@@ -157,7 +157,7 @@ function applyMove(gs, eid, si) {
 function applySick(gs, tsi) {
   const s=JSON.parse(JSON.stringify(gs)); const {pid}=s.pend;
   const from=s.as[pid][tsi].eid; s.as[pid][tsi]=mkSlot("grin");
-  s.log.push(`ðŸ¤§ Sick reset ${ED[from].e} ${ED[from].n} â†’ ðŸ˜€ Grin`);
+  s.log.push(`🤧 Sick reset ${ED[from].e} ${ED[from].n} → 😀 Grin`);
   s.pend=null; s.ct+=1;
   if (s.ct>=10) { s.phase="ended"; s.sc=calcScores(s.as); s.winner=s.sc[0].total>s.sc[1].total?0:s.sc[1].total>s.sc[0].total?1:-1; } else s.phase="sel";
   return s;
@@ -167,16 +167,16 @@ function initGame(p1,p2) {
   return { players:[{name:p1||"Player 1"},{name:p2||"Player 2"}], as:[[mkSlot(),mkSlot(),mkSlot()],[mkSlot(),mkSlot(),mkSlot()]], ct:0, phase:"sel", hist:[], log:[], sc:null, pend:null };
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ===========================================================
    STYLES
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+=========================================================== */
 const FONTS = `@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800;900&display=swap');`;
 const C = { bg:"#08080f", surf:"#13132b", hi:"#1e1e40", border:"#2a2a55", accent:"#f5c518", accent2:"#ff7043", text:"#f0f0ff", muted:"#7070a0", ok:"#4ade80", err:"#f87171", lock:"#a78bfa" };
 const card = (extra={}) => ({ background:C.surf, border:`1px solid ${C.border}`, borderRadius:14, padding:14, ...extra });
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ===========================================================
    SHARED COMPONENTS
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+=========================================================== */
 function Btn({ children, onClick, color, outline, disabled, sm, style={} }) {
   const bg = disabled ? "#1a1a3a" : outline ? "transparent" : (color||C.accent);
   const fg = disabled ? C.muted : outline ? (color||C.accent) : "#000";
@@ -198,7 +198,7 @@ function SlotCard({ slot, big, selected, dim, highlight, onClick, label, showLoc
       {label && <div style={{ fontSize:10, color:C.muted, fontWeight:700, marginBottom:2, textTransform:"uppercase", letterSpacing:1 }}>{label}</div>}
       <div style={{ fontSize:big?34:26 }}>{def.e}</div>
       <div style={{ fontSize:big?11:9, color:C.muted, fontWeight:700, marginTop:2 }}>{def.bp}pt{def.bp!==1?"s":""}</div>
-      {isLocked && showLock && <div style={{ position:"absolute", top:-6, right:-6, fontSize:13, background:C.lock, borderRadius:20, padding:"1px 5px" }}>ðŸ”’</div>}
+      {isLocked && showLock && <div style={{ position:"absolute", top:-6, right:-6, fontSize:13, background:C.lock, borderRadius:20, padding:"1px 5px" }}>🔒</div>}
     </div>
   );
 }
@@ -229,7 +229,7 @@ function TooltipModal({ eid, onClose }) {
         <div style={{ fontSize:52, textAlign:"center" }}>{def.e}</div>
         <div style={{ fontSize:22, fontWeight:800, color:C.text, textAlign:"center", fontFamily:"Fredoka One" }}>{def.n}</div>
         <div style={{ fontSize:22, color:C.accent, fontWeight:800, textAlign:"center", margin:"4px 0 12px" }}>{def.bp} point{def.bp!==1?"s":""}</div>
-        <div style={{ fontSize:11, color:C.muted, marginBottom:6 }}>TAGS: {def.tags.join(" Â· ")}</div>
+        <div style={{ fontSize:11, color:C.muted, marginBottom:6 }}>TAGS: {def.tags.join(" • ")}</div>
         {def.rt && <div style={{ background:"#ff700320", border:`1px solid ${C.accent2}40`, borderRadius:8, padding:"8px 10px", fontSize:13, color:C.accent2, marginBottom:10, fontWeight:600 }}>{def.rt}</div>}
         <div style={{ fontSize:14, color:C.text, lineHeight:1.6 }}>{def.rules}</div>
         <Btn onClick={onClose} sm style={{ marginTop:16, width:"100%" }}>Close</Btn>
@@ -238,23 +238,23 @@ function TooltipModal({ eid, onClose }) {
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ===========================================================
    MENU SCREEN
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+=========================================================== */
 function MenuScreen({ onPlay, onRulebook, onSettings, onMultiplayer }) {
   return (
     <div style={{ minHeight:"100vh", background:C.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"Nunito, sans-serif" }}>
-      <div style={{ marginBottom:8, fontSize:72 }}>âš”ï¸</div>
+      <div style={{ marginBottom:8, fontSize:72 }}>⚔️</div>
       <h1 style={{ fontFamily:"Fredoka One", fontSize:52, color:C.accent, margin:0, letterSpacing:2, textShadow:`0 0 40px ${C.accent}60` }}>EMOJI BATTLE!</h1>
-      <p style={{ color:C.muted, fontSize:14, margin:"8px 0 40px", letterSpacing:1, textTransform:"uppercase" }}>Fast 1v1 â€¢ 5 Rounds â€¢ Strategy</p>
+      <p style={{ color:C.muted, fontSize:14, margin:"8px 0 40px", letterSpacing:1, textTransform:"uppercase" }}>Fast 1v1 • 5 Rounds • Strategy</p>
       <div style={{ display:"flex", flexDirection:"column", gap:12, width:"100%", maxWidth:300 }}>
-        <Btn onClick={onPlay} style={{ width:"100%", fontSize:18, padding:"16px 0" }}>âš”ï¸ New Match</Btn>
-        <Btn onClick={onMultiplayer} style={{ width:"100%", fontSize:18, padding:"16px 0" }} color={C.accent2}>ðŸŒ Multiplayer</Btn>
-        <Btn onClick={onRulebook} outline style={{ width:"100%" }}>ðŸ“– Rulebook & Emoji Index</Btn>
-        <Btn onClick={onSettings} outline color={C.muted} style={{ width:"100%" }}>âš™ï¸ Settings</Btn>
+        <Btn onClick={onPlay} style={{ width:"100%", fontSize:18, padding:"16px 0" }}>⚔️ New Match</Btn>
+        <Btn onClick={onMultiplayer} style={{ width:"100%", fontSize:18, padding:"16px 0" }} color={C.accent2}>🌐 Multiplayer</Btn>
+        <Btn onClick={onRulebook} outline style={{ width:"100%" }}>📖 Rulebook & Emoji Index</Btn>
+        <Btn onClick={onSettings} outline color={C.muted} style={{ width:"100%" }}>⚙️ Settings</Btn>
       </div>
       <div style={{ marginTop:40, display:"flex", gap:8, flexWrap:"wrap", justifyContent:"center" }}>
-        {["ðŸ˜€","ðŸ™ƒ","ðŸ¤§","â¤ï¸","ðŸ’œ","ðŸ–¤","ðŸ”¥","ðŸ˜Ž","ðŸ˜‚","ðŸ˜˜","ðŸ˜µâ€ðŸ’«","ðŸ« ","ðŸ¤ª","ðŸ¥´","ðŸ˜‡","ðŸ˜ˆ"].map((e,i)=>(
+        {["😀","🙃","🤧","❤️","💜","🖤","🔥","😎","😂","😘","😵‍💫","🫠","🤪","🥴","😇","😈"].map((e,i)=>(
           <span key={i} style={{ fontSize:22, opacity:0.4 }}>{e}</span>
         ))}
       </div>
@@ -262,9 +262,9 @@ function MenuScreen({ onPlay, onRulebook, onSettings, onMultiplayer }) {
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ===========================================================
    SETUP SCREEN
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+=========================================================== */
 function SetupScreen({ onBack, onStart }) {
   const [p1,setP1]=useState("Player 1");
   const [p2,setP2]=useState("Player 2");
@@ -274,9 +274,9 @@ function SetupScreen({ onBack, onStart }) {
   return (
     <div style={{ minHeight:"100vh", background:C.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"Nunito, sans-serif" }}>
       <div style={{ maxWidth:380, width:"100%" }}>
-        <button onClick={onBack} style={{ background:"none", border:"none", color:C.muted, fontSize:14, cursor:"pointer", marginBottom:20, fontFamily:"Nunito", fontWeight:700 }}>â† Back</button>
+        <button onClick={onBack} style={{ background:"none", border:"none", color:C.muted, fontSize:14, cursor:"pointer", marginBottom:20, fontFamily:"Nunito", fontWeight:700 }}>← Back</button>
         <h2 style={{ fontFamily:"Fredoka One", fontSize:34, color:C.accent, margin:"0 0 6px" }}>New Match</h2>
-        <p style={{ color:C.muted, fontSize:13, margin:"0 0 30px" }}>Pass-and-play â€” share one device</p>
+        <p style={{ color:C.muted, fontSize:13, margin:"0 0 30px" }}>Pass-and-play — share one device</p>
         <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
           <div>
             <div style={{ fontSize:12, color:C.muted, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>Player 1 Name</div>
@@ -290,55 +290,55 @@ function SetupScreen({ onBack, onStart }) {
             <strong style={{ color:C.text }}>Rules at a glance:</strong><br/>
             Each player manages 3 emoji slots over 5 rounds. Replace one slot per turn. Highest total score wins!
           </div>
-          <Btn onClick={()=>onStart(p1||"Player 1",p2||"Player 2")} style={{ width:"100%", fontSize:17, padding:"14px 0", marginTop:6 }}>âš”ï¸ Start Match!</Btn>
+          <Btn onClick={()=>onStart(p1||"Player 1",p2||"Player 2")} style={{ width:"100%", fontSize:17, padding:"14px 0", marginTop:6 }}>⚔️ Start Match!</Btn>
         </div>
       </div>
     </div>
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ===========================================================
    PASS SCREEN
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+=========================================================== */
 function PassScreen({ name, onReady }) {
   return (
     <div style={{ minHeight:"100vh", background:C.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"Nunito, sans-serif", textAlign:"center" }}>
-      <div style={{ fontSize:60, marginBottom:16 }}>ðŸ«´</div>
+      <div style={{ fontSize:60, marginBottom:16 }}>🫴</div>
       <h2 style={{ fontFamily:"Fredoka One", fontSize:32, color:C.text, margin:"0 0 8px" }}>Pass the device</h2>
       <p style={{ color:C.accent, fontSize:22, fontWeight:800, margin:"0 0 12px" }}>{name}</p>
       <p style={{ color:C.muted, fontSize:14, margin:"0 0 40px" }}>Your turn is up. Hand it over!</p>
-      <Btn onClick={onReady} style={{ fontSize:18, padding:"14px 36px" }}>I'm Ready ðŸ‘€</Btn>
+      <Btn onClick={onReady} style={{ fontSize:18, padding:"14px 36px" }}>I'm Ready 👀</Btn>
     </div>
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ===========================================================
    SICK EFFECT CHOOSER MODAL
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+=========================================================== */
 function SickModal({ gs, onChoose }) {
   const {pid,si:sickSi}=gs.pend;
   const army=gs.as[pid];
   return (
     <div style={{ position:"fixed", inset:0, background:"#000000cc", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100, padding:20 }}>
       <div style={{ background:C.surf, border:`1px solid ${C.accent}`, borderRadius:18, padding:24, maxWidth:340, width:"100%", textAlign:"center" }}>
-        <div style={{ fontSize:36, marginBottom:8 }}>ðŸ¤§</div>
+        <div style={{ fontSize:36, marginBottom:8 }}>🤧</div>
         <div style={{ fontFamily:"Fredoka One", fontSize:22, color:C.text, marginBottom:8 }}>Sick Effect</div>
-        <div style={{ fontSize:14, color:C.muted, marginBottom:20 }}>Choose another slot in your army to reset to ðŸ˜€ Grin:</div>
+        <div style={{ fontSize:14, color:C.muted, marginBottom:20 }}>Choose another slot in your army to reset to 😀 Grin:</div>
         <div style={{ display:"flex", gap:12, justifyContent:"center" }}>
           {army.map((slot,i)=>{
             if (i===sickSi) return <div key={i} style={{ opacity:0.3 }}><SlotCard slot={slot} big label={LSHORT[i]} /></div>;
             return <div key={i} onClick={()=>onChoose(i)} style={{ cursor:"pointer" }}><SlotCard slot={slot} big label={LSHORT[i]} highlight /></div>;
           })}
         </div>
-        <div style={{ fontSize:12, color:C.muted, marginTop:14 }}>Tap a slot to reset it. (Cannot target ðŸ¤§ itself.)</div>
+        <div style={{ fontSize:12, color:C.muted, marginTop:14 }}>Tap a slot to reset it. (Cannot target 🤧 itself.)</div>
       </div>
     </div>
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ===========================================================
    GAME SCREEN
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+=========================================================== */
 function GameScreen({ gs, onMove, onSick, onEndGame, readOnly, waitingFor }) {
   const [selEmoji,setSelEmoji]=useState(null);
   const [selSlot,setSelSlot]=useState(null);
@@ -377,17 +377,17 @@ function GameScreen({ gs, onMove, onSick, onEndGame, readOnly, waitingFor }) {
     <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"Nunito, sans-serif", color:C.text, display:"flex", flexDirection:"column", maxWidth:520, margin:"0 auto" }}>
       {/* TOP BAR */}
       <div style={{ background:C.surf, borderBottom:`1px solid ${C.border}`, padding:"10px 16px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-        <span style={{ fontFamily:"Fredoka One", fontSize:18, color:C.accent }}>âš”ï¸ EB!</span>
+        <span style={{ fontFamily:"Fredoka One", fontSize:18, color:C.accent }}>⚔️ EB!</span>
         <span style={{ fontSize:13, fontWeight:700, color:C.muted }}>Round <strong style={{color:C.text}}>{round}</strong> / 5</span>
         <span style={{ fontSize:12, fontWeight:800, color:readOnly?C.muted:C.accent2, background:readOnly?"#242443":"#ff704320", padding:"4px 10px", borderRadius:20 }}>
           {turnLabel}
         </span>
-        <button onClick={onEndGame} style={{ background:"none", border:"none", color:C.muted, cursor:"pointer", fontSize:12, fontFamily:"Nunito", fontWeight:700 }}>âœ• Quit</button>
+        <button onClick={onEndGame} style={{ background:"none", border:"none", color:C.muted, cursor:"pointer", fontSize:12, fontFamily:"Nunito", fontWeight:700 }}>✖ Quit</button>
       </div>
 
       {/* OPPONENT PANEL */}
       <div style={{ padding:"12px 16px 8px", borderBottom:`1px solid ${C.border}` }}>
-        <div style={{ fontSize:12, color:C.muted, fontWeight:700, marginBottom:8, textTransform:"uppercase", letterSpacing:1 }}>ðŸ‘¤ {oppname}</div>
+        <div style={{ fontSize:12, color:C.muted, fontWeight:700, marginBottom:8, textTransform:"uppercase", letterSpacing:1 }}>👤 {oppname}</div>
         <div style={{ display:"flex", gap:8, justifyContent:"center" }}>
           {gs.as[oppid].map((slot,i)=>(
             <SlotCard key={i} slot={slot} big label={LSHORT[i]} showLock />
@@ -413,7 +413,7 @@ function GameScreen({ gs, onMove, onSick, onEndGame, readOnly, waitingFor }) {
           );
         })}
       </div>
-        <div style={{ fontSize:12, color:C.muted, fontWeight:700, textAlign:"center", textTransform:"uppercase", letterSpacing:1 }}>ðŸ‘¤ {pname}</div>
+        <div style={{ fontSize:12, color:C.muted, fontWeight:700, textAlign:"center", textTransform:"uppercase", letterSpacing:1 }}>👤 {pname}</div>
       </div>
 
       {/* SELECTION STATUS / CONFIRM BAR */}
@@ -421,17 +421,17 @@ function GameScreen({ gs, onMove, onSick, onEndGame, readOnly, waitingFor }) {
         <div style={{ margin:"10px 16px", background:"#1a1a10", border:`1px solid ${C.accent}`, borderRadius:12, padding:"12px 16px", display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
           <span style={{ fontSize:22 }}>{ED[selEmoji].e}</span>
           <span style={{ flex:1, fontSize:13, color:C.text, fontWeight:600 }}>Play <strong>{ED[selEmoji].n}</strong> into <strong>{LANES[selSlot]}</strong> slot</span>
-          <Btn onClick={confirmPlay} style={{ padding:"8px 16px" }} sm>âœ“ Confirm</Btn>
-          <Btn onClick={cancel} outline color={C.muted} sm>âœ•</Btn>
+          <Btn onClick={confirmPlay} style={{ padding:"8px 16px" }} sm>✓ Confirm</Btn>
+          <Btn onClick={cancel} outline color={C.muted} sm>✖</Btn>
         </div>
       ) : (
         <div style={{ margin:"10px 16px 4px", minHeight:44, display:"flex", alignItems:"center" }}>
           {selEmoji!==null ? (
             <div style={{ fontSize:13, color:C.accent, fontWeight:700 }}>
-              {ED[selEmoji].e} <strong>{ED[selEmoji].n}</strong> selected â€” tap a slot above
+              {ED[selEmoji].e} <strong>{ED[selEmoji].n}</strong> selected — tap a slot above
             </div>
           ) : (
-            <div style={{ fontSize:13, color:C.muted }}>Choose an emoji to play â†“</div>
+            <div style={{ fontSize:13, color:C.muted }}>Choose an emoji to play ↓</div>
           )}
           {errMsg && <div style={{ marginLeft:"auto", fontSize:12, color:C.err, fontWeight:700, maxWidth:180, textAlign:"right" }}>{errMsg}</div>}
         </div>
@@ -439,7 +439,7 @@ function GameScreen({ gs, onMove, onSick, onEndGame, readOnly, waitingFor }) {
 
       {readOnly && (
         <div style={{ margin:"0 16px 6px", fontSize:12, color:C.muted, fontWeight:700 }}>
-          Waiting for {waitingFor || "opponent"} to moveâ€¦
+          Waiting for {waitingFor || "opponent"} to move…
         </div>
       )}
 
@@ -457,7 +457,7 @@ function GameScreen({ gs, onMove, onSick, onEndGame, readOnly, waitingFor }) {
         <div style={{ margin:"0 16px 16px", background:C.hi, border:`1px solid ${C.border}`, borderRadius:10, padding:"10px 12px" }}>
           <div style={{ fontSize:10, color:C.muted, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>Recent Events</div>
           {recentLog.map((e,i)=>(
-            <div key={i} style={{ fontSize:12, color:C.muted, padding:"2px 0", borderBottom:i<recentLog.length-1?`1px solid ${C.border}`:"none" }}>â€¢ {e}</div>
+            <div key={i} style={{ fontSize:12, color:C.muted, padding:"2px 0", borderBottom:i<recentLog.length-1?`1px solid ${C.border}`:"none" }}>• {e}</div>
           ))}
         </div>
       )}
@@ -467,26 +467,26 @@ function GameScreen({ gs, onMove, onSick, onEndGame, readOnly, waitingFor }) {
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ===========================================================
    RESULTS SCREEN
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+=========================================================== */
 function ResultsScreen({ gs, onRematch, onMenu }) {
   const [tab,setTab]=useState("breakdown");
   const sc=gs.sc;
   const w=gs.winner; // 0 or 1 for winner index, -1 for draw
   const titleColor = w===-1?C.accent:C.ok;
-  const titleText  = w===-1?"ðŸ¤ DRAW!":("ðŸ† "+gs.players[w].name+" Wins!");
+const titleText  = w===-1?"🤝 DRAW!":("🏆 "+gs.players[w].name+" Wins!");
   // Build effect messages
   const effects=[];
   for (let p=0;p<2;p++) {
     const sc_p=sc[p];
     if (gs.as[p].some(s=>s.eid==="purple_heart")) {
       const boosted=sc_p.lanes.filter(l=>l.buff>0);
-      boosted.forEach(l=>effects.push(`ðŸ’œ Purple Heart gave ${l.e} ${l.name} +${l.buff} point${l.buff>1?"s":""} (${gs.players[p].name})`));
+      boosted.forEach(l=>effects.push(`💜 Purple Heart gave ${l.e} ${l.name} +${l.buff} point${l.buff>1?"s":""} (${gs.players[p].name})`));
     }
-    sc_p.lanes.forEach(l=>{ if (l.supp) effects.push(`${l.suppMsg} â€” ${l.e} ${l.name} scored 0 (${gs.players[p].name})`); });
+    sc_p.lanes.forEach(l=>{ if (l.supp) effects.push(`${l.suppMsg} — ${l.e} ${l.name} scored 0 (${gs.players[p].name})`); });
     const opp=gs.as[1-p];
-    sc_p.lanes.forEach((l,s)=>{ if (l.half) effects.push(`ðŸ˜˜ Kiss halved ${l.e} ${l.name} â†’ ${l.fin} pts (${gs.players[p].name}, lane ${LANES[s]})`); });
+    sc_p.lanes.forEach((l,s)=>{ if (l.half) effects.push(`😘 Kiss halved ${l.e} ${l.name} → ${l.fin} pts (${gs.players[p].name}, lane ${LANES[s]})`); });
   }
   const tabBtn = (id,label) => (
     <button onClick={()=>setTab(id)} style={{ flex:1, padding:"10px 0", background:tab===id?C.hi:"transparent", border:"none", borderBottom:tab===id?`2px solid ${C.accent}`:"2px solid transparent", color:tab===id?C.text:C.muted, fontFamily:"Nunito", fontWeight:700, fontSize:13, cursor:"pointer" }}>{label}</button>
@@ -520,7 +520,7 @@ function ResultsScreen({ gs, onRematch, onMenu }) {
             {[0,1].map(p=>(
               <div key={p} style={{ marginBottom:16, ...card() }}>
                 <div style={{ fontWeight:800, fontSize:14, marginBottom:10, color:p===w?C.ok:C.text }}>
-                  {p===w?"ðŸ† ":""}{gs.players[p].name} â€” <span style={{color:C.accent}}>{sc[p].total} pts</span>
+                  {p===w?"🏆 ":""}{gs.players[p].name} — <span style={{color:C.accent}}>{sc[p].total} pts</span>
                 </div>
                 {sc[p].lanes.map((l,s)=>(
                   <div key={s} style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 0", borderBottom:s<2?`1px solid ${C.border}`:"none" }}>
@@ -547,7 +547,7 @@ function ResultsScreen({ gs, onRematch, onMenu }) {
             {effects.length===0
               ? <div style={{color:C.muted,fontSize:14,textAlign:"center",marginTop:20}}>No special effects this match.</div>
               : effects.map((e,i)=>(
-                  <div key={i} style={{ ...card({marginBottom:8}), fontSize:13, lineHeight:1.6 }}>â€¢ {e}</div>
+                  <div key={i} style={{ ...card({marginBottom:8}), fontSize:13, lineHeight:1.6 }}>• {e}</div>
                 ))}
           </div>
         )}
@@ -560,7 +560,7 @@ function ResultsScreen({ gs, onRematch, onMenu }) {
                   <div style={{fontSize:22}}>{def.e}</div>
                   <div>
                     <div style={{fontSize:12,fontWeight:700,color:C.text}}>{gs.players[m.pid].name} played {def.n}</div>
-                    <div style={{fontSize:11,color:C.muted}}>Round {Math.floor(m.turn/2)+1} Â· {LANES[m.si]} slot</div>
+                    <div style={{fontSize:11,color:C.muted}}>Round {Math.floor(m.turn/2)+1} • {LANES[m.si]} slot</div>
                   </div>
                 </div>
               );
@@ -571,16 +571,16 @@ function ResultsScreen({ gs, onRematch, onMenu }) {
 
       {/* ACTION BUTTONS */}
       <div style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:520, background:C.bg, borderTop:`1px solid ${C.border}`, padding:16, display:"flex", gap:10 }}>
-        <Btn onClick={onRematch} style={{ flex:1 }}>ðŸ” Rematch</Btn>
-        <Btn onClick={onMenu} outline style={{ flex:1 }}>ðŸ  Menu</Btn>
+        <Btn onClick={onRematch} style={{ flex:1 }}>🔁 Rematch</Btn>
+        <Btn onClick={onMenu} outline style={{ flex:1 }}>🏠 Menu</Btn>
       </div>
     </div>
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ===========================================================
    RULEBOOK SCREEN
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+=========================================================== */
 function RulebookScreen({ onBack }) {
   const [tab,setTab]=useState("rules");
   const [tooltip,setTooltip]=useState(null);
@@ -589,8 +589,8 @@ function RulebookScreen({ onBack }) {
   return (
     <div style={{minHeight:"100vh",background:C.bg,fontFamily:"Nunito, sans-serif",color:C.text,maxWidth:520,margin:"0 auto"}}>
       <div style={{background:C.surf,borderBottom:`1px solid ${C.border}`,padding:"14px 16px",display:"flex",alignItems:"center",gap:14}}>
-        <button onClick={onBack} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontFamily:"Nunito",fontWeight:700,fontSize:14}}>â† Back</button>
-        <span style={{fontFamily:"Fredoka One",fontSize:22,color:C.accent}}>ðŸ“– Rulebook</span>
+        <button onClick={onBack} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontFamily:"Nunito",fontWeight:700,fontSize:14}}>← Back</button>
+        <span style={{fontFamily:"Fredoka One",fontSize:22,color:C.accent}}>📖 Rulebook</span>
       </div>
       <div style={{display:"flex",borderBottom:`1px solid ${C.border}`}}>
         {tabBtn("rules","Core Rules")}
@@ -600,7 +600,7 @@ function RulebookScreen({ onBack }) {
       <div style={{padding:"16px 16px 40px"}}>
         {tab==="rules" && (
           <div>
-            {rule("Match Setup","Two players. Each starts with ðŸ˜€ ðŸ˜€ ðŸ˜€ (three Grin emojis). A match lasts 5 rounds.")}
+            {rule("Match Setup","Two players. Each starts with 😀 😀 😀 (three Grin emojis). A match lasts 5 rounds.")}
             {rule("Turn Order","Each round: Player 1 acts, then Player 2. Each player takes 5 total turns.")}
             {rule("On Your Turn","1) Choose an emoji from the offer tray. 2) Choose which of your 3 slots to replace. 3) Confirm. Any on-play effects resolve immediately.")}
             {rule("The Board","Each player has 3 slots: Left, Middle, Right. A slot always contains exactly one emoji. The Left slot faces the opponent's Left slot (and so on for Mid, Right).")}
@@ -611,19 +611,19 @@ function RulebookScreen({ onBack }) {
         )}
         {tab==="glossary" && (
           <div>
-            {rule("Basic","Only ðŸ˜€ Grin is basic. Cards referencing 'basic' mean specifically ðŸ˜€.")}
-            {rule("Non-Basic","Any emoji other than ðŸ˜€ Grin.")}
+            {rule("Basic","Only 😀 Grin is basic. Cards referencing 'basic' mean specifically 😀.")}
+            {rule("Non-Basic","Any emoji other than 😀 Grin.")}
             {rule("Colored Emoji","An emoji with a color tag: red, purple, or black. Yellow is also a color for some checks.")}
             {rule("Unique Colors","The count of distinct color tags among your army. Max 4: yellow, red, purple, black.")}
             {rule("Locked","A locked slot cannot be replaced until the lock expires.")}
             {rule("Suppressed","A suppressed emoji exists on the board but contributes 0 points at scoring time.")}
             {rule("Across","Same lane on the opposing side. Your Left faces opponent's Left, etc.")}
-            {rule("Hearts","Emojis tagged 'heart': â¤ï¸ ðŸ’œ ðŸ–¤")}
+            {rule("Hearts","Emojis tagged 'heart': ❤️ 💜 🖤")}
           </div>
         )}
         {tab==="emojis" && (
           <div>
-            <div style={{fontSize:12,color:C.muted,marginBottom:12}}>Tap â“˜ or any card for full details.</div>
+            <div style={{fontSize:12,color:C.muted,marginBottom:12}}>Tap ⓘ or any card for full details.</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
               {Object.entries(ED).map(([key,def])=>(
                 <div key={key} onClick={()=>setTooltip(key)} style={{...card({cursor:"pointer"})}}>
@@ -634,7 +634,7 @@ function RulebookScreen({ onBack }) {
                       <div style={{fontSize:12,color:C.accent,fontWeight:700}}>{def.bp} pt{def.bp!==1?"s":""} {!def.play&&<span style={{color:C.muted,fontSize:10}}>(starter)</span>}</div>
                     </div>
                   </div>
-                  <div style={{fontSize:11,color:C.muted,lineHeight:1.4}}>{def.rt||def.rules.slice(0,60)}{def.rules.length>60?"â€¦":""}</div>
+                  <div style={{fontSize:11,color:C.muted,lineHeight:1.4}}>{def.rt||def.rules.slice(0,60)}{def.rules.length>60?"…":""}</div>
                 </div>
               ))}
             </div>
@@ -646,18 +646,18 @@ function RulebookScreen({ onBack }) {
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ===========================================================
    SETTINGS SCREEN
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+=========================================================== */
 function SettingsScreen({ onBack, onSignOut }) {
   return (
     <div style={{minHeight:"100vh",background:C.bg,fontFamily:"Nunito, sans-serif",color:C.text,maxWidth:520,margin:"0 auto"}}>
       <div style={{background:C.surf,borderBottom:`1px solid ${C.border}`,padding:"14px 16px",display:"flex",alignItems:"center",gap:14}}>
-        <button onClick={onBack} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontFamily:"Nunito",fontWeight:700,fontSize:14}}>â† Back</button>
-        <span style={{fontFamily:"Fredoka One",fontSize:22,color:C.accent}}>âš™ï¸ Settings</span>
+        <button onClick={onBack} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontFamily:"Nunito",fontWeight:700,fontSize:14}}>← Back</button>
+        <span style={{fontFamily:"Fredoka One",fontSize:22,color:C.accent}}>⚙️ Settings</span>
       </div>
       <div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
-        {[["ðŸ”Š Sound","On/Off (coming soon)"],["ðŸŽžï¸ Animations","On/Off (coming soon)"],["â™¿ Reduced Motion","Coming soon"],["ðŸ”  Emoji Name Labels","Always shown on hover (default on)"],["ðŸ“– Rules / Help","See Rulebook tab"],].map(([title,desc])=>(
+        {[["🔊 Sound","On/Off (coming soon)"],["🎞️ Animations","On/Off (coming soon)"],["♿ Reduced Motion","Coming soon"],["🔠 Emoji Name Labels","Always shown on hover (default on)"],["📖 Rules / Help","See Rulebook tab"],].map(([title,desc])=>(
           <div key={title} style={{...card(),display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div>
               <div style={{fontWeight:700,fontSize:14}}>{title}</div>
@@ -667,7 +667,7 @@ function SettingsScreen({ onBack, onSignOut }) {
         ))}
         <div style={{...card({marginTop:10}),textAlign:"center",color:C.muted,fontSize:13}}>
           <strong style={{color:C.text}}>Emoji Battle! v1</strong><br/>
-          Fast 1v1 browser strategy Â· 16 starter emojis<br/>
+          Fast 1v1 browser strategy • 16 starter emojis<br/>
           Firebase sync is enabled for multiplayer lobbies.
         </div>
         <div style={{...card(),display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -739,9 +739,9 @@ function MultiplayerHub({ onBack, onCreate, onJoin, code, onCodeChange, error, l
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ===========================================================
    ROOT APP
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+=========================================================== */
 export default function App() {
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
@@ -1184,3 +1184,6 @@ export default function App() {
     </>
   );
 }
+
+
+
