@@ -46,6 +46,8 @@ const TURN_LIMIT = ROUND_LIMIT * 2;
 const LOBBY_COLLECTION = "emoji-battle-lobbies";
 const CHAT_LIMIT = 60;
 const DECK_SIZE = 13;
+const APP_VERSION = "1.3.0";
+const BUILD_DATE = "2026-03-08";
 const RARITY_ORDER = ["common","rare","epic"];
 const RARITY_LIMITS = {
   common: { count:8, dup:3 },
@@ -124,24 +126,42 @@ const normalizeDeck = (deck) => {
   };
 };
 
-const loadDecks = () => {
-  if (typeof window === "undefined") return DEFAULT_DECKS;
+const loadDecks = (uid = null) => {
+  if (typeof window === "undefined") return { decks: DEFAULT_DECKS, selectedDeckId: DEFAULT_DECKS[0].id, uid: null };
   try {
     const raw = window.localStorage.getItem("emojiBattleDecks_v1");
-    if (!raw) return DEFAULT_DECKS;
+    if (!raw) return { decks: DEFAULT_DECKS, selectedDeckId: DEFAULT_DECKS[0].id, uid: null };
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length !== 3) return DEFAULT_DECKS;
-    const normalized = parsed.map(normalizeDeck);
-    if (normalized.some((d) => !d)) return DEFAULT_DECKS;
-    return normalized;
+    let deckArr = null;
+    let selectedDeckId = null;
+    let storedUid = null;
+    if (Array.isArray(parsed)) {
+      deckArr = parsed;
+    } else if (parsed && typeof parsed === "object") {
+      if (Array.isArray(parsed.decks)) deckArr = parsed.decks;
+      if (typeof parsed.selectedDeckId === "string") selectedDeckId = parsed.selectedDeckId;
+      if (typeof parsed.uid === "string") storedUid = parsed.uid;
+    }
+    if (uid && storedUid && storedUid !== uid) {
+      return { decks: DEFAULT_DECKS, selectedDeckId: DEFAULT_DECKS[0].id, uid: null };
+    }
+    if (!Array.isArray(deckArr) || deckArr.length !== 3) {
+      return { decks: DEFAULT_DECKS, selectedDeckId: DEFAULT_DECKS[0].id, uid: storedUid };
+    }
+    const normalized = deckArr.map(normalizeDeck);
+    if (normalized.some((d) => !d)) {
+      return { decks: DEFAULT_DECKS, selectedDeckId: DEFAULT_DECKS[0].id, uid: storedUid };
+    }
+    if (!normalized.find((d) => d.id === selectedDeckId)) selectedDeckId = normalized[0].id;
+    return { decks: normalized, selectedDeckId, uid: storedUid };
   } catch {
-    return DEFAULT_DECKS;
+    return { decks: DEFAULT_DECKS, selectedDeckId: DEFAULT_DECKS[0].id, uid: null };
   }
 };
 
-const saveDecks = (decks) => {
+const saveDecks = (decks, selectedDeckId, uid = null) => {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem("emojiBattleDecks_v1", JSON.stringify(decks));
+  window.localStorage.setItem("emojiBattleDecks_v1", JSON.stringify({ decks, selectedDeckId, uid }));
 };
 
 const getDeckById = (decks, id) => decks.find((d) => d.id === id) || decks[0];
@@ -678,6 +698,7 @@ function MenuScreen({ onPlay, onRulebook, onSettings, onMultiplayer, onDecks }) 
           <span key={i} style={{ fontSize:22, opacity:0.4 }}>{e}</span>
         ))}
       </div>
+      <div style={{ marginTop:12, fontSize:11, color:C.muted, letterSpacing:1 }}>v{APP_VERSION} · {BUILD_DATE}</div>
     </div>
   );
 }
@@ -1136,8 +1157,8 @@ function SettingsScreen({ onBack, onSignOut, onSignIn, user }) {
           </div>
         ))}
         <div style={{...card({marginTop:10}),textAlign:"center",color:C.muted,fontSize:13}}>
-          <strong style={{color:C.text}}>Emoji Battle! v1</strong><br/>
-          Fast 1v1 browser strategy • {PIDS.length} playable emojis<br/>
+          <strong style={{color:C.text}}>Emoji Battle! v{APP_VERSION}</strong><br/>
+          Build {BUILD_DATE} • {PIDS.length} playable emojis<br/>
           Firebase sync is enabled for multiplayer lobbies.
         </div>
         <div style={{...card(),display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -1443,21 +1464,21 @@ export default function App() {
     if (!authReady) return;
     if (!user) {
       const loaded = loadDecks();
-      const nextSelected = loaded[0]?.id || DEFAULT_DECKS[0].id;
-      setDecks(loaded);
+      const nextSelected = loaded.selectedDeckId || loaded.decks[0]?.id || DEFAULT_DECKS[0].id;
+      setDecks(loaded.decks);
       setSelectedDeckId(nextSelected);
-      deckSyncRef.current = serializeDecks(loaded, nextSelected);
+      deckSyncRef.current = serializeDecks(loaded.decks, nextSelected);
       return;
     }
     const appRef = doc(db, "users", user.uid, "apps", "emoji-battle");
     return onSnapshot(appRef, (snap) => {
       if (!snap.exists()) {
-        const fallback = DEFAULT_DECKS;
-        const nextSelected = fallback[0].id;
-        setDecks(fallback);
+        const fallback = loadDecks(user.uid);
+        const nextSelected = fallback.selectedDeckId || fallback.decks[0]?.id || DEFAULT_DECKS[0].id;
+        setDecks(fallback.decks);
         setSelectedDeckId(nextSelected);
-        deckSyncRef.current = serializeDecks(fallback, nextSelected);
-        setDoc(appRef, { decks: fallback, selectedDeckId: nextSelected, updatedAt: serverTimestamp() }, { merge: true })
+        deckSyncRef.current = serializeDecks(fallback.decks, nextSelected);
+        setDoc(appRef, { decks: fallback.decks, selectedDeckId: nextSelected, updatedAt: serverTimestamp() }, { merge: true })
           .catch(() => undefined);
         return;
       }
@@ -1465,11 +1486,11 @@ export default function App() {
       const storedDecks = Array.isArray(data.decks) ? data.decks : null;
       const normalized = storedDecks ? storedDecks.map(normalizeDeck) : null;
       if (!normalized || normalized.some((d) => !d)) {
-        const fallback = DEFAULT_DECKS;
-        const nextSelected = fallback[0].id;
-        setDecks(fallback);
+        const fallback = loadDecks(user.uid);
+        const nextSelected = fallback.selectedDeckId || fallback.decks[0]?.id || DEFAULT_DECKS[0].id;
+        setDecks(fallback.decks);
         setSelectedDeckId(nextSelected);
-        deckSyncRef.current = serializeDecks(fallback, nextSelected);
+        deckSyncRef.current = serializeDecks(fallback.decks, nextSelected);
         return;
       }
       const selected = normalized.find((d) => d.id === data.selectedDeckId) ? data.selectedDeckId : normalized[0].id;
@@ -1485,11 +1506,12 @@ export default function App() {
     if (payload === deckSyncRef.current) return;
     deckSyncRef.current = payload;
     if (!user) {
-      saveDecks(decks);
+      saveDecks(decks, selectedDeckId, null);
       return;
     }
     const appRef = doc(db, "users", user.uid, "apps", "emoji-battle");
     setDoc(appRef, { decks, selectedDeckId, updatedAt: serverTimestamp() }, { merge: true }).catch(() => undefined);
+    saveDecks(decks, selectedDeckId, user.uid);
   }, [authReady, user, decks, selectedDeckId]);
 
   useEffect(() => {
