@@ -1,4 +1,7 @@
 ﻿{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
   "hosting": {
     "public": "apps/bible-tracker/dist",
     "ignore": [
@@ -25,3 +28,4 @@
     ]
   }
 }
+

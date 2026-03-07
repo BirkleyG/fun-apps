@@ -1,11 +1,14 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
 import {
+  addDoc,
   collection,
   deleteDoc,
   doc,
   getDoc,
+  limit,
   onSnapshot,
+  orderBy,
   query,
   serverTimestamp,
   setDoc,
@@ -42,6 +45,7 @@ const ALLC   = ["yellow","red","purple","black"];
 const LANES  = ["Left","Mid","Right"];
 const LSHORT = ["L","M","R"];
 const LOBBY_COLLECTION = "emoji-battle-lobbies";
+const CHAT_LIMIT = 60;
 
 const makeLobbyCode = () => {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -698,7 +702,7 @@ function MultiplayerHub({ onBack, onCreate, onJoin, code, onCodeChange, error, l
           <div style={{ fontWeight:800, fontSize:14, marginBottom:6 }}>Join Lobby</div>
           <input
             value={code}
-            onChange={(e) => onCodeChange(e.target.value)}
+            onChange={(e) => onCodeChange(normalizeCode(e.target.value))}
             placeholder="Enter code"
             style={{ width:"100%", background:C.bg, border:`1px solid ${C.border}`, color:C.text, padding:"8px 10px", borderRadius:8, fontSize:14, marginBottom:10 }}
           />
@@ -749,6 +753,9 @@ export default function App() {
   const [mpError, setMpError] = useState("");
   const [activeLobbyCode, setActiveLobbyCode] = useState(null);
   const [activeLobby, setActiveLobby] = useState(null);
+  const [spectatorMode, setSpectatorMode] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState("");
   const [hostLobbies, setHostLobbies] = useState([]);
   const [guestLobbies, setGuestLobbies] = useState([]);
 
@@ -796,6 +803,8 @@ export default function App() {
   useEffect(() => {
     if (!activeLobbyCode) {
       setActiveLobby(null);
+      setSpectatorMode(false);
+      setChatMessages([]);
       return;
     }
     const lobbyRef = doc(db, LOBBY_COLLECTION, activeLobbyCode);
@@ -805,6 +814,16 @@ export default function App() {
         return;
       }
       setActiveLobby({ id: snapshot.id, ...snapshot.data() });
+    });
+  }, [activeLobbyCode]);
+
+  useEffect(() => {
+    if (!activeLobbyCode) return;
+    const messagesRef = collection(db, LOBBY_COLLECTION, activeLobbyCode, "messages");
+    const messagesQuery = query(messagesRef, orderBy("createdAt", "desc"), limit(CHAT_LIMIT));
+    return onSnapshot(messagesQuery, (snapshot) => {
+      const data = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })).reverse();
+      setChatMessages(data);
     });
   }, [activeLobbyCode]);
 
@@ -909,6 +928,19 @@ export default function App() {
     setScreen("mp-lobby");
   };
 
+  const handleClaimSeat = async () => {
+    if (!user || !activeLobby) return;
+    if (activeLobby.host?.uid === user.uid) return;
+    if (activeLobby.guest?.uid) return;
+    const name = getPlayerName(user);
+    await updateDoc(doc(db, LOBBY_COLLECTION, activeLobby.id), {
+      guest: { uid: user.uid, name },
+      status: "playing",
+      gameState: activeLobby.gameState || initGame(activeLobby.host?.name || "Player 1", name),
+      updatedAt: serverTimestamp()
+    });
+  };
+
   const handleCloseLobby = async () => {
     if (!activeLobbyCode) return;
     await deleteDoc(doc(db, LOBBY_COLLECTION, activeLobbyCode));
@@ -918,10 +950,27 @@ export default function App() {
 
   const handleLeaveLobby = () => {
     setActiveLobbyCode(null);
+    setSpectatorMode(false);
+    setChatInput("");
     setScreen("mp-hub");
   };
 
+  const handleSendChat = async () => {
+    if (!user || !activeLobbyCode) return;
+    const text = chatInput.trim();
+    if (!text) return;
+    const role = activeLobby?.host?.uid === user.uid ? "host" : activeLobby?.guest?.uid === user.uid ? "guest" : "spectator";
+    await addDoc(collection(db, LOBBY_COLLECTION, activeLobbyCode, "messages"), {
+      text,
+      sender: { uid: user.uid, name: getPlayerName(user) },
+      role,
+      createdAt: serverTimestamp()
+    });
+    setChatInput("");
+  };
+
   const handleMpMove = async (eid, si) => {
+    if (!isMyTurn) return;
     if (!activeLobby?.gameState) return;
     const next = applyMove(activeLobby.gameState, eid, si);
     await updateDoc(doc(db, LOBBY_COLLECTION, activeLobby.id), {
@@ -932,6 +981,7 @@ export default function App() {
   };
 
   const handleMpSick = async (tsi) => {
+    if (!showSick) return;
     if (!activeLobby?.gameState) return;
     const next = applySick(activeLobby.gameState, tsi);
     await updateDoc(doc(db, LOBBY_COLLECTION, activeLobby.id), {
@@ -960,10 +1010,13 @@ export default function App() {
         ? 1
         : null
     : null;
+  const isMember = myIndex !== null;
+  const canSpectate = Boolean(activeLobby && user && !isMember);
+  const isSpectating = canSpectate && spectatorMode;
   const gameState = activeLobby?.gameState || null;
   const activePlayerIndex = gameState ? getAP(gameState) : null;
   const waitingForName = gameState ? gameState.players?.[activePlayerIndex]?.name : activeLobby?.guest?.name;
-  const isMyTurn = gameState
+  const isMyTurn = gameState && isMember
     ? gameState.phase === "ec"
       ? gameState.pend?.pid === myIndex
       : activePlayerIndex === myIndex
@@ -1034,6 +1087,9 @@ export default function App() {
             <div style={{ background:C.surf, borderBottom:`1px solid ${C.border}`, padding:"14px 16px", display:"flex", alignItems:"center", gap:14, justifyContent:"space-between" }}>
               <button onClick={handleLeaveLobby} style={{ background:"none", border:"none", color:C.muted, cursor:"pointer", fontFamily:"Nunito", fontWeight:700, fontSize:14 }}>← Back</button>
               <span style={{ fontFamily:"Fredoka One", fontSize:20, color:C.accent }}>🌐 Lobby</span>
+              <span style={{ fontSize:11, color:isSpectating?C.accent2:C.muted, textTransform:"uppercase", letterSpacing:1 }}>
+                {isSpectating ? "Spectating" : isMember ? "Player" : ""}
+              </span>
               <span style={{ fontSize:12, color:C.muted }}>{activeLobbyCode || ""}</span>
             </div>
 
@@ -1041,8 +1097,21 @@ export default function App() {
               <div style={{ padding:24, color:C.muted }}>Lobby not found.</div>
             )}
 
-            {activeLobby && !(activeLobby.host?.uid === user.uid || activeLobby.guest?.uid === user.uid) && (
-              <div style={{ padding:24, color:C.err }}>You are not a member of this lobby.</div>
+            {activeLobby && !isMember && !isSpectating && (
+              <div style={{ padding:20, display:"flex", flexDirection:"column", gap:12 }}>
+                <div style={{ ...card() }}>
+                  <div style={{ fontWeight:800, fontSize:14, marginBottom:6 }}>Lobby {activeLobby.code || activeLobby.id}</div>
+                  <div style={{ fontSize:12, color:C.muted }}>Host: {activeLobby.host?.name || "Unknown"}</div>
+                  <div style={{ fontSize:12, color:C.muted }}>Guest: {activeLobby.guest?.name || "Open seat"}</div>
+                </div>
+                <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+                  <Btn onClick={handleClaimSeat} disabled={Boolean(activeLobby.guest?.uid)} sm>Join as Player</Btn>
+                  <Btn onClick={() => setSpectatorMode(true)} outline color={C.accent2} sm>Watch as Spectator</Btn>
+                </div>
+                {activeLobby.guest?.uid && (
+                  <div style={{ fontSize:12, color:C.muted }}>Lobby already has two players. You can still spectate.</div>
+                )}
+              </div>
             )}
 
             {activeLobby && activeLobby.host?.uid === user.uid && activeLobby.status === "waiting" && (
@@ -1063,7 +1132,7 @@ export default function App() {
               <div style={{ padding:20, color:C.muted }}>Waiting for host to start...</div>
             )}
 
-            {activeLobby && activeLobby.gameState && (
+            {activeLobby && activeLobby.gameState && (isMember || isSpectating) && (
               <>
                 {showSick && <SickModal gs={activeLobby.gameState} onChoose={handleMpSick} />}
                 {activeLobby.gameState.phase === "ended" ? (
@@ -1078,6 +1147,35 @@ export default function App() {
                     waitingFor={waitingForName}
                   />
                 )}
+                <div style={{ padding:"0 16px 20px" }}>
+                  <div style={{ ...card({ marginTop:10 }) }}>
+                    <div style={{ fontWeight:800, fontSize:13, marginBottom:8 }}>Lobby Chat</div>
+                    <div style={{ maxHeight:180, overflowY:"auto", display:"flex", flexDirection:"column", gap:6, fontSize:12 }}>
+                      {chatMessages.length === 0 ? (
+                        <div style={{ color:C.muted }}>No messages yet.</div>
+                      ) : (
+                        chatMessages.map((msg) => (
+                          <div key={msg.id} style={{ background:C.hi, border:`1px solid ${C.border}`, borderRadius:8, padding:"6px 8px" }}>
+                            <div style={{ fontSize:11, color:C.muted, marginBottom:2 }}>
+                              {msg.sender?.name || "Player"} · {msg.role || "spectator"}
+                            </div>
+                            <div style={{ color:C.text }}>{msg.text}</div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <div style={{ display:"flex", gap:8, marginTop:10 }}>
+                      <input
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") handleSendChat(); }}
+                        placeholder="Send a message"
+                        style={{ flex:1, background:C.bg, border:`1px solid ${C.border}`, color:C.text, padding:"8px 10px", borderRadius:8, fontSize:13 }}
+                      />
+                      <Btn onClick={handleSendChat} sm>Send</Btn>
+                    </div>
+                  </div>
+                </div>
               </>
             )}
           </div>
