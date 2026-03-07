@@ -649,7 +649,7 @@ function RulebookScreen({ onBack }) {
 /* ===========================================================
    SETTINGS SCREEN
 =========================================================== */
-function SettingsScreen({ onBack, onSignOut }) {
+function SettingsScreen({ onBack, onSignOut, onSignIn, user }) {
   return (
     <div style={{minHeight:"100vh",background:C.bg,fontFamily:"Nunito, sans-serif",color:C.text,maxWidth:520,margin:"0 auto"}}>
       <div style={{background:C.surf,borderBottom:`1px solid ${C.border}`,padding:"14px 16px",display:"flex",alignItems:"center",gap:14}}>
@@ -673,9 +673,31 @@ function SettingsScreen({ onBack, onSignOut }) {
         <div style={{...card(),display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div>
             <div style={{fontWeight:700,fontSize:14}}>Account</div>
-            <div style={{fontSize:12,color:C.muted,marginTop:2}}>Sign out of Emoji Battle</div>
+            <div style={{fontSize:12,color:C.muted,marginTop:2}}>
+              {user ? "Signed in for multiplayer sync." : "Sign in to use multiplayer lobbies."}
+            </div>
           </div>
-          <Btn onClick={onSignOut} sm>Sign out</Btn>
+          {user ? (
+            <Btn onClick={onSignOut} sm>Sign out</Btn>
+          ) : (
+            <Btn onClick={onSignIn} sm>Sign in</Btn>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SignInPrompt({ onBack, onSignIn, title, description }) {
+  return (
+    <div style={{ minHeight:"100vh", background:C.bg, display:"flex", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"Nunito, sans-serif" }}>
+      <div style={{ maxWidth:360, width:"100%", textAlign:"center" }}>
+        <div style={{ fontSize:52, marginBottom:10 }}>🌐</div>
+        <div style={{ fontFamily:"Fredoka One", fontSize:28, color:C.accent, marginBottom:6 }}>{title}</div>
+        <p style={{ color:C.muted, marginTop:0, marginBottom:16 }}>{description}</p>
+        <div style={{ display:"flex", gap:10, justifyContent:"center" }}>
+          <Btn onClick={onSignIn}>Sign in with Google</Btn>
+          <Btn onClick={onBack} outline color={C.muted}>Back</Btn>
         </div>
       </div>
     </div>
@@ -867,7 +889,10 @@ export default function App() {
 
   const handleCreateLobby = async () => {
     setMpError("");
-    if (!user) return;
+    if (!user) {
+      setMpError("Sign in to create a multiplayer lobby.");
+      return;
+    }
     const name = getPlayerName(user);
     const lobbyCollection = collection(db, LOBBY_COLLECTION);
     for (let i = 0; i < 6; i += 1) {
@@ -893,7 +918,10 @@ export default function App() {
 
   const handleJoinLobby = async () => {
     setMpError("");
-    if (!user) return;
+    if (!user) {
+      setMpError("Sign in to join a multiplayer lobby.");
+      return;
+    }
     const code = normalizeCode(mpCodeInput);
     if (!code) {
       setMpError("Enter a lobby code.");
@@ -1031,19 +1059,6 @@ export default function App() {
     );
   }
 
-  if (!user) {
-    return (
-      <div style={{ minHeight:"100vh", background:C.bg, display:"flex", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"Nunito, sans-serif" }}>
-        <div style={{ maxWidth:360, textAlign:"center" }}>
-          <div style={{ fontSize:52, marginBottom:10 }}>⚔️</div>
-          <div style={{ fontFamily:"Fredoka One", fontSize:32, color:C.accent }}>Emoji Battle</div>
-          <p style={{ color:C.muted, marginTop:8, marginBottom:16 }}>Sign in with Google to sync multiplayer lobbies.</p>
-          <Btn onClick={() => signInWithPopup(auth, provider).catch(() => undefined)}>Sign in with Google</Btn>
-        </div>
-      </div>
-    );
-  }
-
   if (passTo && screen === "game") {
     return <><style>{FONTS}</style><PassScreen name={passTo} onReady={() => setPassTo(null)} /></>;
   }
@@ -1069,29 +1084,46 @@ export default function App() {
         )}
         {screen === "results" && gs && <ResultsScreen gs={gs} onRematch={handleRematch} onMenu={() => setScreen("menu")} />}
         {screen === "rulebook" && <RulebookScreen onBack={() => setScreen("menu")} />}
-        {screen === "settings" && <SettingsScreen onBack={() => setScreen("menu")} onSignOut={() => signOut(auth).catch(() => undefined)} />}
-        {screen === "mp-hub" && (
-          <MultiplayerHub
+        {screen === "settings" && (
+          <SettingsScreen
             onBack={() => setScreen("menu")}
-            onCreate={handleCreateLobby}
-            onJoin={handleJoinLobby}
-            code={mpCodeInput}
-            onCodeChange={setMpCodeInput}
-            error={mpError}
-            lobbies={myLobbies}
-            onOpenLobby={(code) => { setActiveLobbyCode(code); setScreen("mp-lobby"); }}
+            onSignOut={() => signOut(auth).catch(() => undefined)}
+            onSignIn={() => signInWithPopup(auth, provider).catch(() => undefined)}
+            user={user}
           />
         )}
+        {screen === "mp-hub" && (
+          user ? (
+            <MultiplayerHub
+              onBack={() => setScreen("menu")}
+              onCreate={handleCreateLobby}
+              onJoin={handleJoinLobby}
+              code={mpCodeInput}
+              onCodeChange={setMpCodeInput}
+              error={mpError}
+              lobbies={myLobbies}
+              onOpenLobby={(code) => { setActiveLobbyCode(code); setScreen("mp-lobby"); }}
+            />
+          ) : (
+            <SignInPrompt
+              onBack={() => setScreen("menu")}
+              onSignIn={() => signInWithPopup(auth, provider).catch(() => undefined)}
+              title="Multiplayer"
+              description="Sign in with Google to create or join multiplayer lobbies. Single-player works without sign in."
+            />
+          )
+        )}
         {screen === "mp-lobby" && (
-          <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"Nunito, sans-serif", color:C.text, maxWidth:520, margin:"0 auto" }}>
-            <div style={{ background:C.surf, borderBottom:`1px solid ${C.border}`, padding:"14px 16px", display:"flex", alignItems:"center", gap:14, justifyContent:"space-between" }}>
-              <button onClick={handleLeaveLobby} style={{ background:"none", border:"none", color:C.muted, cursor:"pointer", fontFamily:"Nunito", fontWeight:700, fontSize:14 }}>← Back</button>
-              <span style={{ fontFamily:"Fredoka One", fontSize:20, color:C.accent }}>🌐 Lobby</span>
-              <span style={{ fontSize:11, color:isSpectating?C.accent2:C.muted, textTransform:"uppercase", letterSpacing:1 }}>
-                {isSpectating ? "Spectating" : isMember ? "Player" : ""}
-              </span>
-              <span style={{ fontSize:12, color:C.muted }}>{activeLobbyCode || ""}</span>
-            </div>
+          user ? (
+            <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"Nunito, sans-serif", color:C.text, maxWidth:520, margin:"0 auto" }}>
+              <div style={{ background:C.surf, borderBottom:`1px solid ${C.border}`, padding:"14px 16px", display:"flex", alignItems:"center", gap:14, justifyContent:"space-between" }}>
+                <button onClick={handleLeaveLobby} style={{ background:"none", border:"none", color:C.muted, cursor:"pointer", fontFamily:"Nunito", fontWeight:700, fontSize:14 }}>← Back</button>
+                <span style={{ fontFamily:"Fredoka One", fontSize:20, color:C.accent }}>🌐 Lobby</span>
+                <span style={{ fontSize:11, color:isSpectating?C.accent2:C.muted, textTransform:"uppercase", letterSpacing:1 }}>
+                  {isSpectating ? "Spectating" : isMember ? "Player" : ""}
+                </span>
+                <span style={{ fontSize:12, color:C.muted }}>{activeLobbyCode || ""}</span>
+              </div>
 
             {!activeLobby && (
               <div style={{ padding:24, color:C.muted }}>Lobby not found.</div>
@@ -1179,6 +1211,14 @@ export default function App() {
               </>
             )}
           </div>
+          ) : (
+            <SignInPrompt
+              onBack={() => setScreen("menu")}
+              onSignIn={() => signInWithPopup(auth, provider).catch(() => undefined)}
+              title="Multiplayer Lobby"
+              description="Sign in to join this lobby and play."
+            />
+          )
         )}
       </div>
     </>
