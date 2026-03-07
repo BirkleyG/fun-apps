@@ -3,6 +3,6 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
-  base: "./",
+  base: "/fun-apps/emoji-battle/",
   server: { port: 5178 }
 });

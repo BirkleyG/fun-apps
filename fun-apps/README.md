@@ -7,6 +7,7 @@ This repo contains three Vite apps:
 - Grade Estimator (apps/grade-estimator)
 - Coin Atlas (apps/coin-atlas)
 - Bob's Books (apps/bobs-books)
+- Emoji Battle (apps/emoji-battle)
 
 ## Folder Structure
 
@@ -18,6 +19,7 @@ fun-apps/
     grade-estimator/
     coin-atlas/
     bobs-books/
+    emoji-battle/
   README.md
 ```
 
@@ -39,6 +41,7 @@ VITE_BIBLE_APP_URL=http://localhost:5174
 VITE_GRADE_ESTIMATOR_URL=http://localhost:5175
 VITE_COIN_ATLAS_URL=http://localhost:5176
 VITE_BOBS_BOOKS_URL=http://localhost:5177
+VITE_EMOJI_BATTLE_URL=http://localhost:5178
 ```
 
 ### Build
@@ -193,6 +196,41 @@ cd apps/bobs-books
 npm run build
 ```
 
+## Emoji Battle App
+
+### Firebase Setup
+
+Emoji Battle uses Firebase Authentication (Google) + Firestore and should use the same shared `fun-apps` Firebase project.
+
+Set environment variables:
+
+```
+# apps/emoji-battle/.env
+VITE_FIREBASE_API_KEY=...
+VITE_FIREBASE_AUTH_DOMAIN=...
+VITE_FIREBASE_PROJECT_ID=...
+VITE_FIREBASE_STORAGE_BUCKET=...
+VITE_FIREBASE_MESSAGING_SENDER_ID=...
+VITE_FIREBASE_APP_ID=...
+```
+
+An example file is provided at `apps/emoji-battle/.env.example`.
+
+### Run Locally
+
+```
+cd apps/emoji-battle
+npm install
+npm run dev
+```
+
+### Build
+
+```
+cd apps/emoji-battle
+npm run build
+```
+
 ## Firestore Security Rules (Example)
 
 Use per-user access rules similar to the following:
@@ -216,6 +254,9 @@ service cloud.firestore {
     match /sharedApps/{appId}/entries/{entryId} {
       allow read, write: if request.auth != null;
     }
+    match /emoji-battle-lobbies/{lobbyId} {
+      allow read, write: if request.auth != null;
+    }
   }
 }
 ```
@@ -230,6 +271,7 @@ service cloud.firestore {
   - Grade Estimator at `/fun-apps/grade-estimator/`
   - Coin Atlas at `/fun-apps/coin-atlas/`
   - Bob's Books at `/fun-apps/bobs-books/`
+  - Emoji Battle at `/fun-apps/emoji-battle/`
 - For GitHub Pages builds, set repository secrets for:
   - `VITE_FIREBASE_API_KEY`
   - `VITE_FIREBASE_AUTH_DOMAIN`
