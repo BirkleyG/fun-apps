@@ -1624,32 +1624,49 @@ export default function App() {
       setMpError("Lobby already has two players.");
       return;
     }
-    if (!data.guest) {
-      await updateDoc(lobbyRef, {
-        guest: { uid: user.uid, name },
-        guestDeck: deck,
-        status: "playing",
-        gameState: initGame(data.host?.name || "Player 1", name, data.hostDeck || DEFAULT_DECKS[0], deck),
-        updatedAt: serverTimestamp()
-      });
+    try {
+      if (!data.guest) {
+        await updateDoc(lobbyRef, {
+          guest: { uid: user.uid, name },
+          guestDeck: deck,
+          status: "playing",
+          gameState: initGame(data.host?.name || "Player 1", name, data.hostDeck || DEFAULT_DECKS[0], deck),
+          updatedAt: serverTimestamp()
+        });
+      }
+      setActiveLobbyCode(code);
+      setScreen("mp-lobby");
+    } catch (err) {
+      if (err?.code === "permission-denied") {
+        setMpError("Join blocked by Firestore rules. Check rules and try again.");
+      } else {
+        setMpError("Unable to join lobby. Try again.");
+      }
     }
-    setActiveLobbyCode(code);
-    setScreen("mp-lobby");
   };
 
   const handleClaimSeat = async () => {
+    setMpError("");
     if (!user || !activeLobby) return;
     if (activeLobby.host?.uid === user.uid) return;
     if (activeLobby.guest?.uid) return;
     const name = getPlayerName(user);
     const deck = getDeckById(decks, selectedDeckId);
-    await updateDoc(doc(db, LOBBY_COLLECTION, activeLobby.id), {
-      guest: { uid: user.uid, name },
-      guestDeck: deck,
-      status: "playing",
-      gameState: activeLobby.gameState || initGame(activeLobby.host?.name || "Player 1", name, activeLobby.hostDeck || DEFAULT_DECKS[0], deck),
-      updatedAt: serverTimestamp()
-    });
+    try {
+      await updateDoc(doc(db, LOBBY_COLLECTION, activeLobby.id), {
+        guest: { uid: user.uid, name },
+        guestDeck: deck,
+        status: "playing",
+        gameState: activeLobby.gameState || initGame(activeLobby.host?.name || "Player 1", name, activeLobby.hostDeck || DEFAULT_DECKS[0], deck),
+        updatedAt: serverTimestamp()
+      });
+    } catch (err) {
+      if (err?.code === "permission-denied") {
+        setMpError("Join blocked by Firestore rules. Check rules and try again.");
+      } else {
+        setMpError("Unable to join lobby. Try again.");
+      }
+    }
   };
 
   const handleCloseLobby = async () => {
@@ -1663,6 +1680,7 @@ export default function App() {
     setActiveLobbyCode(null);
     setSpectatorMode(false);
     setChatInput("");
+    setMpError("");
     setScreen("mp-hub");
   };
 
@@ -1852,6 +1870,9 @@ export default function App() {
                 </span>
                 <span style={{ fontSize:12, color:C.muted }}>{activeLobbyCode || ""}</span>
               </div>
+              {mpError && (
+                <div style={{ padding:"10px 16px", color:C.err, fontSize:12 }}>{mpError}</div>
+              )}
 
             {!activeLobby && (
               <div style={{ padding:24, color:C.muted }}>Lobby not found.</div>

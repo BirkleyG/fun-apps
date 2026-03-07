@@ -18,7 +18,7 @@ service cloud.firestore {
       }
 
       function isGuest() {
-        return signedIn() && resource.data.guest.uid == request.auth.uid;
+        return signedIn() && resource.data.guest != null && resource.data.guest.uid == request.auth.uid;
       }
 
       function isJoiningAsGuest() {
