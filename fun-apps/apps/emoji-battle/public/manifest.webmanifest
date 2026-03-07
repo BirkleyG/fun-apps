@@ -1,0 +1,17 @@
+{
+  "name": "Emoji Battle",
+  "short_name": "EmojiBattle",
+  "start_url": "/fun-apps/emoji-battle/",
+  "scope": "/fun-apps/emoji-battle/",
+  "display": "standalone",
+  "background_color": "#08080f",
+  "theme_color": "#08080f",
+  "icons": [
+    {
+      "src": "/fun-apps/emoji-battle/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

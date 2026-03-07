@@ -18,11 +18,17 @@ const getBobsBooksUrl = () => {
   return envUrl && envUrl.trim().length > 0 ? envUrl : "./bobs-books/";
 };
 
+const getEmojiBattleUrl = () => {
+  const envUrl = import.meta.env.VITE_EMOJI_BATTLE_URL as string | undefined;
+  return envUrl && envUrl.trim().length > 0 ? envUrl : "./emoji-battle/";
+};
+
 export default function App() {
   const bibleUrl = getBibleUrl();
   const gradeEstimatorUrl = getGradeEstimatorUrl();
   const coinAtlasUrl = getCoinAtlasUrl();
   const bobsBooksUrl = getBobsBooksUrl();
+  const emojiBattleUrl = getEmojiBattleUrl();
 
   return (
     <div className="page">
@@ -72,6 +78,15 @@ export default function App() {
           >
             <div className="tile__title">Bob's Books</div>
             <div className="tile__subtitle">Personal library tracker, sessions, and reading goals</div>
+          </button>
+          <button
+            className="tile"
+            onClick={() => {
+              window.location.href = emojiBattleUrl;
+            }}
+          >
+            <div className="tile__title">Emoji Battle</div>
+            <div className="tile__subtitle">Multiplayer emoji strategy battles</div>
           </button>
         </div>
       </section>
