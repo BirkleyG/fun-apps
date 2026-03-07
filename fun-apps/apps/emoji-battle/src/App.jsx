@@ -21,22 +21,21 @@ import { auth, db, provider } from "./firebase";
    EMOJI DEFINITIONS
 =========================================================== */
 const ED = {
-  grin:        { e:"😀", n:"Basic",      bp:0,  tags:["basic","person"],                 play:false, req:null, rt:null, rules:"Default emoji. Value 0.", onp:null },
-  skull:       { e:"💀", n:"Skull",      bp:-2, tags:["skull"],                          play:false, req:null, rt:null, rules:"Cannot be placed directly.", onp:null },
-  dagger:      { e:"🗡️", n:"Dagger",     bp:0,  tags:["weapon"],                         play:true,  req:null, rt:null, rules:"On Play: Transform one friendly emoji into 💀. Cannot target itself.", onp:"dagger" },
-  dead_face:   { e:"😵", n:"Dead Face",  bp:0,  tags:["person","dead"],                  play:true,  req:"replace_person", rt:"Req: Must replace a Person.", rules:"Becomes 💀 at the start of the next round.", onp:null },
-  bone:        { e:"🦴", n:"Bone",       bp:0,  tags:["bone"],                           play:true,  req:null, rt:null, rules:"Gain +1 each round for each 💀 or ☠️ on the board.", onp:null },
-  crossbones:  { e:"☠️", n:"Crossbones", bp:-4, tags:["crossbones"],                     play:true,  req:"replace_skull", rt:"Req: Must replace a 💀.", rules:"Deep corruption state.", onp:null },
-  plague:      { e:"☣️", n:"Plague",     bp:1,  tags:["plague"],                         play:true,  req:"adjacent_skull", rt:"Req: Must be placed next to a 💀.", rules:"On Play: Turn the emoji across from this into 😵.", onp:"plague" },
-  poison:      { e:"⚗️", n:"Poison",     bp:0,  tags:["poison"],                         play:true,  req:"across_any", rt:"Req: Must be played across from an emoji.", rules:"If the emoji across from this changes, it becomes 💀 instead. Then ⚗️ becomes 😀.", onp:null },
-  coffin:      { e:"⚰️", n:"Coffin",     bp:0,  tags:["coffin"],                         play:true,  req:"replace_skull_or_crossbones", rt:"Req: Must replace a 💀 or ☠️.", rules:"Scores +2 if it replaces 💀, +4 if it replaces ☠️.", onp:null },
-  crow:        { e:"🐦‍⬛", n:"Crow",      bp:1,  tags:["crow"],                           play:true,  req:null, rt:null, rules:"Gain +1 each round for each 💀 in the opponent's army.", onp:null },
-  lich:        { e:"👑", n:"Lich King",  bp:0,  tags:["lich"],                           play:true,  req:null, rt:null, rules:"On Play: All 💀 become +2 and all ☠️ become +4 for both players.", onp:"lich" },
-  mutation:    { e:"🧬", n:"Mutation",   bp:0,  tags:["mutation"],                       play:true,  req:null, rt:null, rules:"All 😵 become ☠️ instead of 💀.", onp:null },
-  candle:      { e:"🕯️", n:"Candle",     bp:1,  tags:["candle"],                         play:true,  req:null, rt:null, rules:"If a 💀 or ☠️ is created this round, gain +2.", onp:null },
-  dark_sigil:  { e:"🪬", n:"Dark Sigil", bp:5,  tags:["sigil"],                          play:true,  req:"opp_two_skulls", rt:"Req: Opponent has ≥2 💀.", rules:"Large anti-skull payoff.", onp:null },
-  graveyard:   { e:"🪦", n:"Graveyard",  bp:2,  tags:["graveyard"],                      play:true,  req:null, rt:null, rules:"All 💀 become ☠️ instead.", onp:"graveyard" },
-  pandemic:    { e:"☣️", n:"Pandemic",   bp:1,  tags:["plague","pandemic"],              play:true,  req:"adjacent_skull", rt:"Req: Must be placed next to a 💀.", rules:"On Play: Turn the emoji across from this into 😵.", onp:"plague" },
+  grin:        { e:"😀", n:"Basic",      bp:0,  tags:["basic","person"],                 play:false, rarity:null, req:null, rt:null, rules:"Default emoji. Value 0.", onp:null },
+  skull:       { e:"💀", n:"Skull",      bp:-2, tags:["skull"],                          play:false, rarity:null, req:null, rt:null, rules:"Cannot be placed directly.", onp:null },
+  dagger:      { e:"🗡️", n:"Dagger",     bp:0,  tags:["weapon"],                         play:true,  rarity:"common", req:null, rt:null, rules:"On Play: Transform one friendly emoji into 💀. Cannot target itself.", onp:"dagger" },
+  dead_face:   { e:"😵", n:"Dead Face",  bp:0,  tags:["person","dead"],                  play:true,  rarity:"common", req:"replace_person", rt:"Req: Must replace a Person.", rules:"Becomes 💀 at the start of the next round.", onp:null },
+  bone:        { e:"🦴", n:"Bone",       bp:0,  tags:["bone"],                           play:true,  rarity:"common", req:null, rt:null, rules:"Gain +1 each round for each 💀 or ☠️ on the board.", onp:null },
+  crossbones:  { e:"☠️", n:"Crossbones", bp:-4, tags:["crossbones"],                     play:true,  rarity:"rare",   req:"replace_skull", rt:"Req: Must replace a 💀.", rules:"Deep corruption state.", onp:null },
+  plague:      { e:"☣️", n:"Plague",     bp:1,  tags:["plague"],                         play:true,  rarity:"common", req:"adjacent_skull", rt:"Req: Must be placed next to a 💀.", rules:"On Play: Turn the emoji across from this into 😵.", onp:"plague" },
+  poison:      { e:"⚗️", n:"Poison",     bp:0,  tags:["poison"],                         play:true,  rarity:"common", req:"across_any", rt:"Req: Must be played across from an emoji.", rules:"If the emoji across from this changes, it becomes 💀 instead. Then ⚗️ becomes 😀.", onp:null },
+  coffin:      { e:"⚰️", n:"Coffin",     bp:0,  tags:["coffin"],                         play:true,  rarity:"rare",   req:"replace_skull_or_crossbones", rt:"Req: Must replace a 💀 or ☠️.", rules:"Scores +2 if it replaces 💀, +4 if it replaces ☠️.", onp:null },
+  crow:        { e:"🐦‍⬛", n:"Crow",      bp:1,  tags:["crow"],                           play:true,  rarity:"common", req:null, rt:null, rules:"Gain +1 each round for each 💀 in the opponent's army.", onp:null },
+  lich:        { e:"👑", n:"Lich King",  bp:0,  tags:["lich"],                           play:true,  rarity:"epic",   req:null, rt:null, rules:"On Play: All 💀 become +2 and all ☠️ become +4 for both players.", onp:"lich" },
+  mutation:    { e:"🧬", n:"Mutation",   bp:0,  tags:["mutation"],                       play:true,  rarity:"rare",   req:null, rt:null, rules:"All 😵 become ☠️ instead of 💀.", onp:null },
+  candle:      { e:"🕯️", n:"Candle",     bp:1,  tags:["candle"],                         play:true,  rarity:"common", req:null, rt:null, rules:"If a 💀 or ☠️ is created this round, gain +2.", onp:null },
+  dark_sigil:  { e:"🪬", n:"Dark Sigil", bp:5,  tags:["sigil"],                          play:true,  rarity:"rare",   req:"opp_two_skulls", rt:"Req: Opponent has ≥2 💀.", rules:"Large anti-skull payoff.", onp:null },
+  graveyard:   { e:"🪦", n:"Graveyard",  bp:2,  tags:["graveyard"],                      play:true,  rarity:"common", req:null, rt:null, rules:"All 💀 become ☠️ instead.", onp:"graveyard" },
 };
 
 const PIDS   = Object.entries(ED).filter(([,v])=>v.play).map(([k])=>k);
@@ -46,6 +45,24 @@ const ROUND_LIMIT = 5;
 const TURN_LIMIT = ROUND_LIMIT * 2;
 const LOBBY_COLLECTION = "emoji-battle-lobbies";
 const CHAT_LIMIT = 60;
+const DECK_SIZE = 13;
+const RARITY_ORDER = ["common","rare","epic"];
+const RARITY_LIMITS = {
+  common: { count:8, dup:3 },
+  rare: { count:4, dup:2 },
+  epic: { count:1, dup:1 }
+};
+const RARITY_COLORS = { common:"#94a3b8", rare:"#60a5fa", epic:"#f472b6" };
+const DEFAULT_DECK_CARDS = [
+  "dagger","dead_face","bone","plague","poison","crow","candle","graveyard",
+  "crossbones","coffin","mutation","dark_sigil",
+  "lich"
+];
+const DEFAULT_DECKS = [
+  { id:"deck1", name:"Starter", icon:"💀", cards:[...DEFAULT_DECK_CARDS] },
+  { id:"deck2", name:"Corruption", icon:"🪦", cards:[...DEFAULT_DECK_CARDS] },
+  { id:"deck3", name:"Necro", icon:"🗡️", cards:[...DEFAULT_DECK_CARDS] }
+];
 
 const makeLobbyCode = () => {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -60,6 +77,74 @@ const getPlayerName = (user) => {
   if (user.email) return user.email.split("@")[0];
   return "Player";
 };
+
+const shuffle = (arr) => {
+  const copy = [...arr];
+  for (let i=copy.length-1;i>0;i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+};
+
+const mkCard = (eid) => ({ eid, id:`${eid}-${Math.random().toString(36).slice(2,10)}` });
+
+const deckRarity = (eid) => ED[eid]?.rarity || "common";
+
+const countByRarity = (cards) => {
+  const counts = { common:0, rare:0, epic:0 };
+  cards.forEach((eid) => { counts[deckRarity(eid)] += 1; });
+  return counts;
+};
+
+const countCardCopies = (cards, eid) => cards.filter((c) => c === eid).length;
+
+const isDeckValid = (cards) => {
+  if (cards.length !== DECK_SIZE) return false;
+  const counts = countByRarity(cards);
+  if (!RARITY_ORDER.every((r) => counts[r] === RARITY_LIMITS[r].count)) return false;
+  const map = new Map();
+  cards.forEach((eid) => map.set(eid, (map.get(eid) || 0) + 1));
+  for (const [eid, count] of map.entries()) {
+    const rarity = deckRarity(eid);
+    if (count > RARITY_LIMITS[rarity].dup) return false;
+  }
+  return true;
+};
+
+const normalizeDeck = (deck) => {
+  if (!deck || !Array.isArray(deck.cards)) return null;
+  const trimmed = deck.cards.filter((eid) => ED[eid] && ED[eid].play);
+  if (!isDeckValid(trimmed)) return null;
+  return {
+    id: deck.id || `deck-${Math.random().toString(36).slice(2,6)}`,
+    name: deck.name || "Deck",
+    icon: deck.icon || "💀",
+    cards: trimmed
+  };
+};
+
+const loadDecks = () => {
+  if (typeof window === "undefined") return DEFAULT_DECKS;
+  try {
+    const raw = window.localStorage.getItem("emojiBattleDecks_v1");
+    if (!raw) return DEFAULT_DECKS;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length !== 3) return DEFAULT_DECKS;
+    const normalized = parsed.map(normalizeDeck);
+    if (normalized.some((d) => !d)) return DEFAULT_DECKS;
+    return normalized;
+  } catch {
+    return DEFAULT_DECKS;
+  }
+};
+
+const saveDecks = (decks) => {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem("emojiBattleDecks_v1", JSON.stringify(decks));
+};
+
+const getDeckById = (decks, id) => decks.find((d) => d.id === id) || decks[0];
 
 /* ===========================================================
    GAME LOGIC
@@ -109,6 +194,99 @@ function placeSlot(s, pid, si, eid, opts = {}) {
 
   return { prev, finalEid };
 }
+
+const initDeckState = (deck) => {
+  const order = shuffle(deck.cards.map(mkCard));
+  return {
+    order,
+    index: 3,
+    hand: [order[0] || null, order[1] || null, order[2] || null],
+    lockIndex: null,
+    under: [],
+    underIndex: null
+  };
+};
+
+const ensureDeckState = (s) => {
+  if (!s.decks || s.decks.length !== 2) {
+    const fallback = DEFAULT_DECKS[0];
+    s.decks = [fallback, fallback];
+  }
+  if (!s.deckOrders || !s.hands || !s.deckIndex) {
+    s.deckOrders = [];
+    s.deckIndex = [];
+    s.hands = [];
+    s.lockIndex = [];
+    s.under = [];
+    s.underIndex = [];
+    for (let p=0;p<2;p++) {
+      const ds = initDeckState(s.decks[p]);
+      s.deckOrders[p] = ds.order;
+      s.deckIndex[p] = ds.index;
+      s.hands[p] = ds.hand;
+      s.lockIndex[p] = ds.lockIndex;
+      s.under[p] = ds.under;
+      s.underIndex[p] = ds.underIndex;
+    }
+  }
+  if (!s.lockIndex) s.lockIndex = [null, null];
+  if (!s.under) s.under = [[], []];
+  if (!s.underIndex) s.underIndex = [null, null];
+};
+
+const drawCard = (s, pid) => {
+  let order = s.deckOrders[pid];
+  let idx = s.deckIndex[pid] || 0;
+  if (!order || order.length === 0) return null;
+  if (idx >= order.length) {
+    order = shuffle(s.decks[pid].cards.map(mkCard));
+    idx = 0;
+    s.deckOrders[pid] = order;
+  }
+  const card = order[idx] || null;
+  s.deckIndex[pid] = idx + 1;
+  return card;
+};
+
+const advanceConveyorForPlayer = (s, pid) => {
+  const hand = s.hands[pid];
+  const lockIndex = s.lockIndex[pid];
+  let under = s.under[pid] || [];
+  let underIndex = s.underIndex[pid];
+  const next = [null, null, null];
+
+  if (lockIndex !== null) next[lockIndex] = hand[lockIndex];
+
+  for (let src=0;src<3;src++) {
+    if (src === lockIndex) continue;
+    const card = hand[src];
+    if (!card) continue;
+    const dst = src - 1;
+    if (dst < 0) continue;
+    if (lockIndex !== null && dst === lockIndex) {
+      if (lockIndex !== 0) under.push(card);
+      continue;
+    }
+    if (next[dst] === null) next[dst] = card;
+  }
+
+  if (underIndex !== null && under.length > 0) {
+    if (underIndex >= 0 && underIndex <= 2 && next[underIndex] === null) {
+      next[underIndex] = under.shift();
+    }
+    if (under.length === 0 && lockIndex === null) underIndex = null;
+  }
+
+  const newCard = drawCard(s, pid);
+  if (newCard) {
+    if (lockIndex === 2) under.push(newCard);
+    else if (next[2] === null) next[2] = newCard;
+  }
+
+  s.hands[pid] = next;
+  s.under[pid] = under;
+  s.underIndex[pid] = underIndex;
+};
 
 function applyRoundEnd(s) {
   const skullStates = countSkullStatesAll(s.as);
@@ -160,7 +338,8 @@ function applyRoundStartTransforms(s) {
   }
 }
 
-function advanceTurn(s) {
+function advanceTurn(s, pid) {
+  advanceConveyorForPlayer(s, pid);
   s.ct += 1;
   if (s.ct % 2 === 0) {
     applyRoundEnd(s);
@@ -195,15 +374,23 @@ function checkSlot(as, pid, eid, si) {
   return null;
 }
 
-function getOffers(gs) {
+function getHandOffers(gs) {
   const pid=getAP(gs), {as,ct}=gs;
-  return PIDS.map(id=>{
+  const hand = gs.hands?.[pid] || [null,null,null];
+  return hand.map((card)=>{
+    if (!card) return { ok:false, reason:"Empty slot", eid:null, validSlots:[] };
+    const id = card.eid;
     const ge=checkGlobal(as,pid,id);
-    if (ge) return {id,ok:false,reason:ge};
-    for (let s=0;s<3;s++) { if (!canRepl(as[pid][s],ct)) continue; if (!checkSlot(as,pid,id,s)) return {id,ok:true,reason:null}; }
-    if ([0,1,2].every(s=>!canRepl(as[pid][s],ct))) return {id,ok:false,reason:"All your slots are locked."};
-    for (let s=0;s<3;s++) { if (!canRepl(as[pid][s],ct)) continue; const se=checkSlot(as,pid,id,s); if (se) return {id,ok:false,reason:se}; }
-    return {id,ok:false,reason:"No valid slot."};
+    if (ge) return {ok:false,reason:ge,eid:id,validSlots:[]};
+    const validSlots=[];
+    for (let s=0;s<3;s++) {
+      if (!canRepl(as[pid][s],ct)) continue;
+      if (!checkSlot(as,pid,id,s)) validSlots.push(s);
+    }
+    if (validSlots.length>0) return {ok:true,reason:null,eid:id,validSlots};
+    if ([0,1,2].every(s=>!canRepl(as[pid][s],ct))) return {ok:false,reason:"All your slots are locked.",eid:id,validSlots:[]};
+    for (let s=0;s<3;s++) { if (!canRepl(as[pid][s],ct)) continue; const se=checkSlot(as,pid,id,s); if (se) return {ok:false,reason:se,eid:id,validSlots:[]}; }
+    return {ok:false,reason:"No valid slot.",eid:id,validSlots:[]};
   });
 }
 
@@ -228,11 +415,16 @@ function calcScores(as, lichActive=false) {
   });
 }
 
-function applyMove(gs, eid, si) {
-  const s=JSON.parse(JSON.stringify(gs)); const pid=getAP(s); const def=ED[eid]; const evts=[];
+function applyMove(gs, handIndex, si) {
+  const s=JSON.parse(JSON.stringify(gs)); const pid=getAP(s); const evts=[];
   if (!s.roundFlags) s.roundFlags = { skullCreated:false };
   if (typeof s.lichActive !== "boolean") s.lichActive = false;
+  ensureDeckState(s);
   for (let p=0;p<2;p++) for (let sl=0;sl<3;sl++) { const slot=s.as[p][sl]; if (slot.locked&&slot.lu!==null&&s.ct>slot.lu) { slot.locked=false; slot.lu=null; } }
+
+  const card = s.hands[pid][handIndex];
+  if (!card) return s;
+  const eid = card.eid;
 
   let coffinVal = null;
   if (eid==="coffin") {
@@ -274,8 +466,14 @@ function applyMove(gs, eid, si) {
     if (eid==="coffin" && coffinVal!==null) evts.push(`⚰️ Coffin converted ${placed.prev.eid==="skull"?"💀":"☠️"} into +${coffinVal}.`);
   }
 
+  s.hands[pid][handIndex] = null;
+  if (s.lockIndex[pid] === handIndex) {
+    s.lockIndex[pid] = null;
+    s.underIndex[pid] = s.under[pid]?.length && handIndex > 0 ? handIndex - 1 : null;
+  }
+
   evts.forEach(e=>s.log.push(e));
-  if (s.phase!=="ec") advanceTurn(s);
+  if (s.phase!=="ec") advanceTurn(s, pid);
   return s;
 }
 
@@ -284,6 +482,7 @@ function applySick(gs, tsi) {
   if (!s.pend) return s;
   if (!s.roundFlags) s.roundFlags = { skullCreated:false };
   if (typeof s.lichActive !== "boolean") s.lichActive = false;
+  ensureDeckState(s);
   const {pid,si, type}=s.pend;
   if (type==="dagger") {
     if (tsi!==si) {
@@ -294,12 +493,66 @@ function applySick(gs, tsi) {
     }
   }
   s.pend=null;
-  advanceTurn(s);
+  advanceTurn(s, pid);
   return s;
 }
 
-function initGame(p1,p2) {
-  return { players:[{name:p1||"Player 1"},{name:p2||"Player 2"}], as:[[mkSlot(),mkSlot(),mkSlot()],[mkSlot(),mkSlot(),mkSlot()]], ct:0, phase:"sel", hist:[], log:[], sc:null, pend:null, roundFlags:{ skullCreated:false }, lichActive:false };
+function applyPass(gs) {
+  const s=JSON.parse(JSON.stringify(gs)); const pid=getAP(s);
+  if (!s.roundFlags) s.roundFlags = { skullCreated:false };
+  if (typeof s.lichActive !== "boolean") s.lichActive = false;
+  ensureDeckState(s);
+  s.log.push(`${s.players[pid].name} passed and let the conveyor advance.`);
+  advanceTurn(s, pid);
+  return s;
+}
+
+function applyLock(gs, handIndex) {
+  const s=JSON.parse(JSON.stringify(gs)); const pid=getAP(s);
+  ensureDeckState(s);
+  const card = s.hands[pid][handIndex];
+  if (!card) return s;
+  if (s.lockIndex[pid] === handIndex) {
+    s.lockIndex[pid] = null;
+    s.underIndex[pid] = s.under[pid]?.length && handIndex > 0 ? handIndex - 1 : null;
+    s.log.push(`${s.players[pid].name} released a lock.`);
+  } else {
+    s.lockIndex[pid] = handIndex;
+    s.underIndex[pid] = handIndex > 0 ? handIndex - 1 : null;
+    s.under[pid] = [];
+    s.log.push(`${s.players[pid].name} locked a card in place.`);
+  }
+  return s;
+}
+
+function initGame(p1,p2, deck1, deck2) {
+  const d1 = deck1 || DEFAULT_DECKS[0];
+  const d2 = deck2 || DEFAULT_DECKS[0];
+  const decks = [
+    { id:d1.id, name:d1.name, icon:d1.icon, cards:[...d1.cards] },
+    { id:d2.id, name:d2.name, icon:d2.icon, cards:[...d2.cards] }
+  ];
+  const ds1 = initDeckState(decks[0]);
+  const ds2 = initDeckState(decks[1]);
+  return {
+    players:[{name:p1||"Player 1"},{name:p2||"Player 2"}],
+    as:[[mkSlot(),mkSlot(),mkSlot()],[mkSlot(),mkSlot(),mkSlot()]],
+    ct:0,
+    phase:"sel",
+    hist:[],
+    log:[],
+    sc:null,
+    pend:null,
+    roundFlags:{ skullCreated:false },
+    lichActive:false,
+    decks,
+    deckOrders:[ds1.order, ds2.order],
+    deckIndex:[ds1.index, ds2.index],
+    hands:[ds1.hand, ds2.hand],
+    lockIndex:[ds1.lockIndex, ds2.lockIndex],
+    under:[ds1.under, ds2.under],
+    underIndex:[ds1.underIndex, ds2.underIndex]
+  };
 }
 
 /* ===========================================================
@@ -341,6 +594,32 @@ function SlotCard({ slot, big, selected, dim, highlight, onClick, label, showLoc
   );
 }
 
+function HandCard({ card, selected, locked, disabled, onPick, onLock, onInfo }) {
+  if (!card) {
+    return (
+      <div style={{ background:"#0f1022", border:`1px dashed ${C.border}`, borderRadius:12, padding:"12px 10px", textAlign:"center", minWidth:80, opacity:0.6 }}>
+        <div style={{ fontSize:18, color:C.muted }}>Empty</div>
+        <div style={{ fontSize:10, color:C.muted, marginTop:4 }}>Slot</div>
+      </div>
+    );
+  }
+  const def = ED[card.eid];
+  const rarity = def.rarity || "common";
+  const border = selected ? `2px solid ${C.accent}` : `1px solid ${C.border}`;
+  return (
+    <div onClick={!disabled ? onPick : undefined} style={{ position:"relative", background:C.surf, border, borderRadius:12, padding:"10px 8px", textAlign:"center", minWidth:80, cursor:disabled?"not-allowed":"pointer", opacity:disabled?0.5:1, boxShadow:selected?`0 0 10px ${C.accent}55`:"none", transition:"all 0.12s" }}>
+      <div style={{ position:"absolute", top:6, right:6, display:"flex", gap:6 }}>
+        <button onClick={(e)=>{ e.stopPropagation(); onInfo(); }} style={{ width:18, height:18, borderRadius:9, background:C.hi, border:`1px solid ${C.border}`, color:C.muted, fontSize:9, fontWeight:700, cursor:"pointer" }}>i</button>
+        <button onClick={(e)=>{ e.stopPropagation(); onLock(); }} style={{ width:18, height:18, borderRadius:9, background:locked?C.lock:C.hi, border:`1px solid ${C.border}`, color:locked?"#120f24":C.muted, fontSize:9, fontWeight:700, cursor:"pointer" }}>{locked ? "🔒" : "🔓"}</button>
+      </div>
+      <div style={{ fontSize:26, marginTop:6 }}>{def.e}</div>
+      <div style={{ fontSize:10, color:C.text, fontWeight:700, marginTop:4 }}>{def.n}</div>
+      <div style={{ fontSize:10, color:RARITY_COLORS[rarity] || C.muted, fontWeight:800, textTransform:"uppercase", letterSpacing:1, marginTop:2 }}>{rarity}</div>
+      {locked && <div style={{ position:"absolute", bottom:6, right:6, fontSize:11, background:C.lock, borderRadius:10, padding:"0 6px", color:"#120f24", fontWeight:800 }}>LOCK</div>}
+    </div>
+  );
+}
+
 function EmojiOfferCard({ eid, offer, selected, onClick, onInfo }) {
   const def=ED[eid];
   const dim = !offer.ok;
@@ -367,6 +646,7 @@ function TooltipModal({ eid, onClose }) {
         <div style={{ fontSize:52, textAlign:"center" }}>{def.e}</div>
         <div style={{ fontSize:22, fontWeight:800, color:C.text, textAlign:"center", fontFamily:"Fredoka One" }}>{def.n}</div>
         <div style={{ fontSize:22, color:C.accent, fontWeight:800, textAlign:"center", margin:"4px 0 12px" }}>{def.bp} point{def.bp!==1?"s":""}</div>
+        {def.rarity && <div style={{ fontSize:11, color:RARITY_COLORS[def.rarity] || C.muted, fontWeight:800, textAlign:"center", textTransform:"uppercase", letterSpacing:1, marginBottom:8 }}>{def.rarity} rarity</div>}
         <div style={{ fontSize:11, color:C.muted, marginBottom:6 }}>TAGS: {def.tags.join(" • ")}</div>
         {def.rt && <div style={{ background:"#ff700320", border:`1px solid ${C.accent2}40`, borderRadius:8, padding:"8px 10px", fontSize:13, color:C.accent2, marginBottom:10, fontWeight:600 }}>{def.rt}</div>}
         <div style={{ fontSize:14, color:C.text, lineHeight:1.6 }}>{def.rules}</div>
@@ -379,7 +659,7 @@ function TooltipModal({ eid, onClose }) {
 /* ===========================================================
    MENU SCREEN
 =========================================================== */
-function MenuScreen({ onPlay, onRulebook, onSettings, onMultiplayer }) {
+function MenuScreen({ onPlay, onRulebook, onSettings, onMultiplayer, onDecks }) {
   return (
     <div style={{ minHeight:"100vh", background:C.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"Nunito, sans-serif" }}>
       <div style={{ marginBottom:8, fontSize:72 }}>⚔️</div>
@@ -388,6 +668,7 @@ function MenuScreen({ onPlay, onRulebook, onSettings, onMultiplayer }) {
       <div style={{ display:"flex", flexDirection:"column", gap:12, width:"100%", maxWidth:300 }}>
         <Btn onClick={onPlay} style={{ width:"100%", fontSize:18, padding:"16px 0" }}>⚔️ New Match</Btn>
         <Btn onClick={onMultiplayer} style={{ width:"100%", fontSize:18, padding:"16px 0" }} color={C.accent2}>🌐 Multiplayer</Btn>
+        <Btn onClick={onDecks} style={{ width:"100%", fontSize:18, padding:"16px 0" }} color={C.ok}>🧰 Decks</Btn>
         <Btn onClick={onRulebook} outline style={{ width:"100%" }}>📖 Rulebook & Emoji Index</Btn>
         <Btn onClick={onSettings} outline color={C.muted} style={{ width:"100%" }}>⚙️ Settings</Btn>
       </div>
@@ -403,11 +684,21 @@ function MenuScreen({ onPlay, onRulebook, onSettings, onMultiplayer }) {
 /* ===========================================================
    SETUP SCREEN
 =========================================================== */
-function SetupScreen({ onBack, onStart }) {
+function SetupScreen({ onBack, onStart, decks, defaultDeckId }) {
   const [p1,setP1]=useState("Player 1");
   const [p2,setP2]=useState("Player 2");
+  const fallbackDeck = decks?.[0]?.id || DEFAULT_DECKS[0].id;
+  const [p1DeckId,setP1DeckId]=useState(defaultDeckId || fallbackDeck);
+  const [p2DeckId,setP2DeckId]=useState(defaultDeckId || fallbackDeck);
   const inp = (val,set) => (
     <input value={val} onChange={e=>set(e.target.value)} maxLength={16} style={{ background:C.hi, border:`1px solid ${C.border}`, borderRadius:10, padding:"10px 14px", color:C.text, fontSize:16, fontFamily:"Nunito", fontWeight:700, width:"100%", outline:"none", boxSizing:"border-box" }} />
+  );
+  const deckSelect = (val,set) => (
+    <select value={val} onChange={e=>set(e.target.value)} style={{ background:C.hi, border:`1px solid ${C.border}`, borderRadius:10, padding:"10px 14px", color:C.text, fontSize:14, fontFamily:"Nunito", fontWeight:700, width:"100%", outline:"none", boxSizing:"border-box" }}>
+      {(decks||DEFAULT_DECKS).map((d)=>(
+        <option key={d.id} value={d.id}>{d.icon} {d.name}</option>
+      ))}
+    </select>
   );
   return (
     <div style={{ minHeight:"100vh", background:C.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"Nunito, sans-serif" }}>
@@ -415,20 +706,28 @@ function SetupScreen({ onBack, onStart }) {
         <button onClick={onBack} style={{ background:"none", border:"none", color:C.muted, fontSize:14, cursor:"pointer", marginBottom:20, fontFamily:"Nunito", fontWeight:700 }}>← Back</button>
         <h2 style={{ fontFamily:"Fredoka One", fontSize:34, color:C.accent, margin:"0 0 6px" }}>New Match</h2>
         <p style={{ color:C.muted, fontSize:13, margin:"0 0 30px" }}>Pass-and-play — share one device</p>
-        <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
-          <div>
-            <div style={{ fontSize:12, color:C.muted, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>Player 1 Name</div>
-            {inp(p1,setP1)}
-          </div>
-          <div>
-            <div style={{ fontSize:12, color:C.muted, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>Player 2 Name</div>
-            {inp(p2,setP2)}
-          </div>
-          <div style={{ background:C.hi, border:`1px solid ${C.border}`, borderRadius:12, padding:14, fontSize:13, color:C.muted, marginTop:4 }}>
-            <strong style={{ color:C.text }}>Rules at a glance:</strong><br/>
+          <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
+            <div>
+              <div style={{ fontSize:12, color:C.muted, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>Player 1 Name</div>
+              {inp(p1,setP1)}
+            </div>
+            <div>
+              <div style={{ fontSize:12, color:C.muted, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>Player 2 Name</div>
+              {inp(p2,setP2)}
+            </div>
+            <div>
+              <div style={{ fontSize:12, color:C.muted, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>Player 1 Deck</div>
+              {deckSelect(p1DeckId,setP1DeckId)}
+            </div>
+            <div>
+              <div style={{ fontSize:12, color:C.muted, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>Player 2 Deck</div>
+              {deckSelect(p2DeckId,setP2DeckId)}
+            </div>
+            <div style={{ background:C.hi, border:`1px solid ${C.border}`, borderRadius:12, padding:14, fontSize:13, color:C.muted, marginTop:4 }}>
+              <strong style={{ color:C.text }}>Rules at a glance:</strong><br/>
             Each player manages 3 emoji slots over 5 rounds. Replace one slot per turn. Highest total score wins!
-          </div>
-          <Btn onClick={()=>onStart(p1||"Player 1",p2||"Player 2")} style={{ width:"100%", fontSize:17, padding:"14px 0", marginTop:6 }}>⚔️ Start Match!</Btn>
+            </div>
+          <Btn onClick={()=>onStart(p1||"Player 1",p2||"Player 2",p1DeckId,p2DeckId)} style={{ width:"100%", fontSize:17, padding:"14px 0", marginTop:6 }}>⚔️ Start Match!</Btn>
         </div>
       </div>
     </div>
@@ -482,8 +781,8 @@ function SickModal({ gs, onChoose }) {
 /* ===========================================================
    GAME SCREEN
 =========================================================== */
-function GameScreen({ gs, onMove, onSick, onEndGame, readOnly, waitingFor }) {
-  const [selEmoji,setSelEmoji]=useState(null);
+function GameScreen({ gs, onMove, onSick, onEndGame, onPass, onLock, readOnly, waitingFor }) {
+  const [selHand,setSelHand]=useState(null);
   const [selSlot,setSelSlot]=useState(null);
   const [tooltip,setTooltip]=useState(null);
   const [errMsg,setErrMsg]=useState(null);
@@ -491,28 +790,44 @@ function GameScreen({ gs, onMove, onSick, onEndGame, readOnly, waitingFor }) {
   const pid=getAP(gs); const round=getRound(gs);
   const pname=gs.players[pid].name; const oppid=1-pid;
   const oppname=gs.players[oppid].name;
-  const offers=getOffers(gs);
+  const handOffers=getHandOffers(gs);
+  const hand = gs.hands?.[pid] || [null,null,null];
+  const selectedCard = selHand!==null ? hand[selHand] : null;
+  const deckRemaining = gs.deckOrders?.[pid] ? Math.max(0, gs.deckOrders[pid].length - (gs.deckIndex?.[pid] || 0)) : 0;
 
-  function pickEmoji(eid) {
+  useEffect(() => {
+    setSelHand(null);
+    setSelSlot(null);
+    setErrMsg(null);
+  }, [gs.ct]);
+
+  function pickHand(hi) {
     if (readOnly) return;
-    setSelEmoji(eid); setSelSlot(null); setErrMsg(null);
+    const offer = handOffers[hi];
+    if (!offer?.ok) { setErrMsg(offer?.reason || "Card cannot be played."); return; }
+    setSelHand(hi); setSelSlot(null); setErrMsg(null);
   }
   function pickSlot(si) {
     if (readOnly) return;
-    if (!selEmoji) { setErrMsg("Pick an emoji first!"); return; }
-    const err=slotErr(gs,selEmoji,si);
+    if (selHand===null || !selectedCard) { setErrMsg("Pick a card first!"); return; }
+    const err=slotErr(gs,selectedCard.eid,si);
     if (err) { setErrMsg(err); return; }
     setSelSlot(si); setErrMsg(null);
   }
   function confirmPlay() {
     if (readOnly) return;
-    if (selEmoji===null||selSlot===null) return;
-    onMove(selEmoji,selSlot);
-    setSelEmoji(null); setSelSlot(null); setErrMsg(null);
+    if (selHand===null||selSlot===null) return;
+    onMove(selHand,selSlot);
+    setSelHand(null); setSelSlot(null); setErrMsg(null);
   }
-  function cancel() { setSelEmoji(null); setSelSlot(null); setErrMsg(null); }
+  function doPass() {
+    if (readOnly || gs.phase === "ec") return;
+    onPass();
+    setSelHand(null); setSelSlot(null); setErrMsg(null);
+  }
+  function cancel() { setSelHand(null); setSelSlot(null); setErrMsg(null); }
 
-  const showConfirm = selEmoji!==null && selSlot!==null;
+  const showConfirm = selHand!==null && selSlot!==null;
   const recentLog = gs.log.slice(-4).reverse();
   const turnLabel = readOnly && waitingFor ? `Waiting for ${waitingFor}` : `${pname}'s Turn`;
 
@@ -549,8 +864,8 @@ function GameScreen({ gs, onMove, onSick, onEndGame, readOnly, waitingFor }) {
       <div style={{ padding:"8px 16px 12px", borderBottom:`1px solid ${C.border}` }}>
         <div style={{ display:"flex", gap:8, justifyContent:"center", marginBottom:8 }}>
           {gs.as[pid].map((slot,i)=>{
-            const selectable = selEmoji!==null && canRepl(slot,gs.ct);
-            const err = selEmoji ? slotErr(gs,selEmoji,i) : null;
+            const selectable = selectedCard!==null && canRepl(slot,gs.ct);
+            const err = selectedCard ? slotErr(gs,selectedCard.eid,i) : null;
             return (
             <SlotCard key={i} slot={slot} big selected={selSlot===i} highlight={selectable&&!err} label={LSHORT[i]} showLock onClick={!readOnly ? ()=>pickSlot(i) : undefined} />
           );
@@ -562,19 +877,19 @@ function GameScreen({ gs, onMove, onSick, onEndGame, readOnly, waitingFor }) {
       {/* SELECTION STATUS / CONFIRM BAR */}
       {showConfirm ? (
         <div style={{ margin:"10px 16px", background:"#1a1a10", border:`1px solid ${C.accent}`, borderRadius:12, padding:"12px 16px", display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
-          <span style={{ fontSize:22 }}>{ED[selEmoji].e}</span>
-          <span style={{ flex:1, fontSize:13, color:C.text, fontWeight:600 }}>Play <strong>{ED[selEmoji].n}</strong> into <strong>{LANES[selSlot]}</strong> slot</span>
+          <span style={{ fontSize:22 }}>{selectedCard ? ED[selectedCard.eid].e : ""}</span>
+          <span style={{ flex:1, fontSize:13, color:C.text, fontWeight:600 }}>Play <strong>{selectedCard ? ED[selectedCard.eid].n : ""}</strong> into <strong>{LANES[selSlot]}</strong> slot</span>
           <Btn onClick={confirmPlay} style={{ padding:"8px 16px" }} sm>✓ Confirm</Btn>
           <Btn onClick={cancel} outline color={C.muted} sm>✖</Btn>
         </div>
       ) : (
         <div style={{ margin:"10px 16px 4px", minHeight:44, display:"flex", alignItems:"center" }}>
-          {selEmoji!==null ? (
+          {selectedCard!==null ? (
             <div style={{ fontSize:13, color:C.accent, fontWeight:700 }}>
-              {ED[selEmoji].e} <strong>{ED[selEmoji].n}</strong> selected — tap a slot above
+              {selectedCard ? ED[selectedCard.eid].e : ""} <strong>{selectedCard ? ED[selectedCard.eid].n : ""}</strong> selected — tap a slot above
             </div>
           ) : (
-            <div style={{ fontSize:13, color:C.muted }}>Choose an emoji to play ↓</div>
+            <div style={{ fontSize:13, color:C.muted }}>Choose a card to play ↓</div>
           )}
           {errMsg && <div style={{ marginLeft:"auto", fontSize:12, color:C.err, fontWeight:700, maxWidth:180, textAlign:"right" }}>{errMsg}</div>}
         </div>
@@ -586,12 +901,25 @@ function GameScreen({ gs, onMove, onSick, onEndGame, readOnly, waitingFor }) {
         </div>
       )}
 
-      {/* OFFER TRAY */}
+      {/* HAND CONVEYOR */}
       <div style={{ padding:"4px 16px 12px" }}>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:7 }}>
-          {offers.map(of=>(
-            <EmojiOfferCard key={of.id} eid={of.id} offer={of} selected={selEmoji===of.id} onClick={!readOnly ? ()=>pickEmoji(of.id) : undefined} onInfo={()=>setTooltip(of.id)} />
+        <div style={{ display:"flex", gap:10, justifyContent:"center", flexWrap:"wrap" }}>
+          {hand.map((card,i)=>(
+            <HandCard
+              key={i}
+              card={card}
+              selected={selHand===i}
+              locked={gs.lockIndex?.[pid]===i}
+              disabled={!handOffers[i]?.ok}
+              onPick={()=>pickHand(i)}
+              onLock={()=>{ if (!readOnly) onLock(i); }}
+              onInfo={()=>{ if (card) setTooltip(card.eid); }}
+            />
           ))}
+        </div>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:10 }}>
+          <div style={{ fontSize:11, color:C.muted }}>Deck {gs.decks?.[pid]?.name || "Deck"} · {deckRemaining} left</div>
+          <Btn onClick={doPass} outline color={C.muted} sm disabled={readOnly || gs.phase === "ec"}>Pass Turn</Btn>
         </div>
       </div>
 
@@ -736,9 +1064,12 @@ function RulebookScreen({ onBack }) {
         {tab==="rules" && (
           <div>
             {rule("Match Setup","Two players. Each starts with 😀 😀 😀 (three Basic emojis). A match lasts 5 rounds.")}
+            {rule("Decks","Each player brings a 13-card deck: 8 Commons, 4 Rares, 1 Epic. Commons allow up to 3 copies, Rares up to 2, Epic must be unique.")}
             {rule("Turn Order","Each round: Player 1 acts, then Player 2. Each player takes 5 total turns.")}
-            {rule("On Your Turn","1) Choose an emoji from the offer tray. 2) Choose which of your 3 slots to replace. 3) Confirm. Any on-play effects resolve immediately.")}
+            {rule("On Your Turn","1) Choose a card from your hand. 2) Choose which of your 3 slots to replace. 3) Confirm. Any on-play effects resolve immediately.")}
             {rule("The Board","Each player has 3 slots: Left, Middle, Right. A slot always contains exactly one emoji. The Left slot faces the opponent's Left slot (and so on for Mid, Right).")}
+            {rule("Conveyor Hand","You have 3 hand slots that shift left at end of your turn. A new card enters on the right. Played cards leave blanks until they cycle off. You may lock one card to hold it while the conveyor moves underneath.")}
+            {rule("Passing","You may pass to advance your conveyor without playing a card.")}
             {rule("Round Effects","😵 Dead Face transforms at the start of the next round. 🦴 Bone, 🐦‍⬛ Crow, and 🕯️ Candle add bonuses at round end.")}
             {rule("Scoring","Final score = base points + bonuses gained during rounds. 👑 Lich King flips 💀 to +2 and ☠️ to +4.")}
             {rule("Win Condition","Higher total score wins. Equal score = Draw.")}
@@ -751,6 +1082,8 @@ function RulebookScreen({ onBack }) {
             {rule("Skull States","💀 Skull (-2) cannot be placed directly. ☠️ Crossbones (-4) must replace a 💀.")}
             {rule("Adjacent","Left or right neighbor slot in your army.")}
             {rule("Across","Same lane on the opposing side. Your Left faces opponent's Left, etc.")}
+            {rule("Rarity","Common, Rare, Epic. Decks must be 8 Commons, 4 Rares, 1 Epic with duplicate limits by rarity.")}
+            {rule("Lock","You may lock one hand slot to hold a card while the conveyor shifts underneath it.")}
           </div>
         )}
         {tab==="emojis" && (
@@ -763,7 +1096,11 @@ function RulebookScreen({ onBack }) {
                     <span style={{fontSize:26}}>{def.e}</span>
                     <div>
                       <div style={{fontSize:13,fontWeight:800,color:C.text}}>{def.n}</div>
-                      <div style={{fontSize:12,color:C.accent,fontWeight:700}}>{def.bp} pt{def.bp!==1?"s":""} {!def.play&&<span style={{color:C.muted,fontSize:10}}>{def.tags.includes("basic")?"(starter)":"(generated)"}</span>}</div>
+                      <div style={{fontSize:12,color:C.accent,fontWeight:700}}>
+                        {def.bp} pt{def.bp!==1?"s":""}
+                        {def.play && def.rarity && <span style={{color:RARITY_COLORS[def.rarity] || C.muted, fontSize:10, marginLeft:6, textTransform:"uppercase"}}>{def.rarity}</span>}
+                        {!def.play&&<span style={{color:C.muted,fontSize:10, marginLeft:6}}>{def.tags.includes("basic")?"(starter)":"(generated)"}</span>}
+                      </div>
                     </div>
                   </div>
                   <div style={{fontSize:11,color:C.muted,lineHeight:1.4}}>{def.rt||def.rules.slice(0,60)}{def.rules.length>60?"…":""}</div>
@@ -836,10 +1173,177 @@ function SignInPrompt({ onBack, onSignIn, title, description }) {
   );
 }
 
+/* ===========================================================
+   DECK SCREENS
+=========================================================== */
+function DecksScreen({ decks, onBack, onEdit }) {
+  return (
+    <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"Nunito, sans-serif", color:C.text, maxWidth:520, margin:"0 auto" }}>
+      <div style={{ background:C.surf, borderBottom:`1px solid ${C.border}`, padding:"14px 16px", display:"flex", alignItems:"center", gap:14 }}>
+        <button onClick={onBack} style={{ background:"none", border:"none", color:C.muted, cursor:"pointer", fontFamily:"Nunito", fontWeight:700, fontSize:14 }}>← Back</button>
+        <span style={{ fontFamily:"Fredoka One", fontSize:22, color:C.accent }}>🧰 Decks</span>
+      </div>
+      <div style={{ padding:20, display:"flex", flexDirection:"column", gap:14 }}>
+        <div style={{ ...card() }}>
+          <div style={{ fontWeight:800, fontSize:14, marginBottom:6 }}>Deck Rules</div>
+          <div style={{ fontSize:12, color:C.muted, lineHeight:1.6 }}>
+            13 cards total: 8 Commons, 4 Rares, 1 Epic. Commons allow up to 3 copies, Rares up to 2, Epic must be unique.
+          </div>
+        </div>
+        {decks.map((deck) => {
+          const counts = countByRarity(deck.cards);
+          return (
+            <div key={deck.id} style={{ ...card(), display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
+              <div>
+                <div style={{ fontWeight:800, fontSize:16 }}>{deck.icon} {deck.name}</div>
+                <div style={{ fontSize:12, color:C.muted, marginTop:4 }}>
+                  {counts.common} Common · {counts.rare} Rare · {counts.epic} Epic
+                </div>
+              </div>
+              <Btn onClick={() => onEdit(deck.id)} sm>Edit</Btn>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function DeckEditorScreen({ deck, onBack, onSave }) {
+  const [name, setName] = useState(deck.name);
+  const [icon, setIcon] = useState(deck.icon);
+  const [cards, setCards] = useState([...deck.cards]);
+
+  useEffect(() => {
+    setName(deck.name);
+    setIcon(deck.icon);
+    setCards([...deck.cards]);
+  }, [deck.id]);
+
+  const counts = countByRarity(cards);
+  const valid = isDeckValid(cards);
+
+  const addCard = (eid) => {
+    const rarity = deckRarity(eid);
+    const dupLimit = RARITY_LIMITS[rarity].dup;
+    if (cards.length >= DECK_SIZE) return;
+    if (counts[rarity] >= RARITY_LIMITS[rarity].count) return;
+    if (countCardCopies(cards, eid) >= dupLimit) return;
+    setCards([...cards, eid]);
+  };
+
+  const removeCard = (eid) => {
+    const idx = cards.lastIndexOf(eid);
+    if (idx === -1) return;
+    const next = [...cards];
+    next.splice(idx, 1);
+    setCards(next);
+  };
+
+  const deckCounts = useMemo(() => {
+    const map = new Map();
+    cards.forEach((eid) => map.set(eid, (map.get(eid) || 0) + 1));
+    return [...map.entries()].sort((a,b)=>RARITY_ORDER.indexOf(deckRarity(a[0]))-RARITY_ORDER.indexOf(deckRarity(b[0])));
+  }, [cards]);
+
+  const iconChoices = useMemo(() => ["grin","skull",...PIDS].filter((v,i,arr)=>arr.indexOf(v)===i), []);
+
+  return (
+    <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"Nunito, sans-serif", color:C.text, maxWidth:600, margin:"0 auto" }}>
+      <div style={{ background:C.surf, borderBottom:`1px solid ${C.border}`, padding:"14px 16px", display:"flex", alignItems:"center", gap:14 }}>
+        <button onClick={onBack} style={{ background:"none", border:"none", color:C.muted, cursor:"pointer", fontFamily:"Nunito", fontWeight:700, fontSize:14 }}>← Back</button>
+        <span style={{ fontFamily:"Fredoka One", fontSize:22, color:C.accent }}>Edit Deck</span>
+      </div>
+      <div style={{ padding:20, display:"flex", flexDirection:"column", gap:16 }}>
+        <div style={{ ...card() }}>
+          <div style={{ fontWeight:800, fontSize:14, marginBottom:6 }}>Deck Identity</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+            <input value={name} onChange={(e)=>setName(e.target.value)} maxLength={20} style={{ background:C.hi, border:`1px solid ${C.border}`, borderRadius:10, padding:"10px 12px", color:C.text, fontSize:14, fontFamily:"Nunito", fontWeight:700 }} />
+            <div style={{ fontSize:11, color:C.muted, textTransform:"uppercase", letterSpacing:1 }}>Deck Icon</div>
+            <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+              {iconChoices.map((eid)=>(
+                <button key={eid} onClick={()=>setIcon(ED[eid].e)} style={{ width:40, height:40, borderRadius:10, background:icon===ED[eid].e?C.accent:C.hi, border:`1px solid ${C.border}`, cursor:"pointer", fontSize:20 }}>
+                  {ED[eid].e}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ ...card() }}>
+          <div style={{ fontWeight:800, fontSize:14, marginBottom:6 }}>Deck Counts</div>
+          <div style={{ display:"flex", gap:12, flexWrap:"wrap", fontSize:12, color:C.muted }}>
+            <div style={{ color:RARITY_COLORS.common }}>Common: {counts.common}/{RARITY_LIMITS.common.count}</div>
+            <div style={{ color:RARITY_COLORS.rare }}>Rare: {counts.rare}/{RARITY_LIMITS.rare.count}</div>
+            <div style={{ color:RARITY_COLORS.epic }}>Epic: {counts.epic}/{RARITY_LIMITS.epic.count}</div>
+            <div>Total: {cards.length}/{DECK_SIZE}</div>
+          </div>
+          {!valid && <div style={{ marginTop:8, fontSize:12, color:C.err }}>Deck must be exactly 8 Common, 4 Rare, 1 Epic.</div>}
+        </div>
+
+        <div style={{ ...card() }}>
+          <div style={{ fontWeight:800, fontSize:14, marginBottom:10 }}>Current Deck</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+            {deckCounts.length === 0 && <div style={{ fontSize:12, color:C.muted }}>No cards yet.</div>}
+            {deckCounts.map(([eid,count]) => {
+              const def = ED[eid];
+              return (
+                <div key={eid} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, background:C.hi, border:`1px solid ${C.border}`, borderRadius:10, padding:"8px 10px" }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    <span style={{ fontSize:20 }}>{def.e}</span>
+                    <div>
+                      <div style={{ fontSize:12, fontWeight:700 }}>{def.n}</div>
+                      <div style={{ fontSize:10, color:RARITY_COLORS[def.rarity] || C.muted, textTransform:"uppercase" }}>{def.rarity}</div>
+                    </div>
+                  </div>
+                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                    <div style={{ fontSize:12, color:C.muted }}>x{count}</div>
+                    <Btn onClick={()=>removeCard(eid)} outline color={C.err} sm>Remove</Btn>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div style={{ ...card() }}>
+          <div style={{ fontWeight:800, fontSize:14, marginBottom:10 }}>Card Pool</div>
+          {RARITY_ORDER.map((rarity)=>(
+            <div key={rarity} style={{ marginBottom:12 }}>
+              <div style={{ fontSize:12, color:RARITY_COLORS[rarity], fontWeight:800, textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>{rarity}</div>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(120px, 1fr))", gap:8 }}>
+                {PIDS.filter((eid)=>deckRarity(eid)===rarity).map((eid)=> {
+                  const def = ED[eid];
+                  const copies = countCardCopies(cards, eid);
+                  const dupLimit = RARITY_LIMITS[rarity].dup;
+                  const canAdd = copies < dupLimit && counts[rarity] < RARITY_LIMITS[rarity].count && cards.length < DECK_SIZE;
+                  return (
+                    <div key={eid} style={{ background:C.hi, border:`1px solid ${C.border}`, borderRadius:10, padding:"8px 8px", textAlign:"center" }}>
+                      <div style={{ fontSize:22 }}>{def.e}</div>
+                      <div style={{ fontSize:10, fontWeight:700 }}>{def.n}</div>
+                      <div style={{ fontSize:10, color:C.muted, marginTop:2 }}>x{copies}/{dupLimit}</div>
+                      <Btn onClick={()=>addCard(eid)} disabled={!canAdd} sm style={{ marginTop:6, width:"100%" }}>Add</Btn>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display:"flex", gap:10 }}>
+          <Btn onClick={onBack} outline color={C.muted} style={{ flex:1 }}>Cancel</Btn>
+          <Btn onClick={()=>onSave({ ...deck, name: name.trim() || deck.name, icon, cards })} disabled={!valid} style={{ flex:1 }}>Save Deck</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ═══════════════════════════════════════════════════════════════════════
    MULTIPLAYER HUB
 ═══════════════════════════════════════════════════════════════════════ */
-function MultiplayerHub({ onBack, onCreate, onJoin, code, onCodeChange, error, lobbies, onOpenLobby }) {
+function MultiplayerHub({ onBack, onCreate, onJoin, code, onCodeChange, error, lobbies, onOpenLobby, decks, selectedDeckId, onSelectDeckId }) {
   return (
     <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"Nunito, sans-serif", color:C.text, maxWidth:520, margin:"0 auto" }}>
       <div style={{ background:C.surf, borderBottom:`1px solid ${C.border}`, padding:"14px 16px", display:"flex", alignItems:"center", gap:14 }}>
@@ -847,6 +1351,15 @@ function MultiplayerHub({ onBack, onCreate, onJoin, code, onCodeChange, error, l
         <span style={{ fontFamily:"Fredoka One", fontSize:22, color:C.accent }}>🌐 Multiplayer</span>
       </div>
       <div style={{ padding:20, display:"flex", flexDirection:"column", gap:14 }}>
+        <div style={{ ...card() }}>
+          <div style={{ fontWeight:800, fontSize:14, marginBottom:6 }}>My Deck</div>
+          <div style={{ fontSize:12, color:C.muted, marginBottom:10 }}>Select which deck to bring into multiplayer lobbies.</div>
+          <select value={selectedDeckId} onChange={(e)=>onSelectDeckId(e.target.value)} style={{ background:C.hi, border:`1px solid ${C.border}`, borderRadius:10, padding:"10px 12px", color:C.text, fontSize:14, fontFamily:"Nunito", fontWeight:700, width:"100%" }}>
+            {decks.map((d)=>(
+              <option key={d.id} value={d.id}>{d.icon} {d.name}</option>
+            ))}
+          </select>
+        </div>
         <div style={{ ...card() }}>
           <div style={{ fontWeight:800, fontSize:14, marginBottom:6 }}>Create Lobby</div>
           <div style={{ fontSize:12, color:C.muted, marginBottom:12 }}>Generate a code and invite a friend.</div>
@@ -902,6 +1415,9 @@ export default function App() {
   const [screen, setScreen] = useState("menu");
   const [gs, setGs] = useState(null);
   const [passTo, setPassTo] = useState(null);
+  const [decks, setDecks] = useState(DEFAULT_DECKS);
+  const [selectedDeckId, setSelectedDeckId] = useState(DEFAULT_DECKS[0].id);
+  const [editingDeckId, setEditingDeckId] = useState(null);
 
   const [mpCodeInput, setMpCodeInput] = useState("");
   const [mpError, setMpError] = useState("");
@@ -920,6 +1436,16 @@ export default function App() {
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    const loaded = loadDecks();
+    setDecks(loaded);
+    setSelectedDeckId(loaded[0]?.id || DEFAULT_DECKS[0].id);
+  }, []);
+
+  useEffect(() => {
+    saveDecks(decks);
+  }, [decks]);
 
   useEffect(() => {
     if (!user) {
@@ -981,15 +1507,17 @@ export default function App() {
     });
   }, [activeLobbyCode]);
 
-  function startGame(p1, p2) {
-    const g = initGame(p1, p2);
+  function startGame(p1, p2, p1DeckId, p2DeckId) {
+    const d1 = getDeckById(decks, p1DeckId);
+    const d2 = getDeckById(decks, p2DeckId);
+    const g = initGame(p1, p2, d1, d2);
     setGs(g);
     setPassTo(null);
     setScreen("game");
   }
 
-  function handleMove(eid, si) {
-    const next = applyMove(gs, eid, si);
+  function handleMove(handIndex, si) {
+    const next = applyMove(gs, handIndex, si);
     setGs(next);
     if (next.phase === "ended") {
       setPassTo(null);
@@ -1012,8 +1540,24 @@ export default function App() {
     }
   }
 
+  function handlePass() {
+    const next = applyPass(gs);
+    setGs(next);
+    if (next.phase === "ended") {
+      setPassTo(null);
+      setScreen("results");
+    } else {
+      setPassTo(next.players[getAP(next)].name);
+    }
+  }
+
+  function handleLock(handIndex) {
+    const next = applyLock(gs, handIndex);
+    setGs(next);
+  }
+
   function handleRematch() {
-    const g = initGame(gs.players[0].name, gs.players[1].name);
+    const g = initGame(gs.players[0].name, gs.players[1].name, gs.decks?.[0], gs.decks?.[1]);
     setGs(g);
     setPassTo(null);
     setScreen("game");
@@ -1026,6 +1570,7 @@ export default function App() {
       return;
     }
     const name = getPlayerName(user);
+    const deck = getDeckById(decks, selectedDeckId);
     const lobbyCollection = collection(db, LOBBY_COLLECTION);
     for (let i = 0; i < 6; i += 1) {
       const code = makeLobbyCode();
@@ -1036,7 +1581,9 @@ export default function App() {
         code,
         status: "waiting",
         host: { uid: user.uid, name },
+        hostDeck: deck,
         guest: null,
+        guestDeck: null,
         gameState: null,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
@@ -1067,6 +1614,7 @@ export default function App() {
     }
     const data = snap.data();
     const name = getPlayerName(user);
+    const deck = getDeckById(decks, selectedDeckId);
     if (data.host?.uid === user.uid) {
       setActiveLobbyCode(code);
       setScreen("mp-lobby");
@@ -1079,8 +1627,9 @@ export default function App() {
     if (!data.guest) {
       await updateDoc(lobbyRef, {
         guest: { uid: user.uid, name },
+        guestDeck: deck,
         status: "playing",
-        gameState: initGame(data.host?.name || "Player 1", name),
+        gameState: initGame(data.host?.name || "Player 1", name, data.hostDeck || DEFAULT_DECKS[0], deck),
         updatedAt: serverTimestamp()
       });
     }
@@ -1093,10 +1642,12 @@ export default function App() {
     if (activeLobby.host?.uid === user.uid) return;
     if (activeLobby.guest?.uid) return;
     const name = getPlayerName(user);
+    const deck = getDeckById(decks, selectedDeckId);
     await updateDoc(doc(db, LOBBY_COLLECTION, activeLobby.id), {
       guest: { uid: user.uid, name },
+      guestDeck: deck,
       status: "playing",
-      gameState: activeLobby.gameState || initGame(activeLobby.host?.name || "Player 1", name),
+      gameState: activeLobby.gameState || initGame(activeLobby.host?.name || "Player 1", name, activeLobby.hostDeck || DEFAULT_DECKS[0], deck),
       updatedAt: serverTimestamp()
     });
   };
@@ -1129,10 +1680,10 @@ export default function App() {
     setChatInput("");
   };
 
-  const handleMpMove = async (eid, si) => {
+  const handleMpMove = async (handIndex, si) => {
     if (!isMyTurn) return;
     if (!activeLobby?.gameState) return;
-    const next = applyMove(activeLobby.gameState, eid, si);
+    const next = applyMove(activeLobby.gameState, handIndex, si);
     await updateDoc(doc(db, LOBBY_COLLECTION, activeLobby.id), {
       gameState: next,
       status: next.phase === "ended" ? "ended" : "playing",
@@ -1151,11 +1702,34 @@ export default function App() {
     });
   };
 
+  const handleMpPass = async () => {
+    if (!isMyTurn) return;
+    if (!activeLobby?.gameState) return;
+    const next = applyPass(activeLobby.gameState);
+    await updateDoc(doc(db, LOBBY_COLLECTION, activeLobby.id), {
+      gameState: next,
+      status: next.phase === "ended" ? "ended" : "playing",
+      updatedAt: serverTimestamp()
+    });
+  };
+
+  const handleMpLock = async (handIndex) => {
+    if (!isMyTurn) return;
+    if (!activeLobby?.gameState) return;
+    const next = applyLock(activeLobby.gameState, handIndex);
+    await updateDoc(doc(db, LOBBY_COLLECTION, activeLobby.id), {
+      gameState: next,
+      updatedAt: serverTimestamp()
+    });
+  };
+
   const handleMpRematch = async () => {
     if (!activeLobby) return;
     const hostName = activeLobby.host?.name || "Player 1";
     const guestName = activeLobby.guest?.name || "Player 2";
-    const next = initGame(hostName, guestName);
+    const deck1 = activeLobby.gameState?.decks?.[0] || activeLobby.hostDeck || DEFAULT_DECKS[0];
+    const deck2 = activeLobby.gameState?.decks?.[1] || activeLobby.guestDeck || DEFAULT_DECKS[0];
+    const next = initGame(hostName, guestName, deck1, deck2);
     await updateDoc(doc(db, LOBBY_COLLECTION, activeLobby.id), {
       gameState: next,
       status: "playing",
@@ -1182,6 +1756,7 @@ export default function App() {
       : activePlayerIndex === myIndex
     : false;
   const showSick = gameState && gameState.phase === "ec" && gameState.pend?.pid === myIndex;
+  const editingDeck = editingDeckId ? decks.find((d)=>d.id===editingDeckId) : null;
 
   if (!authReady) {
     return (
@@ -1205,13 +1780,14 @@ export default function App() {
             onRulebook={() => setScreen("rulebook")}
             onSettings={() => setScreen("settings")}
             onMultiplayer={() => setScreen("mp-hub")}
+            onDecks={() => { setEditingDeckId(null); setScreen("decks"); }}
           />
         )}
-        {screen === "setup" && <SetupScreen onBack={() => setScreen("menu")} onStart={startGame} />}
+        {screen === "setup" && <SetupScreen onBack={() => setScreen("menu")} onStart={startGame} decks={decks} defaultDeckId={selectedDeckId} />}
         {screen === "game" && gs && (
           <>
             {gs.phase === "ec" && <SickModal gs={gs} onChoose={handleSick} />}
-            <GameScreen gs={gs} onMove={handleMove} onSick={handleSick} onEndGame={() => setScreen("menu")} />
+            <GameScreen gs={gs} onMove={handleMove} onSick={handleSick} onPass={handlePass} onLock={handleLock} onEndGame={() => setScreen("menu")} />
           </>
         )}
         {screen === "results" && gs && <ResultsScreen gs={gs} onRematch={handleRematch} onMenu={() => setScreen("menu")} />}
@@ -1222,6 +1798,23 @@ export default function App() {
             onSignOut={() => signOut(auth).catch(() => undefined)}
             onSignIn={() => signInWithPopup(auth, provider).catch(() => undefined)}
             user={user}
+          />
+        )}
+        {screen === "decks" && (
+          <DecksScreen
+            decks={decks}
+            onBack={() => setScreen("menu")}
+            onEdit={(id) => { setEditingDeckId(id); setScreen("deck-edit"); }}
+          />
+        )}
+        {screen === "deck-edit" && editingDeck && (
+          <DeckEditorScreen
+            deck={editingDeck}
+            onBack={() => setScreen("decks")}
+            onSave={(nextDeck) => {
+              setDecks((prev) => prev.map((d) => d.id === nextDeck.id ? nextDeck : d));
+              setScreen("decks");
+            }}
           />
         )}
         {screen === "mp-hub" && (
@@ -1235,6 +1828,9 @@ export default function App() {
               error={mpError}
               lobbies={myLobbies}
               onOpenLobby={(code) => { setActiveLobbyCode(code); setScreen("mp-lobby"); }}
+              decks={decks}
+              selectedDeckId={selectedDeckId}
+              onSelectDeckId={setSelectedDeckId}
             />
           ) : (
             <SignInPrompt
@@ -1306,6 +1902,8 @@ export default function App() {
                     gs={activeLobby.gameState}
                     onMove={handleMpMove}
                     onSick={handleMpSick}
+                    onPass={handleMpPass}
+                    onLock={handleMpLock}
                     onEndGame={handleLeaveLobby}
                     readOnly={!isMyTurn}
                     waitingFor={waitingForName}
