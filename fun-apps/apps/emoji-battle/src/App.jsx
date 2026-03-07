@@ -21,29 +21,29 @@ import { auth, db, provider } from "./firebase";
    EMOJI DEFINITIONS
 =========================================================== */
 const ED = {
-  grin:         { e:"😀", n:"Grin",         bp:0, tags:["basic","yellow","face"],               play:false, req:null, rt:null, rules:"The default starter piece. Exists to be upgraded or transformed.", onp:null },
-  upside_down:  { e:"🙃", n:"Upside Down",  bp:0, tags:["yellow","face","upside_down"],          play:true,  req:null, rt:null, rules:"Low-value setup piece. Enables 🥴 Woozy payoff when placed.", onp:null },
-  sick:         { e:"🤧", n:"Sick",          bp:0, tags:["yellow","face","sick"],                 play:true,  req:null, rt:null, rules:"On Play: Choose another slot in your army — it becomes 😀 Grin. Cannot target itself.", onp:"sick" },
-  heart:        { e:"❤️", n:"Heart",         bp:1, tags:["heart","red"],                          play:true,  req:null, rt:null, rules:"Simple 1-point card. Gets +1 from 💜 Purple Heart.", onp:null },
-  purple_heart: { e:"💜", n:"Purple Heart", bp:0, tags:["heart","purple"],                       play:true,  req:null, rt:null, rules:"Ongoing: Other hearts in your army gain +1 point each. Does not buff itself.", onp:null },
-  black_heart:  { e:"🖤", n:"Black Heart",  bp:3, tags:["heart","black"],                        play:true,  req:null, rt:null, rules:"Ongoing: Neither player may play any heart emoji while this is on the board.", onp:null },
-  fire:         { e:"🔥", n:"Fire",          bp:3, tags:["fire","red"],                           play:true,  req:null, rt:null, rules:"Solid 3-point mid-range piece. Future-proofed against the water package.", onp:null },
-  cool:         { e:"😎", n:"Cool",          bp:2, tags:["yellow","face","cool"],                 play:true,  req:"two_non_basic",       rt:"Req: ≥2 non-basic emojis in your army",          rules:"Requires 2+ non-basic emojis in your army to play.", onp:null },
-  laugh:        { e:"😂", n:"Laugh",         bp:3, tags:["yellow","face","laugh"],                play:true,  req:"opp_two_zero",        rt:"Req: Opponent has ≥2 zero-point emojis",         rules:"Requires opponent has 2+ emojis with 0 base points.", onp:null },
-  kiss:         { e:"😘", n:"Kiss",          bp:2, tags:["yellow","face","kiss"],                 play:true,  req:"across_4plus",        rt:"Req: Must face a ≥4bp opposing emoji",           rules:"Must be placed facing a ≥4bp emoji. Ongoing: The opposing lane emoji scores half (rounded up).", onp:null },
-  dizzy:        { e:"😵‍💫",n:"Dizzy",      bp:3, tags:["yellow","face","dizzy"],                play:true,  req:"two_non_yellow",      rt:"Req: ≥2 non-yellow colors in your army",         rules:"Requires 2+ non-yellow colors in army. On Play: Swap your Left and Right emojis.", onp:"swap" },
-  melt:         { e:"🫠", n:"Melt",          bp:0, tags:["yellow","face","melt"],                 play:true,  req:null, rt:null, rules:"On Play: This emoji locks itself until the end of your opponent's next turn.", onp:"selflock" },
-  wild:         { e:"🤪", n:"Wild",          bp:0, tags:["yellow","face","wild"],                 play:true,  req:null, rt:null, rules:"On Play: All 😀 Grin in your army become 🙃 Upside Down.", onp:"wild" },
-  woozy:        { e:"🥴", n:"Woozy",         bp:2, tags:["yellow","face","upside_down_payoff"],   play:true,  req:"replace_upside",      rt:"Req: Must replace a 🙃 Upside Down",             rules:"Must replace an Upside Down 🙃 to play. Direct payoff for the 🙃 package.", onp:null },
-  angel:        { e:"😇", n:"Angel",         bp:2, tags:["yellow","face","holy"],                 play:true,  req:"yellow_and_colored",  rt:"Req: ≥1 yellow + ≥1 colored emoji in army",     rules:"Requires 1+ yellow and 1+ colored emoji. Ongoing: All opposing 😈 Devil score 0.", onp:null },
-  devil:        { e:"😈", n:"Devil",         bp:5, tags:["purple","face","devil"],                play:true,  req:"opp_3col_no_devil",   rt:"Req: Opponent ≥3 unique colors. Only 1 😈 total", rules:"Highest base value. Req: opponent has 3+ unique colors. Only 1 😈 may exist on the entire board.", onp:null },
+  grin:        { e:"😀", n:"Basic",      bp:0,  tags:["basic","person"],                 play:false, req:null, rt:null, rules:"Default emoji. Value 0.", onp:null },
+  skull:       { e:"💀", n:"Skull",      bp:-2, tags:["skull"],                          play:false, req:null, rt:null, rules:"Cannot be placed directly.", onp:null },
+  dagger:      { e:"🗡️", n:"Dagger",     bp:0,  tags:["weapon"],                         play:true,  req:null, rt:null, rules:"On Play: Transform one friendly emoji into 💀. Cannot target itself.", onp:"dagger" },
+  dead_face:   { e:"😵", n:"Dead Face",  bp:0,  tags:["person","dead"],                  play:true,  req:"replace_person", rt:"Req: Must replace a Person.", rules:"Becomes 💀 at the start of the next round.", onp:null },
+  bone:        { e:"🦴", n:"Bone",       bp:0,  tags:["bone"],                           play:true,  req:null, rt:null, rules:"Gain +1 each round for each 💀 or ☠️ on the board.", onp:null },
+  crossbones:  { e:"☠️", n:"Crossbones", bp:-4, tags:["crossbones"],                     play:true,  req:"replace_skull", rt:"Req: Must replace a 💀.", rules:"Deep corruption state.", onp:null },
+  plague:      { e:"☣️", n:"Plague",     bp:1,  tags:["plague"],                         play:true,  req:"adjacent_skull", rt:"Req: Must be placed next to a 💀.", rules:"On Play: Turn the emoji across from this into 😵.", onp:"plague" },
+  poison:      { e:"⚗️", n:"Poison",     bp:0,  tags:["poison"],                         play:true,  req:"across_any", rt:"Req: Must be played across from an emoji.", rules:"If the emoji across from this changes, it becomes 💀 instead. Then ⚗️ becomes 😀.", onp:null },
+  coffin:      { e:"⚰️", n:"Coffin",     bp:0,  tags:["coffin"],                         play:true,  req:"replace_skull_or_crossbones", rt:"Req: Must replace a 💀 or ☠️.", rules:"Scores +2 if it replaces 💀, +4 if it replaces ☠️.", onp:null },
+  crow:        { e:"🐦‍⬛", n:"Crow",      bp:1,  tags:["crow"],                           play:true,  req:null, rt:null, rules:"Gain +1 each round for each 💀 in the opponent's army.", onp:null },
+  lich:        { e:"👑", n:"Lich King",  bp:0,  tags:["lich"],                           play:true,  req:null, rt:null, rules:"On Play: All 💀 become +2 and all ☠️ become +4 for both players.", onp:"lich" },
+  mutation:    { e:"🧬", n:"Mutation",   bp:0,  tags:["mutation"],                       play:true,  req:null, rt:null, rules:"All 😵 become ☠️ instead of 💀.", onp:null },
+  candle:      { e:"🕯️", n:"Candle",     bp:1,  tags:["candle"],                         play:true,  req:null, rt:null, rules:"If a 💀 or ☠️ is created this round, gain +2.", onp:null },
+  dark_sigil:  { e:"🪬", n:"Dark Sigil", bp:5,  tags:["sigil"],                          play:true,  req:"opp_two_skulls", rt:"Req: Opponent has ≥2 💀.", rules:"Large anti-skull payoff.", onp:null },
+  graveyard:   { e:"🪦", n:"Graveyard",  bp:2,  tags:["graveyard"],                      play:true,  req:null, rt:null, rules:"All 💀 become ☠️ instead.", onp:"graveyard" },
+  pandemic:    { e:"☣️", n:"Pandemic",   bp:1,  tags:["plague","pandemic"],              play:true,  req:"adjacent_skull", rt:"Req: Must be placed next to a 💀.", rules:"On Play: Turn the emoji across from this into 😵.", onp:"plague" },
 };
 
 const PIDS   = Object.entries(ED).filter(([,v])=>v.play).map(([k])=>k);
-const NYC    = ["red","purple","black"];
-const ALLC   = ["yellow","red","purple","black"];
 const LANES  = ["Left","Mid","Right"];
 const LSHORT = ["L","M","R"];
+const ROUND_LIMIT = 5;
+const TURN_LIMIT = ROUND_LIMIT * 2;
 const LOBBY_COLLECTION = "emoji-battle-lobbies";
 const CHAT_LIMIT = 60;
 
@@ -64,39 +64,134 @@ const getPlayerName = (user) => {
 /* ===========================================================
    GAME LOGIC
 =========================================================== */
-const mkSlot = (id="grin") => ({ eid:id, locked:false, lu:null });
-const hBlocked = as => as.some(a=>a.some(s=>s.eid==="black_heart"));
-const dExists  = as => as.some(a=>a.some(s=>s.eid==="devil"));
-const getColors = army => { const cs=new Set(); army.forEach(s=>ED[s.eid].tags.forEach(t=>{ if(ALLC.includes(t)) cs.add(t); })); return cs; };
+const mkSlot = (id="grin") => ({ eid:id, locked:false, lu:null, tr:null, bonus:0, coffinVal:null, poison:false });
 const canRepl  = (slot,t) => !slot.locked || (slot.lu!==null && t>slot.lu);
 const getAP    = gs => gs.ct%2;
 const getRound = gs => Math.floor(gs.ct/2)+1;
 
+const isPerson = eid => ED[eid].tags.includes("person");
+const isSkull = eid => eid === "skull";
+const isCrossbones = eid => eid === "crossbones";
+const isSkullState = eid => isSkull(eid) || isCrossbones(eid);
+const hasEid = (as, eid) => as.some(army => army.some(slot => slot.eid === eid));
+const countEid = (army, eid) => army.filter(slot => slot.eid === eid).length;
+const countSkulls = army => countEid(army, "skull");
+const countSkullStates = army => army.filter(slot => isSkullState(slot.eid)).length;
+const countSkullStatesAll = as => as.reduce((sum, army) => sum + countSkullStates(army), 0);
+
+const resolveSkullEid = (s, source) => {
+  if (hasEid(s.as, "graveyard")) return "crossbones";
+  if (source === "dead_face" && hasEid(s.as, "mutation")) return "crossbones";
+  return "skull";
+};
+
+const markSkullCreated = (s, prevEid, nextEid) => {
+  if (prevEid !== nextEid && isSkullState(nextEid)) s.roundFlags.skullCreated = true;
+};
+
+function placeSlot(s, pid, si, eid, opts = {}) {
+  const prev = s.as[pid][si];
+  let finalEid = eid;
+
+  const oppSlot = s.as[1-pid][si];
+  if (oppSlot.eid === "poison" && oppSlot.poison && !opts.ignorePoison) {
+    finalEid = resolveSkullEid(s, "poison");
+    s.as[1-pid][si] = mkSlot("grin");
+    s.log.push(`⚗️ Poison triggered — ${ED[eid].e} became ${ED[finalEid].e} and poison reset to 😀.`);
+  }
+
+  const next = mkSlot(finalEid);
+  if (finalEid === "dead_face") next.tr = getRound(s) + 1;
+  if (finalEid === "poison") next.poison = true;
+  if (finalEid === "coffin" && typeof opts.coffinVal === "number") next.coffinVal = opts.coffinVal;
+  s.as[pid][si] = next;
+  markSkullCreated(s, prev.eid, finalEid);
+
+  return { prev, finalEid };
+}
+
+function applyRoundEnd(s) {
+  const skullStates = countSkullStatesAll(s.as);
+  const boneSlots = [];
+  const candleSlots = [];
+  const crowSlotsByPlayer = [[], []];
+
+  for (let p=0;p<2;p++) {
+    for (let si=0;si<3;si++) {
+      const slot = s.as[p][si];
+      if (slot.eid === "bone") boneSlots.push(slot);
+      if (slot.eid === "candle") candleSlots.push(slot);
+      if (slot.eid === "crow") crowSlotsByPlayer[p].push(slot);
+    }
+  }
+
+  if (skullStates > 0 && boneSlots.length > 0) {
+    boneSlots.forEach(slot => { slot.bonus += skullStates; });
+    s.log.push(`🦴 Bone gained +${skullStates} each (${skullStates} skull states on board).`);
+  }
+
+  for (let p=0;p<2;p++) {
+    const skullsOpp = countSkulls(s.as[1-p]);
+    if (skullsOpp > 0 && crowSlotsByPlayer[p].length > 0) {
+      crowSlotsByPlayer[p].forEach(slot => { slot.bonus += skullsOpp; });
+      s.log.push(`🐦‍⬛ Crow gained +${skullsOpp} each (${s.players[1-p].name} has ${skullsOpp} 💀).`);
+    }
+  }
+
+  if (s.roundFlags.skullCreated && candleSlots.length > 0) {
+    candleSlots.forEach(slot => { slot.bonus += 2; });
+    s.log.push("🕯️ Candle triggered — +2 to each Candle.");
+  }
+
+  s.roundFlags.skullCreated = false;
+}
+
+function applyRoundStartTransforms(s) {
+  const round = getRound(s);
+  for (let p=0;p<2;p++) {
+    for (let si=0;si<3;si++) {
+      const slot = s.as[p][si];
+      if (slot.eid === "dead_face" && slot.tr !== null && slot.tr <= round) {
+        const targetEid = resolveSkullEid(s, "dead_face");
+        const result = placeSlot(s, p, si, targetEid);
+        s.log.push(`😵 Dead Face became ${ED[result.finalEid].e} at round start.`);
+      }
+    }
+  }
+}
+
+function advanceTurn(s) {
+  s.ct += 1;
+  if (s.ct % 2 === 0) {
+    applyRoundEnd(s);
+    if (s.ct < TURN_LIMIT) applyRoundStartTransforms(s);
+  }
+  if (s.ct >= TURN_LIMIT) {
+    s.phase = "ended";
+    s.sc = calcScores(s.as, s.lichActive);
+    s.winner = s.sc[0].total>s.sc[1].total?0:s.sc[1].total>s.sc[0].total?1:-1;
+  } else {
+    s.phase = "sel";
+  }
+}
+
 function checkGlobal(as, pid, eid) {
-  const def=ED[eid], mine=as[pid], opp=as[1-pid];
-  if (def.tags.includes("heart") && hBlocked(as)) return "Hearts blocked — 🖤 is on the board.";
-  const r=def.req; if (!r) return null;
-  if (r==="two_non_basic" && mine.filter(s=>s.eid!=="grin").length<2) return "Need ≥2 non-basic emojis in your army.";
-  if (r==="opp_two_zero" && opp.filter(s=>ED[s.eid].bp===0).length<2) return "Opponent needs ≥2 zero-point emojis.";
-  if (r==="two_non_yellow") {
-    const cs=new Set(); mine.forEach(s=>ED[s.eid].tags.forEach(t=>{ if(NYC.includes(t)) cs.add(t); }));
-    if (cs.size<2) return "Need ≥2 non-yellow colors in your army.";
-  }
-  if (r==="yellow_and_colored") {
-    if (!mine.some(s=>ED[s.eid].tags.includes("yellow"))) return "Need ≥1 yellow emoji.";
-    if (!mine.some(s=>NYC.some(c=>ED[s.eid].tags.includes(c)))) return "Need ≥1 colored emoji.";
-  }
-  if (r==="opp_3col_no_devil") {
-    if (dExists(as)) return "Only 1 😈 may exist on the board.";
-    if (getColors(opp).size<3) return "Opponent needs ≥3 unique colors.";
-  }
+  const def=ED[eid], opp=as[1-pid], r=def.req; if (!r) return null;
+  if (r==="opp_two_skulls" && countSkulls(opp)<2) return "Opponent needs ≥2 💀.";
   return null;
 }
 
 function checkSlot(as, pid, eid, si) {
   const def=ED[eid], mine=as[pid], opp=as[1-pid], r=def.req;
-  if (r==="across_4plus" && ED[opp[si].eid].bp<4) return `${ED[opp[si].eid].n} has <4 base pts.`;
-  if (r==="replace_upside" && mine[si].eid!=="upside_down") return "Must replace a 🙃 Upside Down.";
+  if (r==="replace_person" && !isPerson(mine[si].eid)) return "Must replace a Person (😀 or 😵).";
+  if (r==="replace_skull" && mine[si].eid!=="skull") return "Must replace a 💀.";
+  if (r==="replace_skull_or_crossbones" && !isSkullState(mine[si].eid)) return "Must replace a 💀 or ☠️.";
+  if (r==="adjacent_skull") {
+    const left = si>0 ? mine[si-1].eid : null;
+    const right = si<2 ? mine[si+1].eid : null;
+    if (left!=="skull" && right!=="skull") return "Must be placed next to a 💀.";
+  }
+  if (r==="across_any" && !opp[si]) return "Must be played across from an emoji.";
   return null;
 }
 
@@ -119,16 +214,15 @@ function slotErr(gs, eid, si) {
   return checkSlot(gs.as,pid,eid,si);
 }
 
-function calcScores(as) {
+function calcScores(as, lichActive=false) {
   return as.map((army,p)=>{
-    const opp=as[1-p];
-    const lanes=army.map((sl,s)=>{
-      const def=ED[sl.eid]; let base=def.bp,buff=0,supp=false,suppMsg=null,half=false;
-      if (def.tags.includes("heart")&&sl.eid!=="purple_heart"&&army.some(x=>x.eid==="purple_heart")) buff+=1;
-      if (sl.eid==="devil"&&opp.some(x=>x.eid==="angel")) { supp=true; suppMsg="😇 Angel suppresses 😈"; }
-      let fin=supp?0:base+buff;
-      if (!supp&&opp[s].eid==="kiss") { fin=Math.ceil(fin/2); half=true; }
-      return {eid:sl.eid,e:def.e,name:def.n,base,buff,supp,suppMsg,half,fin};
+    const lanes=army.map((sl)=>{
+      const def=ED[sl.eid];
+      let base = typeof sl.coffinVal === "number" ? sl.coffinVal : def.bp;
+      if (lichActive && (sl.eid==="skull"||sl.eid==="crossbones")) base = Math.abs(def.bp);
+      const bonus = sl.bonus || 0;
+      const fin = base + bonus;
+      return {eid:sl.eid,e:def.e,name:def.n,base,buff:0,bonus,supp:false,suppMsg:null,half:false,fin};
     });
     return {lanes,total:lanes.reduce((a,l)=>a+l.fin,0)};
   });
@@ -136,35 +230,76 @@ function calcScores(as) {
 
 function applyMove(gs, eid, si) {
   const s=JSON.parse(JSON.stringify(gs)); const pid=getAP(s); const def=ED[eid]; const evts=[];
+  if (!s.roundFlags) s.roundFlags = { skullCreated:false };
+  if (typeof s.lichActive !== "boolean") s.lichActive = false;
   for (let p=0;p<2;p++) for (let sl=0;sl<3;sl++) { const slot=s.as[p][sl]; if (slot.locked&&slot.lu!==null&&s.ct>slot.lu) { slot.locked=false; slot.lu=null; } }
-  s.as[pid][si]=mkSlot(eid);
+
+  let coffinVal = null;
+  if (eid==="coffin") {
+    if (s.as[pid][si].eid==="skull") coffinVal = 2;
+    if (s.as[pid][si].eid==="crossbones") coffinVal = 4;
+  }
+
+  const placed = placeSlot(s, pid, si, eid, { coffinVal });
   s.hist.push({turn:s.ct,pid,eid,si});
-  if (def.onp==="wild") {
-    let cnt=0; for (let sl=0;sl<3;sl++) if (s.as[pid][sl].eid==="grin"&&sl!==si) { s.as[pid][sl].eid="upside_down"; cnt++; }
-    if (cnt>0) evts.push(`🤪 Wild transformed ${cnt} 😀 → 🙃`);
+
+  if (placed.finalEid === eid) {
+    if (eid==="dagger") {
+      s.pend={type:"dagger",pid,si};
+      s.phase="ec";
+      evts.push("🗡️ Dagger: choose a friendly slot to corrupt.");
+    }
+    if (eid==="plague") {
+      placeSlot(s, 1-pid, si, "dead_face");
+      evts.push("☣️ Plague infected the opposing lane.");
+    }
+    if (eid==="graveyard") {
+      let converted = 0;
+      for (let p=0;p<2;p++) {
+        for (let sl=0;sl<3;sl++) {
+          if (s.as[p][sl].eid==="skull") {
+            placeSlot(s, p, sl, "crossbones");
+            converted++;
+          }
+        }
+      }
+      if (converted>0) evts.push(`🪦 Graveyard corrupted ${converted} 💀 → ☠️.`);
+    }
+    if (eid==="lich") {
+      s.lichActive = true;
+      evts.push("👑 Lich King empowered all skulls (+2/+4).");
+    }
+    if (eid==="dead_face") evts.push("😵 Dead Face will rot next round.");
+    if (eid==="poison") evts.push("⚗️ Poison set a trap across its lane.");
+    if (eid==="coffin" && coffinVal!==null) evts.push(`⚰️ Coffin converted ${placed.prev.eid==="skull"?"💀":"☠️"} into +${coffinVal}.`);
   }
-  if (def.onp==="swap") {
-    const tmp=s.as[pid][0]; s.as[pid][0]=s.as[pid][2]; s.as[pid][2]=tmp;
-    evts.push("😵‍💫 Dizzy swapped Left ↔ Right positions");
-  }
-  if (def.onp==="selflock") { s.as[pid][si].locked=true; s.as[pid][si].lu=s.ct+1; evts.push("🫠 Melt locked until end of opponent's next turn"); }
+
   evts.forEach(e=>s.log.push(e));
-  if (def.onp==="sick") { s.pend={type:"sick",pid,si}; s.phase="ec"; }
-  else { s.ct+=1; if (s.ct>=10) { s.phase="ended"; s.sc=calcScores(s.as); s.winner=s.sc[0].total>s.sc[1].total?0:s.sc[1].total>s.sc[0].total?1:-1; } else s.phase="sel"; }
+  if (s.phase!=="ec") advanceTurn(s);
   return s;
 }
 
 function applySick(gs, tsi) {
-  const s=JSON.parse(JSON.stringify(gs)); const {pid}=s.pend;
-  const from=s.as[pid][tsi].eid; s.as[pid][tsi]=mkSlot("grin");
-  s.log.push(`🤧 Sick reset ${ED[from].e} ${ED[from].n} → 😀 Grin`);
-  s.pend=null; s.ct+=1;
-  if (s.ct>=10) { s.phase="ended"; s.sc=calcScores(s.as); s.winner=s.sc[0].total>s.sc[1].total?0:s.sc[1].total>s.sc[0].total?1:-1; } else s.phase="sel";
+  const s=JSON.parse(JSON.stringify(gs));
+  if (!s.pend) return s;
+  if (!s.roundFlags) s.roundFlags = { skullCreated:false };
+  if (typeof s.lichActive !== "boolean") s.lichActive = false;
+  const {pid,si, type}=s.pend;
+  if (type==="dagger") {
+    if (tsi!==si) {
+      const from = s.as[pid][tsi].eid;
+      const targetEid = resolveSkullEid(s, "dagger");
+      const result = placeSlot(s, pid, tsi, targetEid);
+      s.log.push(`🗡️ Dagger corrupted ${ED[from].e} → ${ED[result.finalEid].e}`);
+    }
+  }
+  s.pend=null;
+  advanceTurn(s);
   return s;
 }
 
 function initGame(p1,p2) {
-  return { players:[{name:p1||"Player 1"},{name:p2||"Player 2"}], as:[[mkSlot(),mkSlot(),mkSlot()],[mkSlot(),mkSlot(),mkSlot()]], ct:0, phase:"sel", hist:[], log:[], sc:null, pend:null };
+  return { players:[{name:p1||"Player 1"},{name:p2||"Player 2"}], as:[[mkSlot(),mkSlot(),mkSlot()],[mkSlot(),mkSlot(),mkSlot()]], ct:0, phase:"sel", hist:[], log:[], sc:null, pend:null, roundFlags:{ skullCreated:false }, lichActive:false };
 }
 
 /* ===========================================================
@@ -191,13 +326,16 @@ function Btn({ children, onClick, color, outline, disabled, sm, style={} }) {
 function SlotCard({ slot, big, selected, dim, highlight, onClick, label, showLock }) {
   const def = ED[slot.eid];
   const isLocked = slot.locked;
+  const bonus = slot.bonus || 0;
+  const basePoints = typeof slot.coffinVal === "number" ? slot.coffinVal : def.bp;
+  const points = basePoints + bonus;
   const border = selected ? `2px solid ${C.accent}` : highlight ? `2px solid ${C.ok}` : `1px solid ${isLocked ? C.lock : C.border}`;
   const bg = selected ? "#2a2a10" : highlight ? "#0a2a0a" : C.surf;
   return (
     <div onClick={onClick} style={{ background:bg, border, borderRadius:12, padding:big?"14px 10px":"10px 8px", textAlign:"center", cursor:onClick?"pointer":"default", minWidth:big?72:58, position:"relative", transition:"all 0.15s", boxShadow:selected?`0 0 12px ${C.accent}55`:"none" }}>
       {label && <div style={{ fontSize:10, color:C.muted, fontWeight:700, marginBottom:2, textTransform:"uppercase", letterSpacing:1 }}>{label}</div>}
       <div style={{ fontSize:big?34:26 }}>{def.e}</div>
-      <div style={{ fontSize:big?11:9, color:C.muted, fontWeight:700, marginTop:2 }}>{def.bp}pt{def.bp!==1?"s":""}</div>
+      <div style={{ fontSize:big?11:9, color:C.muted, fontWeight:700, marginTop:2 }}>{points}pt{points!==1?"s":""}</div>
       {isLocked && showLock && <div style={{ position:"absolute", top:-6, right:-6, fontSize:13, background:C.lock, borderRadius:20, padding:"1px 5px" }}>🔒</div>}
     </div>
   );
@@ -254,7 +392,7 @@ function MenuScreen({ onPlay, onRulebook, onSettings, onMultiplayer }) {
         <Btn onClick={onSettings} outline color={C.muted} style={{ width:"100%" }}>⚙️ Settings</Btn>
       </div>
       <div style={{ marginTop:40, display:"flex", gap:8, flexWrap:"wrap", justifyContent:"center" }}>
-        {["😀","🙃","🤧","❤️","💜","🖤","🔥","😎","😂","😘","😵‍💫","🫠","🤪","🥴","😇","😈"].map((e,i)=>(
+        {["😀","🗡️","😵","🦴","💀","☠️","☣️","⚗️","⚰️","🐦‍⬛","👑","🧬","🕯️","🪬","🪦"].map((e,i)=>(
           <span key={i} style={{ fontSize:22, opacity:0.4 }}>{e}</span>
         ))}
       </div>
@@ -316,21 +454,26 @@ function PassScreen({ name, onReady }) {
    SICK EFFECT CHOOSER MODAL
 =========================================================== */
 function SickModal({ gs, onChoose }) {
-  const {pid,si:sickSi}=gs.pend;
+  const {pid,si:sourceSi,type}=gs.pend;
   const army=gs.as[pid];
+  const isDagger = type==="dagger";
+  const icon = isDagger ? "🗡️" : "✨";
+  const title = isDagger ? "Dagger Effect" : "Choose Target";
+  const desc = isDagger ? "Choose another slot in your army to turn into 💀:" : "Choose a target slot:";
+  const footer = isDagger ? "Tap a slot to corrupt it. (Cannot target 🗡️ itself.)" : "Tap a slot to apply the effect.";
   return (
     <div style={{ position:"fixed", inset:0, background:"#000000cc", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100, padding:20 }}>
       <div style={{ background:C.surf, border:`1px solid ${C.accent}`, borderRadius:18, padding:24, maxWidth:340, width:"100%", textAlign:"center" }}>
-        <div style={{ fontSize:36, marginBottom:8 }}>🤧</div>
-        <div style={{ fontFamily:"Fredoka One", fontSize:22, color:C.text, marginBottom:8 }}>Sick Effect</div>
-        <div style={{ fontSize:14, color:C.muted, marginBottom:20 }}>Choose another slot in your army to reset to 😀 Grin:</div>
+        <div style={{ fontSize:36, marginBottom:8 }}>{icon}</div>
+        <div style={{ fontFamily:"Fredoka One", fontSize:22, color:C.text, marginBottom:8 }}>{title}</div>
+        <div style={{ fontSize:14, color:C.muted, marginBottom:20 }}>{desc}</div>
         <div style={{ display:"flex", gap:12, justifyContent:"center" }}>
           {army.map((slot,i)=>{
-            if (i===sickSi) return <div key={i} style={{ opacity:0.3 }}><SlotCard slot={slot} big label={LSHORT[i]} /></div>;
+            if (i===sourceSi) return <div key={i} style={{ opacity:0.3 }}><SlotCard slot={slot} big label={LSHORT[i]} /></div>;
             return <div key={i} onClick={()=>onChoose(i)} style={{ cursor:"pointer" }}><SlotCard slot={slot} big label={LSHORT[i]} highlight /></div>;
           })}
         </div>
-        <div style={{ fontSize:12, color:C.muted, marginTop:14 }}>Tap a slot to reset it. (Cannot target 🤧 itself.)</div>
+        <div style={{ fontSize:12, color:C.muted, marginTop:14 }}>{footer}</div>
       </div>
     </div>
   );
@@ -378,7 +521,7 @@ function GameScreen({ gs, onMove, onSick, onEndGame, readOnly, waitingFor }) {
       {/* TOP BAR */}
       <div style={{ background:C.surf, borderBottom:`1px solid ${C.border}`, padding:"10px 16px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
         <span style={{ fontFamily:"Fredoka One", fontSize:18, color:C.accent }}>⚔️ EB!</span>
-        <span style={{ fontSize:13, fontWeight:700, color:C.muted }}>Round <strong style={{color:C.text}}>{round}</strong> / 5</span>
+        <span style={{ fontSize:13, fontWeight:700, color:C.muted }}>Round <strong style={{color:C.text}}>{round}</strong> / {ROUND_LIMIT}</span>
         <span style={{ fontSize:12, fontWeight:800, color:readOnly?C.muted:C.accent2, background:readOnly?"#242443":"#ff704320", padding:"4px 10px", borderRadius:20 }}>
           {turnLabel}
         </span>
@@ -478,15 +621,9 @@ function ResultsScreen({ gs, onRematch, onMenu }) {
 const titleText  = w===-1?"🤝 DRAW!":("🏆 "+gs.players[w].name+" Wins!");
   // Build effect messages
   const effects=[];
+  if (gs.lichActive) effects.push("👑 Lich King turned 💀 into +2 and ☠️ into +4 for both players.");
   for (let p=0;p<2;p++) {
-    const sc_p=sc[p];
-    if (gs.as[p].some(s=>s.eid==="purple_heart")) {
-      const boosted=sc_p.lanes.filter(l=>l.buff>0);
-      boosted.forEach(l=>effects.push(`💜 Purple Heart gave ${l.e} ${l.name} +${l.buff} point${l.buff>1?"s":""} (${gs.players[p].name})`));
-    }
-    sc_p.lanes.forEach(l=>{ if (l.supp) effects.push(`${l.suppMsg} — ${l.e} ${l.name} scored 0 (${gs.players[p].name})`); });
-    const opp=gs.as[1-p];
-    sc_p.lanes.forEach((l,s)=>{ if (l.half) effects.push(`😘 Kiss halved ${l.e} ${l.name} → ${l.fin} pts (${gs.players[p].name}, lane ${LANES[s]})`); });
+    sc[p].lanes.forEach((l,s)=>{ if (l.bonus>0) effects.push(`${l.e} ${l.name} gained +${l.bonus} bonus (${gs.players[p].name}, lane ${LANES[s]})`); });
   }
   const tabBtn = (id,label) => (
     <button onClick={()=>setTab(id)} style={{ flex:1, padding:"10px 0", background:tab===id?C.hi:"transparent", border:"none", borderBottom:tab===id?`2px solid ${C.accent}`:"2px solid transparent", color:tab===id?C.text:C.muted, fontFamily:"Nunito", fontWeight:700, fontSize:13, cursor:"pointer" }}>{label}</button>
@@ -530,9 +667,7 @@ const titleText  = w===-1?"🤝 DRAW!":("🏆 "+gs.players[w].name+" Wins!");
                       <div style={{ fontSize:12, fontWeight:700, color:C.text }}>{l.name}</div>
                       <div style={{ fontSize:10, color:C.muted }}>
                         {l.base}bp
-                        {l.buff>0&&<span style={{color:C.ok}}> +{l.buff} buff</span>}
-                        {l.supp&&<span style={{color:C.err}}> suppressed</span>}
-                        {l.half&&<span style={{color:C.accent2}}> halved</span>}
+                        {l.bonus>0&&<span style={{color:C.ok}}> +{l.bonus} bonus</span>}
                       </div>
                     </div>
                     <div style={{ fontFamily:"Fredoka One", fontSize:20, color:l.fin>0?C.accent:C.muted }}>{l.fin}</div>
@@ -600,25 +735,22 @@ function RulebookScreen({ onBack }) {
       <div style={{padding:"16px 16px 40px"}}>
         {tab==="rules" && (
           <div>
-            {rule("Match Setup","Two players. Each starts with 😀 😀 😀 (three Grin emojis). A match lasts 5 rounds.")}
+            {rule("Match Setup","Two players. Each starts with 😀 😀 😀 (three Basic emojis). A match lasts 5 rounds.")}
             {rule("Turn Order","Each round: Player 1 acts, then Player 2. Each player takes 5 total turns.")}
             {rule("On Your Turn","1) Choose an emoji from the offer tray. 2) Choose which of your 3 slots to replace. 3) Confirm. Any on-play effects resolve immediately.")}
             {rule("The Board","Each player has 3 slots: Left, Middle, Right. A slot always contains exactly one emoji. The Left slot faces the opponent's Left slot (and so on for Mid, Right).")}
-            {rule("Locked Slots","A locked emoji cannot be replaced until its lock expires. Lock icons appear on locked slots.")}
-            {rule("Scoring","After Turn 5 for both players: (1) Start with base points. (2) Apply buffs. (3) Apply suppressions/halving. (4) Sum all three lane scores.")}
+            {rule("Round Effects","😵 Dead Face transforms at the start of the next round. 🦴 Bone, 🐦‍⬛ Crow, and 🕯️ Candle add bonuses at round end.")}
+            {rule("Scoring","Final score = base points + bonuses gained during rounds. 👑 Lich King flips 💀 to +2 and ☠️ to +4.")}
             {rule("Win Condition","Higher total score wins. Equal score = Draw.")}
           </div>
         )}
         {tab==="glossary" && (
           <div>
-            {rule("Basic","Only 😀 Grin is basic. Cards referencing 'basic' mean specifically 😀.")}
-            {rule("Non-Basic","Any emoji other than 😀 Grin.")}
-            {rule("Colored Emoji","An emoji with a color tag: red, purple, or black. Yellow is also a color for some checks.")}
-            {rule("Unique Colors","The count of distinct color tags among your army. Max 4: yellow, red, purple, black.")}
-            {rule("Locked","A locked slot cannot be replaced until the lock expires.")}
-            {rule("Suppressed","A suppressed emoji exists on the board but contributes 0 points at scoring time.")}
+            {rule("Basic","😀 Basic. Default emoji. Value 0.")}
+            {rule("Person","Any human-face emoji. Currently includes 😀 and 😵.")}
+            {rule("Skull States","💀 Skull (-2) cannot be placed directly. ☠️ Crossbones (-4) must replace a 💀.")}
+            {rule("Adjacent","Left or right neighbor slot in your army.")}
             {rule("Across","Same lane on the opposing side. Your Left faces opponent's Left, etc.")}
-            {rule("Hearts","Emojis tagged 'heart': ❤️ 💜 🖤")}
           </div>
         )}
         {tab==="emojis" && (
@@ -631,7 +763,7 @@ function RulebookScreen({ onBack }) {
                     <span style={{fontSize:26}}>{def.e}</span>
                     <div>
                       <div style={{fontSize:13,fontWeight:800,color:C.text}}>{def.n}</div>
-                      <div style={{fontSize:12,color:C.accent,fontWeight:700}}>{def.bp} pt{def.bp!==1?"s":""} {!def.play&&<span style={{color:C.muted,fontSize:10}}>(starter)</span>}</div>
+                      <div style={{fontSize:12,color:C.accent,fontWeight:700}}>{def.bp} pt{def.bp!==1?"s":""} {!def.play&&<span style={{color:C.muted,fontSize:10}}>{def.tags.includes("basic")?"(starter)":"(generated)"}</span>}</div>
                     </div>
                   </div>
                   <div style={{fontSize:11,color:C.muted,lineHeight:1.4}}>{def.rt||def.rules.slice(0,60)}{def.rules.length>60?"…":""}</div>
@@ -667,7 +799,7 @@ function SettingsScreen({ onBack, onSignOut, onSignIn, user }) {
         ))}
         <div style={{...card({marginTop:10}),textAlign:"center",color:C.muted,fontSize:13}}>
           <strong style={{color:C.text}}>Emoji Battle! v1</strong><br/>
-          Fast 1v1 browser strategy • 16 starter emojis<br/>
+          Fast 1v1 browser strategy • {PIDS.length} playable emojis<br/>
           Firebase sync is enabled for multiplayer lobbies.
         </div>
         <div style={{...card(),display:"flex",justifyContent:"space-between",alignItems:"center"}}>
