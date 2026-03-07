@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
 import {
   addDoc,
@@ -145,6 +145,7 @@ const saveDecks = (decks) => {
 };
 
 const getDeckById = (decks, id) => decks.find((d) => d.id === id) || decks[0];
+const serializeDecks = (decks, selectedDeckId) => JSON.stringify({ decks, selectedDeckId });
 
 /* ===========================================================
    GAME LOGIC
@@ -338,8 +339,8 @@ function applyRoundStartTransforms(s) {
   }
 }
 
-function advanceTurn(s, pid) {
-  advanceConveyorForPlayer(s, pid);
+function advanceTurn(s) {
+  for (let p=0;p<2;p++) advanceConveyorForPlayer(s, p);
   s.ct += 1;
   if (s.ct % 2 === 0) {
     applyRoundEnd(s);
@@ -473,7 +474,7 @@ function applyMove(gs, handIndex, si) {
   }
 
   evts.forEach(e=>s.log.push(e));
-  if (s.phase!=="ec") advanceTurn(s, pid);
+  if (s.phase!=="ec") advanceTurn(s);
   return s;
 }
 
@@ -493,7 +494,7 @@ function applySick(gs, tsi) {
     }
   }
   s.pend=null;
-  advanceTurn(s, pid);
+  advanceTurn(s);
   return s;
 }
 
@@ -503,7 +504,7 @@ function applyPass(gs) {
   if (typeof s.lichActive !== "boolean") s.lichActive = false;
   ensureDeckState(s);
   s.log.push(`${s.players[pid].name} passed and let the conveyor advance.`);
-  advanceTurn(s, pid);
+  advanceTurn(s);
   return s;
 }
 
@@ -1428,6 +1429,7 @@ export default function App() {
   const [chatInput, setChatInput] = useState("");
   const [hostLobbies, setHostLobbies] = useState([]);
   const [guestLobbies, setGuestLobbies] = useState([]);
+  const deckSyncRef = useRef("");
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
@@ -1438,14 +1440,57 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const loaded = loadDecks();
-    setDecks(loaded);
-    setSelectedDeckId(loaded[0]?.id || DEFAULT_DECKS[0].id);
-  }, []);
+    if (!authReady) return;
+    if (!user) {
+      const loaded = loadDecks();
+      const nextSelected = loaded[0]?.id || DEFAULT_DECKS[0].id;
+      setDecks(loaded);
+      setSelectedDeckId(nextSelected);
+      deckSyncRef.current = serializeDecks(loaded, nextSelected);
+      return;
+    }
+    const appRef = doc(db, "users", user.uid, "apps", "emoji-battle");
+    return onSnapshot(appRef, (snap) => {
+      if (!snap.exists()) {
+        const fallback = DEFAULT_DECKS;
+        const nextSelected = fallback[0].id;
+        setDecks(fallback);
+        setSelectedDeckId(nextSelected);
+        deckSyncRef.current = serializeDecks(fallback, nextSelected);
+        setDoc(appRef, { decks: fallback, selectedDeckId: nextSelected, updatedAt: serverTimestamp() }, { merge: true })
+          .catch(() => undefined);
+        return;
+      }
+      const data = snap.data() || {};
+      const storedDecks = Array.isArray(data.decks) ? data.decks : null;
+      const normalized = storedDecks ? storedDecks.map(normalizeDeck) : null;
+      if (!normalized || normalized.some((d) => !d)) {
+        const fallback = DEFAULT_DECKS;
+        const nextSelected = fallback[0].id;
+        setDecks(fallback);
+        setSelectedDeckId(nextSelected);
+        deckSyncRef.current = serializeDecks(fallback, nextSelected);
+        return;
+      }
+      const selected = normalized.find((d) => d.id === data.selectedDeckId) ? data.selectedDeckId : normalized[0].id;
+      setDecks(normalized);
+      setSelectedDeckId(selected);
+      deckSyncRef.current = serializeDecks(normalized, selected);
+    });
+  }, [authReady, user]);
 
   useEffect(() => {
-    saveDecks(decks);
-  }, [decks]);
+    if (!authReady) return;
+    const payload = serializeDecks(decks, selectedDeckId);
+    if (payload === deckSyncRef.current) return;
+    deckSyncRef.current = payload;
+    if (!user) {
+      saveDecks(decks);
+      return;
+    }
+    const appRef = doc(db, "users", user.uid, "apps", "emoji-battle");
+    setDoc(appRef, { decks, selectedDeckId, updatedAt: serverTimestamp() }, { merge: true }).catch(() => undefined);
+  }, [authReady, user, decks, selectedDeckId]);
 
   useEffect(() => {
     if (!user) {
@@ -1975,6 +2020,7 @@ export default function App() {
     </>
   );
 }
+
 
 
 
