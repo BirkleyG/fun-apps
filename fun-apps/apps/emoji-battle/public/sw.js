@@ -1,4 +1,4 @@
-const CACHE_NAME = "emoji-battle-v5";
+const CACHE_NAME = "emoji-battle-v6";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

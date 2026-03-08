@@ -10,7 +10,6 @@ import {
   onSnapshot,
   orderBy,
   query,
-  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -166,14 +165,6 @@ const saveDecks = (decks, selectedDeckId, uid = null) => {
 
 const getDeckById = (decks, id) => decks.find((d) => d.id === id) || decks[0];
 const serializeDecks = (decks, selectedDeckId) => JSON.stringify({ decks, selectedDeckId });
-const sanitizeForFirestore = (value) => {
-  if (value === undefined) return null;
-  try {
-    return JSON.parse(JSON.stringify(value));
-  } catch {
-    return null;
-  }
-};
 
 /* ===========================================================
    GAME LOGIC
@@ -1645,12 +1636,6 @@ export default function App() {
       return;
     }
     const name = getPlayerName(user);
-    const deck = getDeckById(decks, selectedDeckId);
-    if (!deck) {
-      setMpError("Decks are still loading. Try again in a moment.");
-      return;
-    }
-    const safeDeck = sanitizeForFirestore(deck);
     const lobbyCollection = collection(db, LOBBY_COLLECTION);
     for (let i = 0; i < 6; i += 1) {
       const code = makeLobbyCode();
@@ -1661,9 +1646,7 @@ export default function App() {
         code,
         status: "waiting",
         host: { uid: user.uid, name },
-        hostDeck: safeDeck,
         guest: null,
-        guestDeck: null,
         gameState: null,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
@@ -1693,35 +1676,24 @@ export default function App() {
       return;
     }
     const name = getPlayerName(user);
-    const deck = getDeckById(decks, selectedDeckId);
-    if (!deck) {
-      setMpError("Decks are still loading. Try again in a moment.");
-      return;
-    }
     try {
-      await runTransaction(db, async (tx) => {
-        const liveSnap = await tx.get(lobbyRef);
-        if (!liveSnap.exists()) throw new Error("lobby-not-found");
-        const data = liveSnap.data();
-        if (data.host?.uid === user.uid) return;
-        if (data.guest?.uid && data.guest.uid !== user.uid) throw new Error("lobby-full");
-        if (!data.guest) {
-          const safeDeck = sanitizeForFirestore(deck);
-          const safeHostDeck = sanitizeForFirestore(data.hostDeck || DEFAULT_DECKS[0]);
-          const safeGameState = sanitizeForFirestore(
-            initGame(data.host?.name || "Player 1", name, data.hostDeck || DEFAULT_DECKS[0], deck)
-          );
-          if (!safeDeck || !safeHostDeck || !safeGameState) throw new Error("invalid-game-state");
-          tx.update(lobbyRef, {
-            guest: { uid: user.uid, name },
-            guestDeck: safeDeck,
-            status: "playing",
-            hostDeck: safeHostDeck,
-            gameState: safeGameState,
-            updatedAt: serverTimestamp()
-          });
-        }
-      });
+      const data = snap.data();
+      if (data.host?.uid === user.uid) {
+        setActiveLobbyCode(code);
+        setScreen("mp-lobby");
+        return;
+      }
+      if (data.guest?.uid && data.guest.uid !== user.uid) {
+        setMpError("Lobby already has two players.");
+        return;
+      }
+      if (!data.guest) {
+        await updateDoc(lobbyRef, {
+          guest: { uid: user.uid, name },
+          status: "ready",
+          updatedAt: serverTimestamp()
+        });
+      }
       setActiveLobbyCode(code);
       setScreen("mp-lobby");
     } catch (err) {
@@ -1733,8 +1705,6 @@ export default function App() {
         setMpError("Lobby already has two players.");
       } else if (msg.includes("lobby-not-found")) {
         setMpError("Lobby not found.");
-      } else if (msg.includes("invalid-game-state")) {
-        setMpError("Deck data invalid. Re-open the app and try again.");
       } else {
         setMpError(`Unable to join lobby (${code || msg || "unknown"}). Try again.`);
       }
@@ -1747,35 +1717,11 @@ export default function App() {
     if (activeLobby.host?.uid === user.uid) return;
     if (activeLobby.guest?.uid) return;
     const name = getPlayerName(user);
-    const deck = getDeckById(decks, selectedDeckId);
-    if (!deck) {
-      setMpError("Decks are still loading. Try again in a moment.");
-      return;
-    }
     try {
-      await runTransaction(db, async (tx) => {
-        const lobbyRef = doc(db, LOBBY_COLLECTION, activeLobby.id);
-        const liveSnap = await tx.get(lobbyRef);
-        if (!liveSnap.exists()) throw new Error("lobby-not-found");
-        const data = liveSnap.data();
-        if (data.host?.uid === user.uid) return;
-        if (data.guest?.uid && data.guest.uid !== user.uid) throw new Error("lobby-full");
-        if (!data.guest) {
-          const safeDeck = sanitizeForFirestore(deck);
-          const safeHostDeck = sanitizeForFirestore(data.hostDeck || DEFAULT_DECKS[0]);
-          const safeGameState = sanitizeForFirestore(
-            data.gameState || initGame(data.host?.name || "Player 1", name, data.hostDeck || DEFAULT_DECKS[0], deck)
-          );
-          if (!safeDeck || !safeHostDeck || !safeGameState) throw new Error("invalid-game-state");
-          tx.update(lobbyRef, {
-            guest: { uid: user.uid, name },
-            guestDeck: safeDeck,
-            status: "playing",
-            hostDeck: safeHostDeck,
-            gameState: safeGameState,
-            updatedAt: serverTimestamp()
-          });
-        }
+      await updateDoc(doc(db, LOBBY_COLLECTION, activeLobby.id), {
+        guest: { uid: user.uid, name },
+        status: "ready",
+        updatedAt: serverTimestamp()
       });
     } catch (err) {
       const code = err?.code || "";
@@ -1786,8 +1732,6 @@ export default function App() {
         setMpError("Lobby already has two players.");
       } else if (msg.includes("lobby-not-found")) {
         setMpError("Lobby not found.");
-      } else if (msg.includes("invalid-game-state")) {
-        setMpError("Deck data invalid. Re-open the app and try again.");
       } else {
         setMpError(`Unable to join lobby (${code || msg || "unknown"}). Try again.`);
       }
@@ -1866,12 +1810,26 @@ export default function App() {
     });
   };
 
+  const handleStartLobbyMatch = async () => {
+    if (!activeLobby || !user) return;
+    if (activeLobby.host?.uid !== user.uid) return;
+    if (!activeLobby.guest?.uid) return;
+    const hostName = activeLobby.host?.name || "Player 1";
+    const guestName = activeLobby.guest?.name || "Player 2";
+    const next = initGame(hostName, guestName, DEFAULT_DECKS[0], DEFAULT_DECKS[0]);
+    await updateDoc(doc(db, LOBBY_COLLECTION, activeLobby.id), {
+      gameState: next,
+      status: "playing",
+      updatedAt: serverTimestamp()
+    });
+  };
+
   const handleMpRematch = async () => {
     if (!activeLobby) return;
     const hostName = activeLobby.host?.name || "Player 1";
     const guestName = activeLobby.guest?.name || "Player 2";
-    const deck1 = activeLobby.gameState?.decks?.[0] || activeLobby.hostDeck || DEFAULT_DECKS[0];
-    const deck2 = activeLobby.gameState?.decks?.[1] || activeLobby.guestDeck || DEFAULT_DECKS[0];
+    const deck1 = activeLobby.gameState?.decks?.[0] || DEFAULT_DECKS[0];
+    const deck2 = activeLobby.gameState?.decks?.[1] || DEFAULT_DECKS[0];
     const next = initGame(hostName, guestName, deck1, deck2);
     await updateDoc(doc(db, LOBBY_COLLECTION, activeLobby.id), {
       gameState: next,
@@ -2020,7 +1978,7 @@ export default function App() {
               </div>
             )}
 
-            {activeLobby && activeLobby.host?.uid === user.uid && activeLobby.status === "waiting" && (
+            {activeLobby && activeLobby.host?.uid === user.uid && !activeLobby.guest?.uid && !activeLobby.gameState && (
               <div style={{ padding:20, display:"flex", flexDirection:"column", gap:12 }}>
                 <div style={{ ...card() }}>
                   <div style={{ fontWeight:800, fontSize:14, marginBottom:6 }}>Waiting for opponent</div>
@@ -2034,7 +1992,20 @@ export default function App() {
               </div>
             )}
 
-            {activeLobby && activeLobby.status === "waiting" && activeLobby.guest?.uid === user.uid && (
+            {activeLobby && activeLobby.host?.uid === user.uid && activeLobby.guest?.uid && !activeLobby.gameState && (
+              <div style={{ padding:20, display:"flex", flexDirection:"column", gap:12 }}>
+                <div style={{ ...card() }}>
+                  <div style={{ fontWeight:800, fontSize:14, marginBottom:6 }}>Opponent joined</div>
+                  <div style={{ fontSize:12, color:C.muted }}>Guest: {activeLobby.guest?.name || "Player 2"}</div>
+                </div>
+                <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+                  <Btn onClick={handleStartLobbyMatch} sm>Start Match</Btn>
+                  <Btn onClick={handleCloseLobby} outline color={C.err} sm>Close Lobby</Btn>
+                </div>
+              </div>
+            )}
+
+            {activeLobby && activeLobby.guest?.uid === user.uid && !activeLobby.gameState && (
               <div style={{ padding:20, color:C.muted }}>Waiting for host to start...</div>
             )}
 
