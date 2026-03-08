@@ -60,6 +60,26 @@ const renderText = t => t.split('\n\n').map((p,i)=><p key={i} style={{marginBott
 const fmtDate    = ts => new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric'});
 const dayKey     = ts => Math.floor(ts/DAY);
 const wordCount  = t => (t||'').trim().split(/\s+/).filter(Boolean).length;
+const getNodeText = node => {
+  if (!node) return '';
+  if (node.isMultiPage && Array.isArray(node.pages) && node.pages.length > 0) {
+    return node.pages.map(p => (p?.text || '')).filter(Boolean).join('\n\n');
+  }
+  return node.text || '';
+};
+const normalizeNode = node => {
+  if (!node) return node;
+  return {
+    ...node,
+    isMultiPage: !!node.isMultiPage,
+    pages: Array.isArray(node.pages) ? node.pages : [],
+  };
+};
+const mkPage = (text = '', buttonLabel = 'Continue') => ({
+  id: `p_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
+  text,
+  buttonLabel,
+});
 
 function copyToClipboard(text) {
   if (navigator.clipboard?.writeText) {
@@ -144,7 +164,7 @@ const normalizeStory = (rawNodes) => {
   Object.values(rawNodes || {}).forEach((node) => {
     if (!node || !node.id) return;
     const createdBy = AUTHOR_REMAP[node.createdBy] || node.createdBy || AUTHORS[0];
-    out[node.id] = { ...node, createdBy };
+    out[node.id] = normalizeNode({ ...node, createdBy });
   });
   return out;
 };
@@ -270,14 +290,46 @@ function Header({ mode, setMode, authUnlocked, found, totalEndings, loopN, curAu
 }
 
 /* ═══ READER ═════════════════════════════════════════════════════════════ */
-function ReaderView({ curNode, fading, reachableSet, nodes, go, restart }) {
+function ReaderView({ curNode, fading, reachableSet, nodes, go, restart, pageIdx, setPageIdx }) {
+  if (!curNode) {
+    return (
+      <div style={{minHeight:'100vh',paddingTop:80,paddingBottom:80,display:'flex',justifyContent:'center',alignItems:'center',background:C.bg}}>
+        <div style={{width:'100%',maxWidth:520,padding:'0 24px',textAlign:'center',color:C.textFaint,fontFamily:"'Cormorant Garamond',serif",fontStyle:'italic'}}>
+          No story nodes yet. Switch to Author mode to create the first node.
+        </div>
+      </div>
+    );
+  }
+
+  const pages = curNode.isMultiPage && Array.isArray(curNode.pages) && curNode.pages.length > 0 ? curNode.pages : null;
+  const lastPageIdx = pages ? pages.length - 1 : 0;
+  const safePageIdx = pages ? Math.min(pageIdx, lastPageIdx) : 0;
+  const page = pages ? pages[safePageIdx] : null;
+  const canAdvance = !!pages && safePageIdx < lastPageIdx;
+  const showChoices = !pages || !canAdvance;
+  const displayText = pages ? (page?.text || '') : (curNode.text || '');
+  const nextLabel = page?.buttonLabel || 'Continue';
+
   return (
     <div style={{minHeight:'100vh',paddingTop:80,paddingBottom:80,display:'flex',justifyContent:'center',background:C.bg}}>
       <div style={{width:'100%',maxWidth:620,padding:'0 24px',opacity:fading?0:1,transform:fading?'translateY(12px)':'translateY(0)',transition:'opacity .28s,transform .28s',animation:'fadeUp .35s ease both'}}>
         <div style={{marginBottom:10}}><span style={{fontFamily:"'Cinzel',serif",fontSize:9.5,letterSpacing:'0.25em',color:TYPE_META[curNode?.type]?.color||C.textDim,textTransform:'uppercase'}}>{TYPE_META[curNode?.type]?.label}</span></div>
         <h1 style={{fontFamily:"'Cinzel',serif",fontSize:28,fontWeight:500,color:C.text,letterSpacing:'0.05em',marginBottom:36,lineHeight:1.3}}>{curNode?.title}</h1>
-        <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:21,color:C.text,marginBottom:48,opacity:.9}}>{renderText(curNode?.text||'')}</div>
-        {curNode?.choices?.length>0&&(
+        <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:21,color:C.text,marginBottom:48,opacity:.9}}>{renderText(displayText)}</div>
+
+        {canAdvance&&(
+          <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:40}}>
+            <button onClick={()=>setPageIdx(i=>Math.min(i+1,lastPageIdx))}
+              style={{display:'flex',alignItems:'flex-start',gap:16,padding:'15px 20px',width:'100%',background:'transparent',border:`1px solid ${C.border}`,borderLeft:`3px solid ${C.goldDim}`,borderRadius:4,color:C.text,fontSize:17,fontFamily:"'Cormorant Garamond',serif",textAlign:'left',cursor:'pointer',transition:'all .18s',lineHeight:1.5}}
+              onMouseEnter={e=>{e.currentTarget.style.borderLeftColor=C.gold;e.currentTarget.style.background='rgba(196,144,58,0.08)';e.currentTarget.style.color='#f5e6c8';}}
+              onMouseLeave={e=>{e.currentTarget.style.borderLeftColor=C.goldDim;e.currentTarget.style.background='transparent';e.currentTarget.style.color=C.text;}}>
+              <span style={{fontFamily:"'Cinzel',serif",fontSize:10,color:C.goldDim,paddingTop:4,minWidth:16}}>→</span>
+              <span style={{flex:1}}>{nextLabel}</span>
+            </button>
+          </div>
+        )}
+
+        {showChoices&&curNode?.choices?.length>0&&(
           <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:40}}>
             {curNode.choices.map((c,i)=>{
               const alive=reachableSet.has(c.nextNodeId),exists=!!nodes[c.nextNodeId],dead=!alive||!exists;
@@ -296,8 +348,11 @@ function ReaderView({ curNode, fading, reachableSet, nodes, go, restart }) {
         )}
         <div style={{display:'flex',justifyContent:'space-between',paddingTop:24,borderTop:`1px solid ${C.border}`}}>
           <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:C.textFaint}}>{curNode?.id}</span>
-          <button onClick={restart} style={{fontFamily:"'Cinzel',serif",fontSize:9.5,color:C.textFaint,letterSpacing:'0.15em',textTransform:'uppercase',transition:'color .2s'}}
+          <div style={{display:'flex',gap:10,alignItems:'center'}}>
+            {pages&&<span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:C.textFaint}}>Page {safePageIdx+1}/{pages.length}</span>}
+            <button onClick={restart} style={{fontFamily:"'Cinzel',serif",fontSize:9.5,color:C.textFaint,letterSpacing:'0.15em',textTransform:'uppercase',transition:'color .2s'}}
             onMouseEnter={e=>e.currentTarget.style.color=C.textDim} onMouseLeave={e=>e.currentTarget.style.color=C.textFaint}>↺ Return to Page 1</button>
+          </div>
         </div>
       </div>
     </div>
@@ -314,7 +369,7 @@ function EndingView({ curNode, fading, restart, setMode }) {
         <div style={{width:48,height:1,background:`linear-gradient(90deg,transparent,${C.rose},transparent)`,margin:'0 auto 24px'}}/>
         <h1 style={{fontFamily:"'Cinzel',serif",fontSize:32,fontWeight:600,color:C.text,marginBottom:13,letterSpacing:'0.08em',lineHeight:1.2}}>{curNode?.title}</h1>
         <div style={{fontFamily:"'Cinzel',serif",fontSize:10,letterSpacing:'0.25em',color:C.rose,marginBottom:38,opacity:.7,textTransform:'uppercase'}}>{ed?.endingCategory}</div>
-        <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,color:C.text,marginBottom:42,textAlign:'left',opacity:.88,lineHeight:1.8}}>{renderText(curNode?.text||'')}</div>
+        <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,color:C.text,marginBottom:42,textAlign:'left',opacity:.88,lineHeight:1.8}}>{renderText(getNodeText(curNode))}</div>
         <div style={{display:'flex',gap:13,justifyContent:'center',flexWrap:'wrap',marginBottom:28}}>
           <button onClick={restart} style={{fontFamily:"'Cinzel',serif",fontSize:10.5,letterSpacing:'0.2em',color:C.bg,background:C.gold,border:'none',borderRadius:4,padding:'12px 24px',textTransform:'uppercase'}}
             onMouseEnter={e=>e.currentTarget.style.background='#d4a04a'} onMouseLeave={e=>e.currentTarget.style.background=C.gold}>Begin Again</button>
@@ -371,7 +426,7 @@ function AnalyticsView({ nodes, found, totalEndings, loopN, curAuthorIdx, setCur
   const today    = dayKey(Date.now());
 
   /* ── Word stats ── */
-  const wordCounts = allNodes.map(n=>({id:n.id,title:n.title,wc:wordCount(n.text)}));
+  const wordCounts = allNodes.map(n=>({id:n.id,title:n.title,wc:wordCount(getNodeText(n))}));
   const totalWords = wordCounts.reduce((a,x)=>a+x.wc,0);
   const avgWords   = allNodes.length ? Math.round(totalWords/allNodes.length) : 0;
   const maxWNode   = wordCounts.reduce((a,x)=>x.wc>a.wc?x:a,{wc:0,title:'—'});
@@ -679,7 +734,7 @@ function NotesView() {
 }
 
 /* ═══ MAP VIEW ═══════════════════════════════════════════════════════════ */
-function MapView({ nodes, setNodes, sel, setSel, setEditNode, setATab, reachableSet, totalEndings, copyFlash, copyContext }) {
+function MapView({ nodes, setNodes, sel, setSel, setEditNode, setATab, reachableSet, totalEndings, copyFlash, copyContext, confirmDiscard }) {
   const [pan,  setPan]    = useState({ x:60, y:60 });
   const [zoom, setZoom]   = useState(0.86);
   const [cursor, setCursor] = useState('grab');
@@ -740,17 +795,38 @@ function MapView({ nodes, setNodes, sel, setSel, setEditNode, setATab, reachable
       ex = cx2 - r * Math.cos(angle);
       ey = cy2 - r * Math.sin(angle);
     } else {
-      // full card: bottom-center → top-center
+      // full card: connect at rectangle edge based on angle
       const nw=NW*z, nh=NH*z;
-      sx = fn.position.x*z+pan.x + nw/2;
-      sy = fn.position.y*z+pan.y + nh;
-      ex = tn.position.x*z+pan.x + nw/2;
-      ey = tn.position.y*z+pan.y;
+      const hw=nw/2, hh=nh/2;
+      const cx1 = fn.position.x*z+pan.x + hw;
+      const cy1 = fn.position.y*z+pan.y + hh;
+      const cx2 = tn.position.x*z+pan.x + hw;
+      const cy2 = tn.position.y*z+pan.y + hh;
+      const dx = cx2 - cx1;
+      const dy = cy2 - cy1;
+      const norm = Math.max(Math.abs(dx)/hw, Math.abs(dy)/hh, 0.001);
+      sx = cx1 + dx / norm;
+      sy = cy1 + dy / norm;
+      ex = cx2 - dx / norm;
+      ey = cy2 - dy / norm;
     }
 
+    const dx = ex - sx;
+    const dy = ey - sy;
+    const len = Math.hypot(dx, dy) || 1;
+    const px = -dy / len;
+    const py = dx / len;
     const spread=(idx-(tot-1)/2)*14*z;
-    const cy=Math.max(30,Math.abs(ey-sy)*0.44);
-    return `M${sx+spread},${sy} C${sx+spread},${sy+cy} ${ex},${ey-cy} ${ex},${ey}`;
+    const osx = sx + px * spread;
+    const osy = sy + py * spread;
+    const oex = ex + px * spread;
+    const oey = ey + py * spread;
+    const curve = Math.min(120, Math.max(26, Math.hypot(dx, dy) * 0.25));
+    const c1x = osx + dx * 0.25 + px * curve;
+    const c1y = osy + dy * 0.25 + py * curve;
+    const c2x = oex - dx * 0.25 + px * curve;
+    const c2y = oey - dy * 0.25 + py * curve;
+    return `M${osx},${osy} C${c1x},${c1y} ${c2x},${c2y} ${oex},${oey}`;
   };
 
   /* Window drag/pan listeners */
@@ -800,9 +876,14 @@ function MapView({ nodes, setNodes, sel, setSel, setEditNode, setATab, reachable
     if(dist<5&&dt<300){
       // treat as click; check for double-click
       const now=Date.now(), last=lastClickRef.current;
+      const switching = sel !== n.id;
+      if (switching && confirmDiscard && !confirmDiscard()) {
+        dragRef.current=null; mouseDownRef.current=null; setCursor('grab');
+        return;
+      }
       if(last.id===n.id&&now-last.time<400){
         // double click → open editor
-        setSel(n.id); setEditNode({...nodesRef.current[n.id]}); setATab('nodes');
+        setSel(n.id); setEditNode(normalizeNode(nodesRef.current[n.id])); setATab('nodes');
         lastClickRef.current={id:null,time:0};
       } else {
         // single click → just select
@@ -949,11 +1030,20 @@ function MapView({ nodes, setNodes, sel, setSel, setEditNode, setATab, reachable
 }
 
 /* ═══ AUTHOR VIEW ════════════════════════════════════════════════════════ */
-function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, setQ, aTab, setATab, reachableSet, copyFlash, copyContext, renameNodeId, playtestFrom, addNode, setShowTut, curAuthor, curAuthorIdx, setCurAuthorIdx, found, totalEndings }) {
+function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, setQ, aTab, setATab, reachableSet, copyFlash, copyContext, renameNodeId, playtestFrom, addNode, setShowTut, curAuthor, curAuthorIdx, setCurAuthorIdx, found, totalEndings, hasUnsaved, confirmDiscard }) {
 
   const [editingId,setEditingId]=useState(false);
   const [newId,setNewId]=useState('');
   const [idErr,setIdErr]=useState('');
+  const selectNode = id => {
+    if (!id) return;
+    if (sel !== id && confirmDiscard && !confirmDiscard()) return;
+    const node = nodes[id];
+    if (!node) return;
+    setSel(id);
+    setEditNode(normalizeNode(node));
+    setEditingId(false);
+  };
 
   const startIdEdit  = ()=>{ setNewId(editNode?.id||''); setEditingId(true); setIdErr(''); };
   const cancelIdEdit = ()=>{ setEditingId(false); setIdErr(''); };
@@ -982,8 +1072,46 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
   })();
 
   const isCopied=copyFlash===sel;
-  const saveEdit=()=>{ if(!editNode)return; setNodes(p=>({...p,[editNode.id]:{...p[editNode.id],...editNode}})); };
+  const saveEdit=()=>{ if(!editNode)return; const next=normalizeNode(editNode); setNodes(p=>({...p,[next.id]:{...p[next.id],...next}})); };
   const delNode =id=>{ if(id==='start')return; setNodes(p=>{const n={...p};delete n[id];return n;}); if(sel===id){setSel(null);setEditNode(null);} };
+  const toggleMulti = checked => {
+    setEditNode(n => {
+      if (!n) return n;
+      const pages = Array.isArray(n.pages) ? [...n.pages] : [];
+      if (checked && pages.length === 0) {
+        pages.push(mkPage(n.text || ''));
+      }
+      if (!checked && pages.length > 0) {
+        const firstText = pages[0]?.text || n.text || '';
+        return { ...n, isMultiPage: false, text: firstText, pages };
+      }
+      return { ...n, isMultiPage: checked, pages };
+    });
+  };
+  const addPage = () => {
+    setEditNode(n => {
+      if (!n) return n;
+      const pages = Array.isArray(n.pages) ? [...n.pages] : [];
+      pages.push(mkPage());
+      return { ...n, isMultiPage: true, pages };
+    });
+  };
+  const updatePage = (idx, patch) => {
+    setEditNode(n => {
+      if (!n) return n;
+      const pages = Array.isArray(n.pages) ? [...n.pages] : [];
+      const cur = pages[idx] || mkPage();
+      pages[idx] = { ...cur, ...patch };
+      return { ...n, pages };
+    });
+  };
+  const removePage = idx => {
+    setEditNode(n => {
+      if (!n) return n;
+      const pages = (Array.isArray(n.pages) ? n.pages : []).filter((_,i)=>i!==idx);
+      return { ...n, pages };
+    });
+  };
 
   // Sub-tabs including analytics and notes
   const TABS = [['nodes','Nodes'],['map','Map ⬡'],['endings','End'],['notes','Notes ✎'],['analytics','Stats'],['validate',`Issues${issues.length?` (${issues.length})`:''}`]];
@@ -1015,7 +1143,7 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
             {filtered.map(n=>{
               const dead=n.choices.length>0&&n.choices.every(c=>!reachableSet.has(c.nextNodeId));
               return (
-                <div key={n.id} onClick={()=>{setSel(n.id);setEditNode({...n});setEditingId(false);}}
+                <div key={n.id} onClick={()=>selectNode(n.id)}
                   style={{padding:'8px 11px',cursor:'pointer',borderLeft:`3px solid ${sel===n.id?(TYPE_META[n.type]?.color||C.gold):'transparent'}`,background:sel===n.id?'rgba(255,255,255,0.06)':'transparent',transition:'all .15s',borderBottom:`1px solid ${C.border}`}}>
                   <div style={{display:'flex',alignItems:'center',gap:5,marginBottom:2}}>
                     <span style={{fontSize:9.5,color:TYPE_META[n.type]?.color||C.textDim}}>{TYPE_META[n.type]?.icon||'◇'}</span>
@@ -1049,7 +1177,7 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
         {aTab==='endings'&&(
           <div style={{flex:1,overflowY:'auto',padding:'4px 0'}}>
             {allNodes.filter(n=>n.isEnding).map(n=>(
-              <div key={n.id} onClick={()=>{setSel(n.id);setEditNode({...n});}} style={{padding:'8px 11px',cursor:'pointer',borderLeft:`3px solid ${sel===n.id?C.rose:'transparent'}`,background:sel===n.id?'rgba(255,255,255,0.06)':'transparent',borderBottom:`1px solid ${C.border}`}}>
+              <div key={n.id} onClick={()=>selectNode(n.id)} style={{padding:'8px 11px',cursor:'pointer',borderLeft:`3px solid ${sel===n.id?C.rose:'transparent'}`,background:sel===n.id?'rgba(255,255,255,0.06)':'transparent',borderBottom:`1px solid ${C.border}`}}>
                 <div style={{fontFamily:"'Cinzel',serif",fontSize:10,color:found.has(n.id)?C.rose:C.textDim,marginBottom:2}}>{found.has(n.id)?'★ ':''}{n.endingData?.endingTitle||n.title}</div>
                 <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:8,color:C.textFaint}}>{n.endingData?.endingCategory||'—'}</div>
               </div>
@@ -1076,7 +1204,7 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
             {issues.length===0
               ?<div style={{padding:18,textAlign:'center',color:C.textDim,fontFamily:"'Cormorant Garamond',serif",fontStyle:'italic',fontSize:14}}>No issues ✓</div>
               :issues.map((iss,i)=>(
-                <div key={i} onClick={()=>iss.node&&nodes[iss.node]&&(setSel(iss.node),setEditNode({...nodes[iss.node]}))}
+                <div key={i} onClick={()=>iss.node&&selectNode(iss.node)}
                   style={{padding:'8px 9px',marginBottom:4,borderRadius:5,background:iss.type==='error'?'rgba(191,91,122,0.1)':'rgba(196,144,58,0.08)',border:`1px solid ${iss.type==='error'?C.rose+'33':C.gold+'22'}`,cursor:iss.node?'pointer':'default'}}>
                   <div style={{fontSize:8,fontFamily:"'Cinzel',serif",color:iss.type==='error'?C.rose:C.gold,letterSpacing:'0.1em',marginBottom:2}}>{iss.type.toUpperCase()}</div>
                   <div style={{fontSize:11,color:C.textDim,fontFamily:"'Cormorant Garamond',serif",lineHeight:1.5}}>{iss.msg}</div>
@@ -1101,15 +1229,16 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
             <button onClick={()=>copyContext(sel)} style={{fontFamily:"'Cinzel',serif",fontSize:9.5,letterSpacing:'0.08em',padding:'5px 11px',border:`1px solid ${isCopied?C.green+'66':C.purple+'55'}`,borderRadius:4,color:isCopied?C.green:C.purple,background:isCopied?'rgba(74,156,114,0.1)':'rgba(155,114,191,0.08)',cursor:'pointer',transition:'all .2s'}}>{isCopied?'✓ Copied!':'⊕ Copy Context'}</button>
             <button onClick={()=>playtestFrom(sel)} style={{fontFamily:"'Cinzel',serif",fontSize:9.5,letterSpacing:'0.1em',padding:'5px 11px',border:`1px solid ${C.goldDim}`,borderRadius:4,color:C.gold,background:'transparent',cursor:'pointer',transition:'all .15s'}}
               onMouseEnter={e=>e.currentTarget.style.background='rgba(196,144,58,0.1)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>▶ Playtest</button>
-            <button onClick={saveEdit} style={{fontFamily:"'Cinzel',serif",fontSize:9.5,letterSpacing:'0.1em',padding:'5px 11px',border:'none',borderRadius:4,color:C.bg,background:C.gold,cursor:'pointer',transition:'all .15s'}}
-              onMouseEnter={e=>e.currentTarget.style.background='#d4a04a'} onMouseLeave={e=>e.currentTarget.style.background=C.gold}>Save</button>
+            <button onClick={saveEdit} disabled={!hasUnsaved}
+              style={{fontFamily:"'Cinzel',serif",fontSize:9.5,letterSpacing:'0.1em',padding:'5px 11px',border:'none',borderRadius:4,color:C.bg,background:C.gold,cursor:!hasUnsaved?'not-allowed':'pointer',transition:'all .15s',opacity:!hasUnsaved?0.55:1}}
+              onMouseEnter={e=>{if(hasUnsaved)e.currentTarget.style.background='#d4a04a';}} onMouseLeave={e=>{e.currentTarget.style.background=C.gold;}}>Save Changes</button>
             {!editNode?.isStart&&<button onClick={()=>delNode(sel)} style={{fontFamily:"'Cinzel',serif",fontSize:9.5,letterSpacing:'0.1em',padding:'5px 11px',border:`1px solid ${C.rose}44`,borderRadius:4,color:C.rose,background:'transparent',cursor:'pointer',transition:'all .15s'}}
               onMouseEnter={e=>e.currentTarget.style.background='rgba(191,91,122,0.1)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>Delete</button>}
           </>)}
         </div>
 
         {/* Content */}
-        {aTab==='map'&&<div style={{flex:1,overflow:'hidden'}}><MapView nodes={nodes} setNodes={setNodes} sel={sel} setSel={setSel} setEditNode={setEditNode} setATab={setATab} reachableSet={reachableSet} totalEndings={totalEndings} copyFlash={copyFlash} copyContext={copyContext}/></div>}
+        {aTab==='map'&&<div style={{flex:1,overflow:'hidden'}}><MapView nodes={nodes} setNodes={setNodes} sel={sel} setSel={setSel} setEditNode={setEditNode} setATab={setATab} reachableSet={reachableSet} totalEndings={totalEndings} copyFlash={copyFlash} copyContext={copyContext} confirmDiscard={confirmDiscard}/></div>}
         {aTab==='notes'&&<div style={{flex:1,overflow:'hidden'}}><NotesView/></div>}
         {aTab==='analytics'&&<AnalyticsView nodes={nodes} found={found} totalEndings={totalEndings} loopN={1} curAuthorIdx={curAuthorIdx} setCurAuthorIdx={setCurAuthorIdx} onAddNode={addNode} reachableSet={reachableSet}/>}
 
@@ -1155,10 +1284,44 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
                   </div>
                 </Field>
 
-                <Field label="Story Text">
-                  <textarea value={editNode.text} onChange={e=>setEditNode(n=>({...n,text:e.target.value}))} rows={8}
-                    style={{...IST,resize:'vertical',fontFamily:"'Cormorant Garamond',serif",fontSize:17,lineHeight:1.7}}/>
+                <Field label="Story Mode">
+                  <label style={{display:'flex',alignItems:'center',gap:8,fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:C.textDim}}>
+                    <input type="checkbox" checked={!!editNode.isMultiPage} onChange={e=>toggleMulti(e.target.checked)} style={{accentColor:C.gold}}/>
+                    Multi-page node (pacing)
+                  </label>
                 </Field>
+
+                {!editNode.isMultiPage&&(
+                  <Field label="Story Text">
+                    <textarea value={editNode.text} onChange={e=>setEditNode(n=>({...n,text:e.target.value}))} rows={8}
+                      style={{...IST,resize:'vertical',fontFamily:"'Cormorant Garamond',serif",fontSize:17,lineHeight:1.7}}/>
+                  </Field>
+                )}
+
+                {editNode.isMultiPage&&(
+                  <Field label="Pages">
+                    <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                      {(editNode.pages||[]).length===0&&(
+                        <div style={{fontFamily:"'Cormorant Garamond',serif",fontStyle:'italic',fontSize:13,color:C.textFaint}}>No pages yet. Add the first page below.</div>
+                      )}
+                      {(editNode.pages||[]).map((p,i)=>(
+                        <div key={p.id||i} style={{background:'rgba(255,255,255,0.03)',border:`1px solid ${C.border}`,borderRadius:6,padding:10}}>
+                          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+                            <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:10,color:C.textFaint}}>Page {i+1}</span>
+                            <button onClick={()=>removePage(i)} style={{fontSize:10,color:C.rose,opacity:.7,cursor:'pointer'}}>Remove</button>
+                          </div>
+                          <textarea value={p.text||''} onChange={e=>updatePage(i,{text:e.target.value})} rows={6}
+                            style={{...IST,resize:'vertical',fontFamily:"'Cormorant Garamond',serif",fontSize:16,lineHeight:1.7,marginBottom:8}}/>
+                          <input value={p.buttonLabel||''} onChange={e=>updatePage(i,{buttonLabel:e.target.value})} placeholder="Next button text"
+                            style={{...IST,fontFamily:"'JetBrains Mono',monospace",fontSize:11}}/>
+                        </div>
+                      ))}
+                      <button onClick={addPage}
+                        style={{padding:'7px',border:`1px dashed ${C.goldDim}44`,borderRadius:5,color:C.textDim,fontSize:10.5,fontFamily:"'Cinzel',serif",letterSpacing:'0.08em',cursor:'pointer',background:'transparent'}}
+                        onMouseEnter={e=>{e.currentTarget.style.borderColor=C.goldDim;e.currentTarget.style.color=C.gold;}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.goldDim+'44';e.currentTarget.style.color=C.textDim;}}>+ Add Page</button>
+                    </div>
+                  </Field>
+                )}
 
                 {!editNode.isEnding&&(
                   <Field label="Choices">
@@ -1251,7 +1414,7 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
 /* ═══ ROOT APP ═══════════════════════════════════════════════════════════ */
 export default function App() {
   const [mode,         setMode]         = useState('reader');
-  const [nodes,        setNodes]        = useState(() => normalizeStory(STORY_SEED));
+  const [nodes,        setNodes]        = useState({});
   const [nodeId,       setNodeId]       = useState('start');
   const [found,        setFound]        = useState(new Set());
   const [loopN,        setLoopN]        = useState(1);
@@ -1267,6 +1430,7 @@ export default function App() {
   const [authUnlocked, setAuthUnlocked] = useState(false);
   const [copyFlash,    setCopyFlash]    = useState(null);
   const [nodesLoaded,  setNodesLoaded]  = useState(false);
+  const [pageIdx,      setPageIdx]      = useState(0);
 
   const skipRemoteRef  = useRef(false);
   const saveTimerRef   = useRef(null);
@@ -1274,6 +1438,21 @@ export default function App() {
   const curNode      = nodes[nodeId];
   const totalEndings = Object.values(nodes).filter(n=>n.isEnding).length;
   const curAuthor    = AUTHORS[curAuthorIdx];
+  const hasUnsaved   = useMemo(() => {
+    if (!editNode) return false;
+    const base = nodes[editNode.id];
+    if (!base) return false;
+    const clean = n => {
+      if (!n) return n;
+      const { position, ...rest } = normalizeNode(n);
+      return rest;
+    };
+    return JSON.stringify(clean(base)) !== JSON.stringify(clean(editNode));
+  }, [editNode, nodes]);
+  const confirmDiscard = useCallback(() => {
+    if (!hasUnsaved) return true;
+    return window.confirm("You have unsaved changes. Switching nodes will discard them. Continue?");
+  }, [hasUnsaved]);
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -1281,11 +1460,9 @@ export default function App() {
       (snap) => {
         const data = snap.data();
         if (!snap.exists() || !data?.nodes) {
-          const seeded = normalizeStory(STORY_SEED);
           skipRemoteRef.current = true;
-          setNodes(seeded);
+          setNodes({});
           setNodesLoaded(true);
-          setDoc(STORY_DOC, { nodes: seeded, updatedAt: serverTimestamp(), appVersion: APP_VERSION }, { merge: true }).catch(() => undefined);
           return;
         }
 
@@ -1328,6 +1505,10 @@ export default function App() {
   }, [nodes, nodeId]);
 
   useEffect(() => {
+    setPageIdx(0);
+  }, [nodeId]);
+
+  useEffect(() => {
     if (sel && !nodes[sel]) {
       setSel(null);
       setEditNode(null);
@@ -1358,10 +1539,10 @@ export default function App() {
     let out=`=== AI WRITING CONTEXT: "${target.title}" ===\nStory: The Loop · Type: ${target.type}\n`;
     if(path){
       out+=`Shortest path: ${path.length} steps\n\n${'─'.repeat(50)}\n\n`;
-      path.forEach((step,i)=>{ const n=nodes[step.nodeId];if(!n)return; const isTgt=step.nodeId===targetId; out+=`[${i+1}] ${n.title.toUpperCase()} (${n.type})${isTgt?' ← WRITE HERE':''}\n${n.text}\n`; if(!isTgt&&path[i+1])out+=`\n→ CHOICE: "${path[i+1].choiceTaken}"\n`; out+='\n'; });
+      path.forEach((step,i)=>{ const n=nodes[step.nodeId];if(!n)return; const isTgt=step.nodeId===targetId; const nodeText=getNodeText(n); out+=`[${i+1}] ${n.title.toUpperCase()} (${n.type})${isTgt?' ← WRITE HERE':''}\n${nodeText}\n`; if(!isTgt&&path[i+1])out+=`\n→ CHOICE: "${path[i+1].choiceTaken}"\n`; out+='\n'; });
       out+=`${'─'.repeat(50)}\nWriting for: "${target.title}".\n`;
       if(target.choices.length>0){out+='Available exits:\n';target.choices.forEach((c,i)=>{out+=`  ${i+1}. "${c.text}" → ${c.nextNodeId}\n`;});}
-    } else { out+=`\n(Node unreachable from start)\n\n${target.text}\n`; }
+    } else { out+=`\n(Node unreachable from start)\n\n${getNodeText(target)}\n`; }
     out+='\n=== END CONTEXT ===';
     copyToClipboard(out);
     setCopyFlash(targetId); setTimeout(()=>setCopyFlash(null),2200);
@@ -1375,25 +1556,27 @@ export default function App() {
   },[nodes,sel,nodeId]);
 
   const go          = useCallback((id)=>{ if(!nodes[id])return; setFading(true); setTimeout(()=>{ setNodeId(id); if(nodes[id]?.isEnding){setFound(f=>new Set([...f,id]));setShowEnd(true);}else setShowEnd(false); setFading(false); },300); },[nodes]);
-  const restart     = useCallback(()=>{ setFading(true); setTimeout(()=>{ setNodeId('start'); setShowEnd(false); setLoopN(l=>l+1); setFading(false); },400); },[]);
+  const restart     = useCallback(()=>{ setFading(true); setTimeout(()=>{ const nextId = nodes.start ? 'start' : Object.keys(nodes)[0]; if(nextId) setNodeId(nextId); setShowEnd(false); setLoopN(l=>l+1); setFading(false); },400); },[nodes]);
   const playtestFrom= useCallback((id)=>{ setNodeId(id); setShowEnd(nodes[id]?.isEnding||false); setMode('reader'); setFading(false); },[nodes]);
   const addNode     = useCallback(()=>{
-    const id='node_'+Date.now();
-    const nn={id,title:'New Scene',type:'scene',isStart:false,isEnding:false,createdAt:Date.now(),createdBy:curAuthor,text:'Write your scene here.',choices:[],tags:[],notes:'',position:{x:300,y:300}};
-    setNodes(p=>({...p,[id]:nn})); setEditNode(nn); setSel(id); setATab('nodes'); setMode('author');
-  },[curAuthor]);
+    if (confirmDiscard && !confirmDiscard()) return;
+    const isFirst = Object.keys(nodes).length === 0;
+    const id = isFirst ? 'start' : `node_${Date.now()}`;
+    const nn={id,title:isFirst?'Start':'New Scene',type:isFirst?'start':'scene',isStart:isFirst,isEnding:false,createdAt:Date.now(),createdBy:curAuthor,text:'Write your scene here.',choices:[],tags:[],notes:'',position:{x:300,y:300},isMultiPage:false,pages:[]};
+    setNodes(p=>({...p,[id]:nn})); setEditNode(normalizeNode(nn)); setSel(id); setATab('nodes'); setMode('author'); if(isFirst)setNodeId(id);
+  },[curAuthor,nodes,confirmDiscard]);
 
   return (
     <div style={{background:C.bg,minHeight:'100vh',color:C.text,fontFamily:"'Cormorant Garamond',serif"}}>
       <style>{GLOBAL_CSS}</style>
       <Header mode={mode} setMode={setMode} authUnlocked={authUnlocked} found={found} totalEndings={totalEndings} loopN={loopN} curAuthorIdx={curAuthorIdx} setCurAuthorIdx={setCurAuthorIdx}/>
 
-      {mode==='reader'&&!showEnd&&<ReaderView curNode={curNode} fading={fading} reachableSet={reachableSet} nodes={nodes} go={go} restart={restart}/>}
+      {mode==='reader'&&!showEnd&&<ReaderView curNode={curNode} fading={fading} reachableSet={reachableSet} nodes={nodes} go={go} restart={restart} pageIdx={pageIdx} setPageIdx={setPageIdx}/>}
       {mode==='reader'&&showEnd&&<EndingView curNode={curNode} fading={fading} restart={restart} setMode={setMode}/>}
 
       {mode==='author'&&!authUnlocked&&<PasswordGate onUnlock={()=>setAuthUnlocked(true)} goBack={()=>setMode('reader')}/>}
       {mode==='author'&&authUnlocked&&(
-        <AuthorView nodes={nodes} setNodes={setNodes} sel={sel} setSel={setSel} editNode={editNode} setEditNode={setEditNode} q={q} setQ={setQ} aTab={aTab} setATab={setATab} reachableSet={reachableSet} copyFlash={copyFlash} copyContext={copyContext} renameNodeId={renameNodeId} playtestFrom={playtestFrom} addNode={addNode} setShowTut={setShowTut} curAuthor={curAuthor} curAuthorIdx={curAuthorIdx} setCurAuthorIdx={setCurAuthorIdx} found={found} totalEndings={totalEndings}/>
+        <AuthorView nodes={nodes} setNodes={setNodes} sel={sel} setSel={setSel} editNode={editNode} setEditNode={setEditNode} q={q} setQ={setQ} aTab={aTab} setATab={setATab} reachableSet={reachableSet} copyFlash={copyFlash} copyContext={copyContext} renameNodeId={renameNodeId} playtestFrom={playtestFrom} addNode={addNode} setShowTut={setShowTut} curAuthor={curAuthor} curAuthorIdx={curAuthorIdx} setCurAuthorIdx={setCurAuthorIdx} found={found} totalEndings={totalEndings} hasUnsaved={hasUnsaved} confirmDiscard={confirmDiscard}/>
       )}
 
       {mode==='gallery'&&<GalleryView nodes={nodes} found={found} totalEndings={totalEndings} loopN={loopN}/>}
