@@ -16,6 +16,7 @@ import {
   where
 } from "firebase/firestore";
 import { auth, db, provider } from "./firebase";
+import { APP_VERSION, BUILD_DATE } from "./version";
 
 /* ===========================================================
    EMOJI DEFINITIONS
@@ -46,8 +47,6 @@ const TURN_LIMIT = ROUND_LIMIT * 2;
 const LOBBY_COLLECTION = "emoji-battle-lobbies";
 const CHAT_LIMIT = 60;
 const DECK_SIZE = 13;
-const APP_VERSION = "1.3.0";
-const BUILD_DATE = "2026-03-08";
 const RARITY_ORDER = ["common","rare","epic"];
 const RARITY_LIMITS = {
   common: { count:8, dup:3 },

@@ -1,10 +1,16 @@
-const CACHE_NAME = "emoji-battle-v2";
+const CACHE_NAME = "emoji-battle-v3";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(["./", "./index.html", "./manifest.webmanifest"]))
   );
   self.skipWaiting();
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener("activate", (event) => {
@@ -16,6 +22,20 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  const accept = event.request.headers.get("accept") || "";
+  const isHtml = event.request.mode === "navigate" || accept.includes("text/html");
+  if (isHtml) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy)).catch(() => undefined);
+          return response;
+        })
+        .catch(() => caches.match("./index.html"))
+    );
+    return;
+  }
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
