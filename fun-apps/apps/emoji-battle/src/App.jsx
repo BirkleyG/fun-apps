@@ -832,19 +832,21 @@ function SickModal({ gs, onChoose }) {
 /* ===========================================================
    GAME SCREEN
 =========================================================== */
-function GameScreen({ gs, onMove, onSick, onEndGame, onPass, onLock, readOnly, waitingFor }) {
+function GameScreen({ gs, onMove, onSick, onEndGame, onPass, onLock, readOnly, waitingFor, viewerPid }) {
   const [selHand,setSelHand]=useState(null);
   const [selSlot,setSelSlot]=useState(null);
   const [tooltip,setTooltip]=useState(null);
   const [errMsg,setErrMsg]=useState(null);
 
-  const pid=getAP(gs); const round=getRound(gs);
-  const pname=gs.players[pid].name; const oppid=1-pid;
+  const activePid=getAP(gs); const round=getRound(gs);
+  const viewPid=typeof viewerPid === "number" ? viewerPid : activePid;
+  const activeName=gs.players[activePid].name;
+  const pname=gs.players[viewPid].name; const oppid=1-viewPid;
   const oppname=gs.players[oppid].name;
-  const handOffers=getHandOffers(gs);
-  const hand = gs.hands?.[pid] || [null,null,null];
+  const handOffers=viewPid===activePid ? getHandOffers(gs) : (gs.hands?.[viewPid] || [null,null,null]).map((card)=>({ ok:false, reason:"Not your turn.", eid:card?.eid||null, validSlots:[] }));
+  const hand = gs.hands?.[viewPid] || [null,null,null];
   const selectedCard = selHand!==null ? hand[selHand] : null;
-  const deckRemaining = gs.deckOrders?.[pid] ? Math.max(0, gs.deckOrders[pid].length - (gs.deckIndex?.[pid] || 0)) : 0;
+  const deckRemaining = gs.deckOrders?.[viewPid] ? Math.max(0, gs.deckOrders[viewPid].length - (gs.deckIndex?.[viewPid] || 0)) : 0;
 
   useEffect(() => {
     setSelHand(null);
@@ -880,7 +882,7 @@ function GameScreen({ gs, onMove, onSick, onEndGame, onPass, onLock, readOnly, w
 
   const showConfirm = selHand!==null && selSlot!==null;
   const recentLog = gs.log.slice(-4).reverse();
-  const turnLabel = readOnly && waitingFor ? `Waiting for ${waitingFor}` : `${pname}'s Turn`;
+  const turnLabel = readOnly && waitingFor ? `Waiting for ${waitingFor}` : `${activeName}'s Turn`;
 
   return (
     <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"Nunito, sans-serif", color:C.text, display:"flex", flexDirection:"column", maxWidth:520, margin:"0 auto" }}>
@@ -1666,6 +1668,7 @@ export default function App() {
       return;
     }
     const name = getPlayerName(user);
+    const deck = getDeckById(decks, selectedDeckId);
     const lobbyCollection = collection(db, LOBBY_COLLECTION);
     for (let i = 0; i < 6; i += 1) {
       const code = makeLobbyCode();
@@ -1676,7 +1679,9 @@ export default function App() {
         code,
         status: "waiting",
         host: { uid: user.uid, name },
+        hostDeck: deck || DEFAULT_DECKS[0],
         guest: null,
+        guestDeck: null,
         gameState: null,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
@@ -1706,6 +1711,7 @@ export default function App() {
       return;
     }
     const name = getPlayerName(user);
+    const deck = getDeckById(decks, selectedDeckId);
     try {
       const data = snap.data();
       if (data.host?.uid === user.uid) {
@@ -1720,6 +1726,7 @@ export default function App() {
       if (!data.guest) {
         await updateDoc(lobbyRef, {
           guest: { uid: user.uid, name },
+          guestDeck: deck || DEFAULT_DECKS[0],
           status: "ready",
           updatedAt: serverTimestamp()
         });
@@ -1747,9 +1754,11 @@ export default function App() {
     if (activeLobby.host?.uid === user.uid) return;
     if (activeLobby.guest?.uid) return;
     const name = getPlayerName(user);
+    const deck = getDeckById(decks, selectedDeckId);
     try {
       await updateDoc(doc(db, LOBBY_COLLECTION, activeLobby.id), {
         guest: { uid: user.uid, name },
+        guestDeck: deck || DEFAULT_DECKS[0],
         status: "ready",
         updatedAt: serverTimestamp()
       });
@@ -1773,6 +1782,19 @@ export default function App() {
     await deleteDoc(doc(db, LOBBY_COLLECTION, activeLobbyCode));
     setActiveLobbyCode(null);
     setScreen("mp-hub");
+  };
+
+  const handleUpdateLobbyDeck = async (deckId) => {
+    if (!activeLobby || !user) return;
+    const deck = getDeckById(decks, deckId) || DEFAULT_DECKS[0];
+    setSelectedDeckId(deckId);
+    const isHost = activeLobby.host?.uid === user.uid;
+    const isGuest = activeLobby.guest?.uid === user.uid;
+    if (!isHost && !isGuest) return;
+    await updateDoc(doc(db, LOBBY_COLLECTION, activeLobby.id), {
+      ...(isHost ? { hostDeck: deck } : { guestDeck: deck }),
+      updatedAt: serverTimestamp()
+    });
   };
 
   const handleLeaveLobby = () => {
@@ -1850,7 +1872,13 @@ export default function App() {
     if (!activeLobby.guest?.uid) return;
     const hostName = activeLobby.host?.name || "Player 1";
     const guestName = activeLobby.guest?.name || "Player 2";
-    const next = initGame(hostName, guestName, DEFAULT_DECKS[0], DEFAULT_DECKS[0]);
+    const hostDeck = activeLobby.hostDeck || DEFAULT_DECKS[0];
+    const guestDeck = activeLobby.guestDeck || DEFAULT_DECKS[0];
+    if (!activeLobby.guestDeck) {
+      setMpError("Guest needs to pick a deck first.");
+      return;
+    }
+    const next = initGame(hostName, guestName, hostDeck, guestDeck);
     await updateDoc(doc(db, LOBBY_COLLECTION, activeLobby.id), {
       gameState: encodeGameState(next),
       status: "playing",
@@ -1893,6 +1921,11 @@ export default function App() {
     : false;
   const showSick = gameState && gameState.phase === "ec" && gameState.pend?.pid === myIndex;
   const editingDeck = editingDeckId ? decks.find((d)=>d.id===editingDeckId) : null;
+  const lobbyDeckId = isMember
+    ? myIndex === 0
+      ? activeLobby?.hostDeck?.id
+      : activeLobby?.guestDeck?.id
+    : null;
 
   if (!authReady) {
     return (
@@ -1996,6 +2029,24 @@ export default function App() {
               <div style={{ padding:24, color:C.muted }}>Lobby not found.</div>
             )}
 
+            {activeLobby && isMember && !activeLobby.gameState && (
+              <div style={{ padding:20 }}>
+                <div style={{ ...card() }}>
+                  <div style={{ fontWeight:800, fontSize:13, marginBottom:8 }}>Your Deck</div>
+                  <select
+                    value={lobbyDeckId || selectedDeckId}
+                    onChange={(e) => handleUpdateLobbyDeck(e.target.value)}
+                    style={{ background:C.hi, border:`1px solid ${C.border}`, borderRadius:10, padding:"10px 12px", color:C.text, fontSize:14, fontFamily:"Nunito", fontWeight:700, width:"100%" }}
+                  >
+                    {decks.map((d) => (
+                      <option key={d.id} value={d.id}>{d.icon} {d.name}</option>
+                    ))}
+                  </select>
+                  <div style={{ fontSize:11, color:C.muted, marginTop:8 }}>Choose your deck before the host starts.</div>
+                </div>
+              </div>
+            )}
+
             {activeLobby && !isMember && !isSpectating && (
               <div style={{ padding:20, display:"flex", flexDirection:"column", gap:12 }}>
                 <div style={{ ...card() }}>
@@ -2047,11 +2098,11 @@ export default function App() {
             {activeLobby && activeLobby.gameState && (isMember || isSpectating) && (
               <>
                 {showSick && <SickModal gs={activeLobby.gameState} onChoose={handleMpSick} />}
-                {activeLobby.gameState.phase === "ended" ? (
-                  <ResultsScreen gs={activeLobby.gameState} onRematch={handleMpRematch} onMenu={handleLeaveLobby} />
+                {gameState.phase === "ended" ? (
+                  <ResultsScreen gs={gameState} onRematch={handleMpRematch} onMenu={handleLeaveLobby} />
                 ) : (
                   <GameScreen
-                    gs={activeLobby.gameState}
+                    gs={gameState}
                     onMove={handleMpMove}
                     onSick={handleMpSick}
                     onPass={handleMpPass}
@@ -2059,6 +2110,7 @@ export default function App() {
                     onEndGame={handleLeaveLobby}
                     readOnly={!isMyTurn}
                     waitingFor={waitingForName}
+                    viewerPid={isMember ? myIndex : undefined}
                   />
                 )}
                 <div style={{ padding:"0 16px 20px" }}>
