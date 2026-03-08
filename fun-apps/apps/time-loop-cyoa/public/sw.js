@@ -1,4 +1,4 @@
-const CACHE_NAME = "time-loop-cyoa-v6";
+const CACHE_NAME = "time-loop-cyoa-v7";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

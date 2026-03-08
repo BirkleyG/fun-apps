@@ -856,7 +856,7 @@ function MapView({ nodes, setNodes, sel, setSel, setEditNode, setATab, reachable
       if(dragRef.current){
         const {id,sx,sy,ox,oy}=dragRef.current, z=zoomRef.current;
         const dx=(e.clientX-sx)/z, dy=(e.clientY-sy)/z;
-        setNodes(p=>({...p,[id]:{...p[id],position:{x:Math.round(ox+dx),y:Math.round(oy+dy)}}}));
+        setNodes(p=>({...p,[id]:{...p[id],position:{x:ox+dx,y:oy+dy}}}));
       } else if(panRef.current){
         const {mx,my,px,py}=panRef.current;
         setPan({x:px+(e.clientX-mx),y:py+(e.clientY-my)});
@@ -869,9 +869,12 @@ function MapView({ nodes, setNodes, sel, setSel, setEditNode, setATab, reachable
         const dx=(e.clientX-drag.sx)/z, dy=(e.clientY-drag.sy)/z;
         const dist=Math.hypot(e.clientX-drag.sx, e.clientY-drag.sy);
         if(dist>=5){
-          const pos={x:Math.round(drag.ox+dx),y:Math.round(drag.oy+dy)};
+          const pos={x:drag.ox+dx,y:drag.oy+dy};
           setNodes(p=>({...p,[drag.id]:{...p[drag.id],position:pos}}));
           if(commitRef.current) commitRef.current(drag.id,pos);
+        } else {
+          const pos={x:drag.ox,y:drag.oy};
+          setNodes(p=>({...p,[drag.id]:{...p[drag.id],position:pos}}));
         }
       }
       dragRef.current=null; panRef.current=null; setCursor('grab');
@@ -904,7 +907,6 @@ function MapView({ nodes, setNodes, sel, setSel, setEditNode, setATab, reachable
   };
 
   const onNodeUp=(e,n)=>{
-    e.stopPropagation();
     const md=mouseDownRef.current; if(!md)return;
     const dist=Math.hypot(e.clientX-md.x,e.clientY-md.y);
     const dt=Date.now()-md.time;
@@ -1115,6 +1117,16 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
 
   const allNodes=Object.values(nodes);
   const filtered=allNodes.filter(n=>!q||n.title.toLowerCase().includes(q.toLowerCase())||n.id.toLowerCase().includes(q.toLowerCase())||(n.tags||[]).some(t=>t.includes(q.toLowerCase())));
+  const filteredByMap = useMemo(() => {
+    const list=[...filtered];
+    return list.sort((a,b)=> {
+      const ay=a.position?.y ?? 0, by=b.position?.y ?? 0;
+      if(ay!==by) return ay-by;
+      const ax=a.position?.x ?? 0, bx=b.position?.x ?? 0;
+      if(ax!==bx) return ax-bx;
+      return a.title.localeCompare(b.title);
+    });
+  }, [filtered]);
   const issues=(()=>{
     const iss=[];
     allNodes.forEach(n=>{
@@ -1129,6 +1141,7 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
 
   const isCopied=copyFlash===sel;
   const canSave = hasUnsaved && !saveState.saving && !autoSaveState.saving;
+  const showSave = hasUnsaved && (autoSaveState.error || saveState.error);
   const saveEdit=()=>{
     if(!editNode)return;
     if(autoSaveRef.current){ clearTimeout(autoSaveRef.current); autoSaveRef.current=null; }
@@ -1229,7 +1242,7 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
 
         {aTab==='nodes'&&(
           <div style={{flex:1,overflowY:'auto',padding:'4px 0'}}>
-            {filtered.map(n=>{
+            {filteredByMap.map(n=>{
               const dead=n.choices.length>0&&n.choices.every(c=>!reachableSet.has(c.nextNodeId));
               return (
                 <div key={n.id} onClick={()=>selectNode(n.id)}
@@ -1318,9 +1331,11 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
             <button onClick={()=>copyContext(sel)} style={{fontFamily:"'Cinzel',serif",fontSize:9.5,letterSpacing:'0.08em',padding:'5px 11px',border:`1px solid ${isCopied?C.green+'66':C.purple+'55'}`,borderRadius:4,color:isCopied?C.green:C.purple,background:isCopied?'rgba(74,156,114,0.1)':'rgba(155,114,191,0.08)',cursor:'pointer',transition:'all .2s'}}>{isCopied?'✓ Copied!':'⊕ Copy Context'}</button>
             <button onClick={()=>playtestFrom(sel)} style={{fontFamily:"'Cinzel',serif",fontSize:9.5,letterSpacing:'0.1em',padding:'5px 11px',border:`1px solid ${C.goldDim}`,borderRadius:4,color:C.gold,background:'transparent',cursor:'pointer',transition:'all .15s'}}
               onMouseEnter={e=>e.currentTarget.style.background='rgba(196,144,58,0.1)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>▶ Playtest</button>
-            <button onClick={saveEdit} disabled={!canSave}
-              style={{fontFamily:"'Cinzel',serif",fontSize:9.5,letterSpacing:'0.1em',padding:'5px 11px',border:'none',borderRadius:4,color:C.bg,background:C.gold,cursor:!canSave?'not-allowed':'pointer',transition:'all .15s',opacity:!canSave?0.55:1}}
-              onMouseEnter={e=>{if(canSave)e.currentTarget.style.background='#d4a04a';}} onMouseLeave={e=>{e.currentTarget.style.background=C.gold;}}>Save Changes</button>
+            {showSave&&(
+              <button onClick={saveEdit} disabled={!canSave}
+                style={{fontFamily:"'Cinzel',serif",fontSize:9.5,letterSpacing:'0.1em',padding:'5px 11px',border:'none',borderRadius:4,color:C.bg,background:C.gold,cursor:!canSave?'not-allowed':'pointer',transition:'all .15s',opacity:!canSave?0.55:1}}
+                onMouseEnter={e=>{if(canSave)e.currentTarget.style.background='#d4a04a';}} onMouseLeave={e=>{e.currentTarget.style.background=C.gold;}}>Save Changes</button>
+            )}
             {autoSaveState.saving&&<span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:C.textFaint}}>Auto-saving...</span>}
             {!hasUnsaved&&autoSaveState.savedAt&&!saveState.saving&&<span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:C.textFaint}}>Auto-saved</span>}
             {saveState.saving&&<span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:C.textFaint}}>Saving...</span>}
