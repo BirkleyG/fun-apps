@@ -83,6 +83,20 @@ const mkPage = (text = '', buttonLabel = 'Continue') => ({
   text,
   buttonLabel,
 });
+const stripUndefined = (value) => {
+  if (Array.isArray(value)) {
+    return value.map(stripUndefined).filter((v) => v !== undefined);
+  }
+  if (value && typeof value === 'object') {
+    const out = {};
+    Object.entries(value).forEach(([k, v]) => {
+      if (v === undefined) return;
+      out[k] = stripUndefined(v);
+    });
+    return out;
+  }
+  return value;
+};
 
 function copyToClipboard(text) {
   if (navigator.clipboard?.writeText) {
@@ -1040,11 +1054,12 @@ function MapView({ nodes, setNodes, sel, setSel, setEditNode, setATab, reachable
 }
 
 /* ═══ AUTHOR VIEW ════════════════════════════════════════════════════════ */
-function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, setQ, aTab, setATab, reachableSet, copyFlash, copyContext, renameNodeId, playtestFrom, addNode, setShowTut, curAuthor, curAuthorIdx, setCurAuthorIdx, found, totalEndings, hasUnsaved, confirmDiscard, commitNodePosition }) {
+function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, setQ, aTab, setATab, reachableSet, copyFlash, copyContext, renameNodeId, playtestFrom, addNode, setShowTut, curAuthor, curAuthorIdx, setCurAuthorIdx, found, totalEndings, hasUnsaved, confirmDiscard, commitNodePosition, persistNode, removeNodeRemote }) {
 
   const [editingId,setEditingId]=useState(false);
   const [newId,setNewId]=useState('');
   const [idErr,setIdErr]=useState('');
+  const [saveState, setSaveState] = useState({ saving: false, error: null });
   const selectNode = id => {
     if (!id) return;
     if (sel !== id && confirmDiscard && !confirmDiscard()) return;
@@ -1082,7 +1097,15 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
   })();
 
   const isCopied=copyFlash===sel;
-  const saveEdit=()=>{ if(!editNode)return; const next=normalizeNode(editNode); setNodes(p=>({...p,[next.id]:{...p[next.id],...next}})); persistNode(next); };
+  const saveEdit=()=>{
+    if(!editNode)return;
+    const next=normalizeNode(editNode);
+    setNodes(p=>({...p,[next.id]:{...p[next.id],...next}}));
+    setSaveState({ saving: true, error: null });
+    Promise.resolve(persistNode(next))
+      .then(()=>setSaveState({ saving: false, error: null }))
+      .catch((err)=>setSaveState({ saving: false, error: err?.message||'Save failed' }));
+  };
   const delNode =id=>{ if(id==='start')return; setNodes(p=>{const n={...p};delete n[id];return n;}); removeNodeRemote(id); if(sel===id){setSel(null);setEditNode(null);} };
   const toggleMulti = checked => {
     setEditNode(n => {
@@ -1242,6 +1265,8 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
             <button onClick={saveEdit} disabled={!hasUnsaved}
               style={{fontFamily:"'Cinzel',serif",fontSize:9.5,letterSpacing:'0.1em',padding:'5px 11px',border:'none',borderRadius:4,color:C.bg,background:C.gold,cursor:!hasUnsaved?'not-allowed':'pointer',transition:'all .15s',opacity:!hasUnsaved?0.55:1}}
               onMouseEnter={e=>{if(hasUnsaved)e.currentTarget.style.background='#d4a04a';}} onMouseLeave={e=>{e.currentTarget.style.background=C.gold;}}>Save Changes</button>
+            {saveState.saving&&<span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:C.textFaint}}>Saving…</span>}
+            {saveState.error&&<span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:C.rose,maxWidth:220,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{saveState.error}</span>}
             {!editNode?.isStart&&<button onClick={()=>delNode(sel)} style={{fontFamily:"'Cinzel',serif",fontSize:9.5,letterSpacing:'0.1em',padding:'5px 11px',border:`1px solid ${C.rose}44`,borderRadius:4,color:C.rose,background:'transparent',cursor:'pointer',transition:'all .15s'}}
               onMouseEnter={e=>e.currentTarget.style.background='rgba(191,91,122,0.1)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>Delete</button>}
           </>)}
@@ -1525,8 +1550,8 @@ export default function App() {
 
   const persistNode = useCallback((node) => {
     if (!node || !node.id) return Promise.resolve();
-    const payload = { ...node, id: node.id, updatedAt: serverTimestamp() };
-    return setDoc(doc(db, "time-loop-cyoa-nodes", node.id), payload, { merge: true }).catch(() => undefined);
+    const payload = stripUndefined({ ...node, id: node.id, updatedAt: serverTimestamp() });
+    return setDoc(doc(db, "time-loop-cyoa-nodes", node.id), payload, { merge: true });
   }, []);
 
   const removeNodeRemote = useCallback((id) => {
@@ -1570,7 +1595,7 @@ export default function App() {
 
       {mode==='author'&&!authUnlocked&&<PasswordGate onUnlock={()=>setAuthUnlocked(true)} goBack={()=>setMode('reader')}/>}
       {mode==='author'&&authUnlocked&&(
-        <AuthorView nodes={nodes} setNodes={setNodes} sel={sel} setSel={setSel} editNode={editNode} setEditNode={setEditNode} q={q} setQ={setQ} aTab={aTab} setATab={setATab} reachableSet={reachableSet} copyFlash={copyFlash} copyContext={copyContext} renameNodeId={renameNodeId} playtestFrom={playtestFrom} addNode={addNode} setShowTut={setShowTut} curAuthor={curAuthor} curAuthorIdx={curAuthorIdx} setCurAuthorIdx={setCurAuthorIdx} found={found} totalEndings={totalEndings} hasUnsaved={hasUnsaved} confirmDiscard={confirmDiscard} commitNodePosition={commitNodePosition}/>
+        <AuthorView nodes={nodes} setNodes={setNodes} sel={sel} setSel={setSel} editNode={editNode} setEditNode={setEditNode} q={q} setQ={setQ} aTab={aTab} setATab={setATab} reachableSet={reachableSet} copyFlash={copyFlash} copyContext={copyContext} renameNodeId={renameNodeId} playtestFrom={playtestFrom} addNode={addNode} setShowTut={setShowTut} curAuthor={curAuthor} curAuthorIdx={curAuthorIdx} setCurAuthorIdx={setCurAuthorIdx} found={found} totalEndings={totalEndings} hasUnsaved={hasUnsaved} confirmDiscard={confirmDiscard} commitNodePosition={commitNodePosition} persistNode={persistNode} removeNodeRemote={removeNodeRemote}/>
       )}
 
       {mode==='gallery'&&<GalleryView nodes={nodes} found={found} totalEndings={totalEndings} loopN={loopN}/>}
