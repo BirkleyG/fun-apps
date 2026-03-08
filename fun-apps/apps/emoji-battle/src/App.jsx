@@ -165,6 +165,36 @@ const saveDecks = (decks, selectedDeckId, uid = null) => {
 
 const getDeckById = (decks, id) => decks.find((d) => d.id === id) || decks[0];
 const serializeDecks = (decks, selectedDeckId) => JSON.stringify({ decks, selectedDeckId });
+const toIndexObject = (value) => {
+  if (!Array.isArray(value)) return value;
+  return value.reduce((acc, row, i) => {
+    acc[i] = row;
+    return acc;
+  }, {});
+};
+const fromIndexObject = (value) => {
+  if (Array.isArray(value)) return value;
+  if (!value || typeof value !== "object") return value;
+  return Object.keys(value)
+    .sort((a, b) => Number(a) - Number(b))
+    .map((k) => value[k]);
+};
+const encodeGameState = (state) => {
+  if (!state) return state;
+  const copy = JSON.parse(JSON.stringify(state));
+  ["as", "deckOrders", "hands", "under"].forEach((key) => {
+    if (copy[key] !== undefined) copy[key] = toIndexObject(copy[key]);
+  });
+  return copy;
+};
+const decodeGameState = (state) => {
+  if (!state) return state;
+  const copy = JSON.parse(JSON.stringify(state));
+  ["as", "deckOrders", "hands", "under"].forEach((key) => {
+    if (copy[key] !== undefined) copy[key] = fromIndexObject(copy[key]);
+  });
+  return copy;
+};
 
 /* ===========================================================
    GAME LOGIC
@@ -1770,9 +1800,10 @@ export default function App() {
   const handleMpMove = async (handIndex, si) => {
     if (!isMyTurn) return;
     if (!activeLobby?.gameState) return;
-    const next = applyMove(activeLobby.gameState, handIndex, si);
+    const base = decodeGameState(activeLobby.gameState);
+    const next = applyMove(base, handIndex, si);
     await updateDoc(doc(db, LOBBY_COLLECTION, activeLobby.id), {
-      gameState: next,
+      gameState: encodeGameState(next),
       status: next.phase === "ended" ? "ended" : "playing",
       updatedAt: serverTimestamp()
     });
@@ -1781,9 +1812,10 @@ export default function App() {
   const handleMpSick = async (tsi) => {
     if (!showSick) return;
     if (!activeLobby?.gameState) return;
-    const next = applySick(activeLobby.gameState, tsi);
+    const base = decodeGameState(activeLobby.gameState);
+    const next = applySick(base, tsi);
     await updateDoc(doc(db, LOBBY_COLLECTION, activeLobby.id), {
-      gameState: next,
+      gameState: encodeGameState(next),
       status: next.phase === "ended" ? "ended" : "playing",
       updatedAt: serverTimestamp()
     });
@@ -1792,9 +1824,10 @@ export default function App() {
   const handleMpPass = async () => {
     if (!isMyTurn) return;
     if (!activeLobby?.gameState) return;
-    const next = applyPass(activeLobby.gameState);
+    const base = decodeGameState(activeLobby.gameState);
+    const next = applyPass(base);
     await updateDoc(doc(db, LOBBY_COLLECTION, activeLobby.id), {
-      gameState: next,
+      gameState: encodeGameState(next),
       status: next.phase === "ended" ? "ended" : "playing",
       updatedAt: serverTimestamp()
     });
@@ -1803,9 +1836,10 @@ export default function App() {
   const handleMpLock = async (handIndex) => {
     if (!isMyTurn) return;
     if (!activeLobby?.gameState) return;
-    const next = applyLock(activeLobby.gameState, handIndex);
+    const base = decodeGameState(activeLobby.gameState);
+    const next = applyLock(base, handIndex);
     await updateDoc(doc(db, LOBBY_COLLECTION, activeLobby.id), {
-      gameState: next,
+      gameState: encodeGameState(next),
       updatedAt: serverTimestamp()
     });
   };
@@ -1818,7 +1852,7 @@ export default function App() {
     const guestName = activeLobby.guest?.name || "Player 2";
     const next = initGame(hostName, guestName, DEFAULT_DECKS[0], DEFAULT_DECKS[0]);
     await updateDoc(doc(db, LOBBY_COLLECTION, activeLobby.id), {
-      gameState: next,
+      gameState: encodeGameState(next),
       status: "playing",
       updatedAt: serverTimestamp()
     });
@@ -1828,11 +1862,12 @@ export default function App() {
     if (!activeLobby) return;
     const hostName = activeLobby.host?.name || "Player 1";
     const guestName = activeLobby.guest?.name || "Player 2";
-    const deck1 = activeLobby.gameState?.decks?.[0] || DEFAULT_DECKS[0];
-    const deck2 = activeLobby.gameState?.decks?.[1] || DEFAULT_DECKS[0];
+    const decoded = decodeGameState(activeLobby.gameState);
+    const deck1 = decoded?.decks?.[0] || DEFAULT_DECKS[0];
+    const deck2 = decoded?.decks?.[1] || DEFAULT_DECKS[0];
     const next = initGame(hostName, guestName, deck1, deck2);
     await updateDoc(doc(db, LOBBY_COLLECTION, activeLobby.id), {
-      gameState: next,
+      gameState: encodeGameState(next),
       status: "playing",
       updatedAt: serverTimestamp()
     });
@@ -1848,7 +1883,7 @@ export default function App() {
   const isMember = myIndex !== null;
   const canSpectate = Boolean(activeLobby && user && !isMember);
   const isSpectating = canSpectate && spectatorMode;
-  const gameState = activeLobby?.gameState || null;
+  const gameState = activeLobby?.gameState ? decodeGameState(activeLobby.gameState) : null;
   const activePlayerIndex = gameState ? getAP(gameState) : null;
   const waitingForName = gameState ? gameState.players?.[activePlayerIndex]?.name : activeLobby?.guest?.name;
   const isMyTurn = gameState && isMember
