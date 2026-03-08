@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { doc, onSnapshot, setDoc, serverTimestamp } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
 import { APP_VERSION, BUILD_DATE } from "./version";
 
@@ -71,6 +71,9 @@ const normalizeNode = node => {
   if (!node) return node;
   return {
     ...node,
+    choices: Array.isArray(node.choices) ? node.choices : [],
+    tags: Array.isArray(node.tags) ? node.tags : [],
+    position: node.position || { x: 0, y: 0 },
     isMultiPage: !!node.isMultiPage,
     pages: Array.isArray(node.pages) ? node.pages : [],
   };
@@ -159,17 +162,8 @@ const AUTHOR_REMAP = {
   Jasper: "Bray",
 };
 
-const normalizeStory = (rawNodes) => {
-  const out = {};
-  Object.values(rawNodes || {}).forEach((node) => {
-    if (!node || !node.id) return;
-    const createdBy = AUTHOR_REMAP[node.createdBy] || node.createdBy || AUTHORS[0];
-    out[node.id] = normalizeNode({ ...node, createdBy });
-  });
-  return out;
-};
-
-const STORY_DOC = doc(db, "time-loop-cyoa", "story");
+const NODES_COL = collection(db, "time-loop-cyoa-nodes");
+const LEGACY_DOC = doc(db, "time-loop-cyoa", "story");
 
 /* ═══ SHARED COMPONENTS (top-level to avoid remount) ════════════════════ */
 function Field({ label, children }) {
@@ -734,7 +728,7 @@ function NotesView() {
 }
 
 /* ═══ MAP VIEW ═══════════════════════════════════════════════════════════ */
-function MapView({ nodes, setNodes, sel, setSel, setEditNode, setATab, reachableSet, totalEndings, copyFlash, copyContext, confirmDiscard }) {
+function MapView({ nodes, setNodes, sel, setSel, setEditNode, setATab, reachableSet, totalEndings, copyFlash, copyContext, confirmDiscard, commitNodePosition }) {
   const [pan,  setPan]    = useState({ x:60, y:60 });
   const [zoom, setZoom]   = useState(0.86);
   const [cursor, setCursor] = useState('grab');
@@ -762,12 +756,22 @@ function MapView({ nodes, setNodes, sel, setSel, setEditNode, setATab, reachable
     const list=[];
     Object.values(nodes).forEach(n=>{
       const pairCount={};
-      n.choices.forEach(c=>{ if(c.nextNodeId&&nodes[c.nextNodeId]){ const k=`${n.id}>${c.nextNodeId}`; pairCount[k]=(pairCount[k]||0)+1; } });
+      n.choices.forEach(c=>{ if(c.nextNodeId){ const k=`${n.id}>${c.nextNodeId}`; pairCount[k]=(pairCount[k]||0)+1; } });
       const pairIdx={};
+      const missingChoices = n.choices.filter(c=>c.nextNodeId && !nodes[c.nextNodeId]);
       n.choices.forEach(c=>{
-        if(!c.nextNodeId||!nodes[c.nextNodeId])return;
+        if(!c.nextNodeId)return;
         const k=`${n.id}>${c.nextNodeId}`,tot=pairCount[k]||1,idx=pairIdx[k]||0; pairIdx[k]=(pairIdx[k]||0)+1;
-        list.push({from:n.id,to:c.nextNodeId,dead:!reachableSet.has(c.nextNodeId),_idx:idx,_tot:tot});
+        const missing=!nodes[c.nextNodeId];
+        let toPos=null;
+        if(missing){
+          const mi=missingChoices.indexOf(c);
+          const mTot=missingChoices.length||1;
+          const angle=Math.PI/2 + (mi-(mTot-1)/2)*0.55;
+          const dist=160;
+          toPos={x:n.position.x+Math.cos(angle)*dist,y:n.position.y+Math.sin(angle)*dist};
+        }
+        list.push({from:n.id,to:c.nextNodeId,dead:missing||!reachableSet.has(c.nextNodeId),missing,toPos,_idx:idx,_tot:tot});
       });
     });
     return list;
@@ -776,8 +780,10 @@ function MapView({ nodes, setNodes, sel, setSel, setEditNode, setATab, reachable
   const mini = zoom < MINI_ZOOM;
 
   /* Path builder — edge-to-edge for both mini circles and full cards */
-  const mkPath = (fId, tId, idx, tot) => {
-    const fn=nodes[fId],tn=nodes[tId]; if(!fn||!tn)return null;
+  const mkPath = (fId, tId, idx, tot, tPos) => {
+    const fn=nodes[fId];
+    const tn=nodes[tId] || (tPos ? { position: tPos } : null);
+    if(!fn||!tn)return null;
     const z=zoom; // use render-cycle zoom, not stale ref
 
     let sx,sy,ex,ey;
@@ -873,6 +879,11 @@ function MapView({ nodes, setNodes, sel, setSel, setEditNode, setATab, reachable
     const md=mouseDownRef.current; if(!md)return;
     const dist=Math.hypot(e.clientX-md.x,e.clientY-md.y);
     const dt=Date.now()-md.time;
+    const wasDrag = dist>=5;
+    if (wasDrag && commitNodePosition) {
+      const pos = nodesRef.current[n.id]?.position;
+      commitNodePosition(n.id, pos);
+    }
     if(dist<5&&dt<300){
       // treat as click; check for double-click
       const now=Date.now(), last=lastClickRef.current;
@@ -913,16 +924,16 @@ function MapView({ nodes, setNodes, sel, setSel, setEditNode, setATab, reachable
           </marker>
         </defs>
         {edges.map((e,i)=>{
-          const path=mkPath(e.from,e.to,e._idx,e._tot); if(!path)return null;
+          const path=mkPath(e.from,e.to,e._idx,e._tot,e.toPos); if(!path)return null;
           const ft=nodes[e.from]?.type||'scene', isSel=sel===e.from||sel===e.to;
-          const col=e.dead?'#3a3a50':TYPE_META[ft]?.color||C.textDim;
+          const col=e.missing?C.rose:(e.dead?'#3a3a50':TYPE_META[ft]?.color||C.textDim);
           return (
             <path key={i} d={path} fill="none"
               stroke={col}
               strokeWidth={mini?0.6:(isSel&&!e.dead?2:1.2)*zoom}
-              strokeOpacity={e.dead?0.18:isSel?0.8:0.3}
-              strokeDasharray={e.dead?`${4*zoom},${3*zoom}`:'none'}
-              markerEnd={e.dead?'url(#arr-dead)':`url(#arr-${ft})`}
+              strokeOpacity={e.dead?0.25:isSel?0.8:0.3}
+              strokeDasharray={(e.dead||e.missing)?`${4*zoom},${3*zoom}`:'none'}
+              markerEnd={(e.dead||e.missing)?'url(#arr-dead)':`url(#arr-${ft})`}
             />
           );
         })}
@@ -1030,7 +1041,7 @@ function MapView({ nodes, setNodes, sel, setSel, setEditNode, setATab, reachable
 }
 
 /* ═══ AUTHOR VIEW ════════════════════════════════════════════════════════ */
-function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, setQ, aTab, setATab, reachableSet, copyFlash, copyContext, renameNodeId, playtestFrom, addNode, setShowTut, curAuthor, curAuthorIdx, setCurAuthorIdx, found, totalEndings, hasUnsaved, confirmDiscard }) {
+function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, setQ, aTab, setATab, reachableSet, copyFlash, copyContext, renameNodeId, playtestFrom, addNode, setShowTut, curAuthor, curAuthorIdx, setCurAuthorIdx, found, totalEndings, hasUnsaved, confirmDiscard, commitNodePosition }) {
 
   const [editingId,setEditingId]=useState(false);
   const [newId,setNewId]=useState('');
@@ -1072,8 +1083,8 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
   })();
 
   const isCopied=copyFlash===sel;
-  const saveEdit=()=>{ if(!editNode)return; const next=normalizeNode(editNode); setNodes(p=>({...p,[next.id]:{...p[next.id],...next}})); };
-  const delNode =id=>{ if(id==='start')return; setNodes(p=>{const n={...p};delete n[id];return n;}); if(sel===id){setSel(null);setEditNode(null);} };
+  const saveEdit=()=>{ if(!editNode)return; const next=normalizeNode(editNode); setNodes(p=>({...p,[next.id]:{...p[next.id],...next}})); persistNode(next); };
+  const delNode =id=>{ if(id==='start')return; setNodes(p=>{const n={...p};delete n[id];return n;}); removeNodeRemote(id); if(sel===id){setSel(null);setEditNode(null);} };
   const toggleMulti = checked => {
     setEditNode(n => {
       if (!n) return n;
@@ -1238,7 +1249,7 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
         </div>
 
         {/* Content */}
-        {aTab==='map'&&<div style={{flex:1,overflow:'hidden'}}><MapView nodes={nodes} setNodes={setNodes} sel={sel} setSel={setSel} setEditNode={setEditNode} setATab={setATab} reachableSet={reachableSet} totalEndings={totalEndings} copyFlash={copyFlash} copyContext={copyContext} confirmDiscard={confirmDiscard}/></div>}
+        {aTab==='map'&&<div style={{flex:1,overflow:'hidden'}}><MapView nodes={nodes} setNodes={setNodes} sel={sel} setSel={setSel} setEditNode={setEditNode} setATab={setATab} reachableSet={reachableSet} totalEndings={totalEndings} copyFlash={copyFlash} copyContext={copyContext} confirmDiscard={confirmDiscard} commitNodePosition={commitNodePosition}/></div>}
         {aTab==='notes'&&<div style={{flex:1,overflow:'hidden'}}><NotesView/></div>}
         {aTab==='analytics'&&<AnalyticsView nodes={nodes} found={found} totalEndings={totalEndings} loopN={1} curAuthorIdx={curAuthorIdx} setCurAuthorIdx={setCurAuthorIdx} onAddNode={addNode} reachableSet={reachableSet}/>}
 
@@ -1429,11 +1440,7 @@ export default function App() {
   const [curAuthorIdx, setCurAuthorIdx] = useState(0);
   const [authUnlocked, setAuthUnlocked] = useState(false);
   const [copyFlash,    setCopyFlash]    = useState(null);
-  const [nodesLoaded,  setNodesLoaded]  = useState(false);
   const [pageIdx,      setPageIdx]      = useState(0);
-
-  const skipRemoteRef  = useRef(false);
-  const saveTimerRef   = useRef(null);
 
   const curNode      = nodes[nodeId];
   const totalEndings = Object.values(nodes).filter(n=>n.isEnding).length;
@@ -1455,48 +1462,40 @@ export default function App() {
   }, [hasUnsaved]);
 
   useEffect(() => {
-    const unsub = onSnapshot(
-      STORY_DOC,
-      (snap) => {
-        const data = snap.data();
-        if (!snap.exists() || !data?.nodes) {
-          skipRemoteRef.current = true;
-          setNodes({});
-          setNodesLoaded(true);
-          return;
-        }
-
-        const rawNodes = data.nodes || {};
-        const normalized = normalizeStory(rawNodes);
-        const needsNormalize = Object.values(rawNodes).some((n) => AUTHOR_REMAP[n?.createdBy]);
-        skipRemoteRef.current = true;
-        setNodes(normalized);
-        setNodesLoaded(true);
-        if (needsNormalize) {
-          setDoc(STORY_DOC, { nodes: normalized, updatedAt: serverTimestamp(), appVersion: APP_VERSION }, { merge: true }).catch(() => undefined);
-        }
-      },
-      () => {
-        setNodesLoaded(true);
+    let cancelled = false;
+    (async () => {
+      try {
+        const existing = await getDocs(NODES_COL);
+        if (cancelled || !existing.empty) return;
+        const legacy = await getDoc(LEGACY_DOC);
+        const data = legacy.data();
+        if (!legacy.exists() || !data?.nodes) return;
+        const rawNodes = data.nodes;
+        await Promise.all(Object.values(rawNodes).map((node) => {
+          if (!node || !node.id) return Promise.resolve();
+          const createdBy = AUTHOR_REMAP[node.createdBy] || node.createdBy || AUTHORS[0];
+          const normalized = normalizeNode({ ...node, createdBy });
+          return setDoc(doc(db, "time-loop-cyoa-nodes", normalized.id), { ...normalized, id: normalized.id, updatedAt: serverTimestamp() }, { merge: true });
+        }));
+      } catch (_) {
+        // ignore migration failures
       }
-    );
-    return () => unsub();
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
-    if (!nodesLoaded) return;
-    if (skipRemoteRef.current) {
-      skipRemoteRef.current = false;
-      return;
-    }
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => {
-      setDoc(STORY_DOC, { nodes, updatedAt: serverTimestamp(), appVersion: APP_VERSION }, { merge: true }).catch(() => undefined);
-    }, 400);
-    return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    };
-  }, [nodes, nodesLoaded]);
+    const unsub = onSnapshot(NODES_COL, (snap) => {
+      const map = {};
+      snap.forEach((docSnap) => {
+        const data = docSnap.data() || {};
+        const createdBy = AUTHOR_REMAP[data.createdBy] || data.createdBy || AUTHORS[0];
+        map[docSnap.id] = normalizeNode({ ...data, id: docSnap.id, createdBy });
+      });
+      setNodes(map);
+    });
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     if (nodes[nodeId]) return;
@@ -1548,12 +1547,31 @@ export default function App() {
     setCopyFlash(targetId); setTimeout(()=>setCopyFlash(null),2200);
   },[nodes,getShortestPath]);
 
+  const persistNode = useCallback((node) => {
+    if (!node || !node.id) return Promise.resolve();
+    const payload = { ...node, id: node.id, updatedAt: serverTimestamp() };
+    return setDoc(doc(db, "time-loop-cyoa-nodes", node.id), payload, { merge: true }).catch(() => undefined);
+  }, []);
+
+  const removeNodeRemote = useCallback((id) => {
+    if (!id) return Promise.resolve();
+    return deleteDoc(doc(db, "time-loop-cyoa-nodes", id)).catch(() => undefined);
+  }, []);
+
+  const commitNodePosition = useCallback((id, position) => {
+    if (!id || !position) return;
+    setDoc(doc(db, "time-loop-cyoa-nodes", id), { position, updatedAt: serverTimestamp() }, { merge: true }).catch(() => undefined);
+  }, []);
+
   const renameNodeId = useCallback((oldId,newId)=>{
     if(!newId||newId===oldId||nodes[newId])return false;
     const updated={};
     Object.values(nodes).forEach(n=>{ const rn={...n,id:n.id===oldId?newId:n.id,choices:n.choices.map(c=>({...c,nextNodeId:c.nextNodeId===oldId?newId:c.nextNodeId}))}; updated[rn.id]=rn; });
-    setNodes(updated); if(sel===oldId)setSel(newId); if(nodeId===oldId)setNodeId(newId); return true;
-  },[nodes,sel,nodeId]);
+    setNodes(updated); if(sel===oldId)setSel(newId); if(nodeId===oldId)setNodeId(newId);
+    Object.values(updated).forEach(n=>persistNode(n));
+    removeNodeRemote(oldId);
+    return true;
+  },[nodes,sel,nodeId,persistNode,removeNodeRemote]);
 
   const go          = useCallback((id)=>{ if(!nodes[id])return; setFading(true); setTimeout(()=>{ setNodeId(id); if(nodes[id]?.isEnding){setFound(f=>new Set([...f,id]));setShowEnd(true);}else setShowEnd(false); setFading(false); },300); },[nodes]);
   const restart     = useCallback(()=>{ setFading(true); setTimeout(()=>{ const nextId = nodes.start ? 'start' : Object.keys(nodes)[0]; if(nextId) setNodeId(nextId); setShowEnd(false); setLoopN(l=>l+1); setFading(false); },400); },[nodes]);
@@ -1563,8 +1581,8 @@ export default function App() {
     const isFirst = Object.keys(nodes).length === 0;
     const id = isFirst ? 'start' : `node_${Date.now()}`;
     const nn={id,title:isFirst?'Start':'New Scene',type:isFirst?'start':'scene',isStart:isFirst,isEnding:false,createdAt:Date.now(),createdBy:curAuthor,text:'Write your scene here.',choices:[],tags:[],notes:'',position:{x:300,y:300},isMultiPage:false,pages:[]};
-    setNodes(p=>({...p,[id]:nn})); setEditNode(normalizeNode(nn)); setSel(id); setATab('nodes'); setMode('author'); if(isFirst)setNodeId(id);
-  },[curAuthor,nodes,confirmDiscard]);
+    setNodes(p=>({...p,[id]:nn})); persistNode(nn); setEditNode(normalizeNode(nn)); setSel(id); setATab('nodes'); setMode('author'); if(isFirst)setNodeId(id);
+  },[curAuthor,nodes,confirmDiscard,persistNode]);
 
   return (
     <div style={{background:C.bg,minHeight:'100vh',color:C.text,fontFamily:"'Cormorant Garamond',serif"}}>
@@ -1576,7 +1594,7 @@ export default function App() {
 
       {mode==='author'&&!authUnlocked&&<PasswordGate onUnlock={()=>setAuthUnlocked(true)} goBack={()=>setMode('reader')}/>}
       {mode==='author'&&authUnlocked&&(
-        <AuthorView nodes={nodes} setNodes={setNodes} sel={sel} setSel={setSel} editNode={editNode} setEditNode={setEditNode} q={q} setQ={setQ} aTab={aTab} setATab={setATab} reachableSet={reachableSet} copyFlash={copyFlash} copyContext={copyContext} renameNodeId={renameNodeId} playtestFrom={playtestFrom} addNode={addNode} setShowTut={setShowTut} curAuthor={curAuthor} curAuthorIdx={curAuthorIdx} setCurAuthorIdx={setCurAuthorIdx} found={found} totalEndings={totalEndings} hasUnsaved={hasUnsaved} confirmDiscard={confirmDiscard}/>
+        <AuthorView nodes={nodes} setNodes={setNodes} sel={sel} setSel={setSel} editNode={editNode} setEditNode={setEditNode} q={q} setQ={setQ} aTab={aTab} setATab={setATab} reachableSet={reachableSet} copyFlash={copyFlash} copyContext={copyContext} renameNodeId={renameNodeId} playtestFrom={playtestFrom} addNode={addNode} setShowTut={setShowTut} curAuthor={curAuthor} curAuthorIdx={curAuthorIdx} setCurAuthorIdx={setCurAuthorIdx} found={found} totalEndings={totalEndings} hasUnsaved={hasUnsaved} confirmDiscard={confirmDiscard} commitNodePosition={commitNodePosition}/>
       )}
 
       {mode==='gallery'&&<GalleryView nodes={nodes} found={found} totalEndings={totalEndings} loopN={loopN}/>}

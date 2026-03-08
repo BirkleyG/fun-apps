@@ -13,6 +13,10 @@ service cloud.firestore {
       allow read, write: if docId == "story";
     }
 
+    match /time-loop-cyoa-nodes/{nodeId} {
+      allow read, write: if true;
+    }
+
     match /emoji-battle-lobbies/{lobbyId} {
       allow read: if signedIn();
       allow create: if signedIn() && request.resource.data.host.uid == request.auth.uid;
