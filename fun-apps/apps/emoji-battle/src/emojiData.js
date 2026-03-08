@@ -39,14 +39,10 @@ export const ED = {
 
 export const PIDS = Object.entries(ED).filter(([,v])=>v.play).map(([k])=>k);
 
-export const DEFAULT_DECK_CARDS = [
-  "dagger","dead_face","bone","plague","poison","crow","candle","graveyard",
-  "crossbones","coffin","mutation","dark_sigil",
-  "lich"
-];
+export const DEFAULT_DECK_CARDS = [];
 
 export const DEFAULT_DECKS = [
-  { id:"deck1", name:"Starter", icon:"💀", cards:[...DEFAULT_DECK_CARDS] },
-  { id:"deck2", name:"Corruption", icon:"🪦", cards:[...DEFAULT_DECK_CARDS] },
-  { id:"deck3", name:"Necro", icon:"🗡️", cards:[...DEFAULT_DECK_CARDS] }
+  { id:"deck1", name:"Deck 1", icon:"😀", cards:[...DEFAULT_DECK_CARDS] },
+  { id:"deck2", name:"Deck 2", icon:"😀", cards:[...DEFAULT_DECK_CARDS] },
+  { id:"deck3", name:"Deck 3", icon:"😀", cards:[...DEFAULT_DECK_CARDS] }
 ];

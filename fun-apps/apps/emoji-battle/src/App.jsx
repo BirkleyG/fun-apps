@@ -86,14 +86,20 @@ const isDeckValid = (cards) => {
 const normalizeDeck = (deck) => {
   if (!deck || !Array.isArray(deck.cards)) return null;
   const trimmed = deck.cards.filter((eid) => ED[eid] && ED[eid].play);
-  if (!isDeckValid(trimmed)) return null;
   return {
     id: deck.id || `deck-${Math.random().toString(36).slice(2,6)}`,
     name: deck.name || "Deck",
-    icon: deck.icon || "💀",
+    icon: deck.icon || "😀",
     cards: trimmed
   };
 };
+
+const makeEmptyDeck = (index) => ({
+  id: `deck${index + 1}`,
+  name: `Deck ${index + 1}`,
+  icon: "😀",
+  cards: []
+});
 
 const loadDecks = (uid = null) => {
   if (typeof window === "undefined") return { decks: DEFAULT_DECKS, selectedDeckId: DEFAULT_DECKS[0].id, uid: null };
@@ -114,13 +120,11 @@ const loadDecks = (uid = null) => {
     if (uid && storedUid && storedUid !== uid) {
       return { decks: DEFAULT_DECKS, selectedDeckId: DEFAULT_DECKS[0].id, uid: null };
     }
-    if (!Array.isArray(deckArr) || deckArr.length !== 3) {
+    if (!Array.isArray(deckArr) || deckArr.length === 0) {
       return { decks: DEFAULT_DECKS, selectedDeckId: DEFAULT_DECKS[0].id, uid: storedUid };
     }
-    const normalized = deckArr.map(normalizeDeck);
-    if (normalized.some((d) => !d)) {
-      return { decks: DEFAULT_DECKS, selectedDeckId: DEFAULT_DECKS[0].id, uid: storedUid };
-    }
+    const normalized = deckArr.map((d, i) => normalizeDeck(d) || DEFAULT_DECKS[i] || makeEmptyDeck(i));
+    while (normalized.length < 3) normalized.push(DEFAULT_DECKS[normalized.length] || makeEmptyDeck(normalized.length));
     if (!normalized.find((d) => d.id === selectedDeckId)) selectedDeckId = normalized[0].id;
     return { decks: normalized, selectedDeckId, uid: storedUid };
   } catch {
@@ -152,7 +156,7 @@ const fromIndexObject = (value) => {
 const encodeGameState = (state) => {
   if (!state) return state;
   const copy = JSON.parse(JSON.stringify(state));
-  ["as", "deckOrders", "hands", "under"].forEach((key) => {
+  ["as", "deckOrders", "hands", "lockMap", "under"].forEach((key) => {
     if (copy[key] !== undefined) copy[key] = toIndexObject(copy[key]);
   });
   return copy;
@@ -160,7 +164,7 @@ const encodeGameState = (state) => {
 const decodeGameState = (state) => {
   if (!state) return state;
   const copy = JSON.parse(JSON.stringify(state));
-  ["as", "deckOrders", "hands", "under"].forEach((key) => {
+  ["as", "deckOrders", "hands", "lockMap", "under"].forEach((key) => {
     if (copy[key] !== undefined) copy[key] = fromIndexObject(copy[key]);
   });
   return copy;
@@ -239,13 +243,11 @@ function placeSlot(s, pid, si, eid, opts = {}) {
 
 const initDeckState = (deck) => {
   const order = shuffle(deck.cards.map(mkCard));
+  const hand = [order.shift() || null, order.shift() || null, order.shift() || null];
   return {
     order,
-    index: 3,
-    hand: [order[0] || null, order[1] || null, order[2] || null],
-    lockIndex: null,
-    under: [],
-    underIndex: null
+    hand,
+    lockMap: [false, false, false]
   };
 };
 
@@ -254,80 +256,55 @@ const ensureDeckState = (s) => {
     const fallback = DEFAULT_DECKS[0];
     s.decks = [fallback, fallback];
   }
-  if (!s.deckOrders || !s.hands || !s.deckIndex) {
-    s.deckOrders = [];
-    s.deckIndex = [];
-    s.hands = [];
-    s.lockIndex = [];
-    s.under = [];
-    s.underIndex = [];
-    for (let p=0;p<2;p++) {
-      const ds = initDeckState(s.decks[p]);
-      s.deckOrders[p] = ds.order;
-      s.deckIndex[p] = ds.index;
-      s.hands[p] = ds.hand;
-      s.lockIndex[p] = ds.lockIndex;
-      s.under[p] = ds.under;
-      s.underIndex[p] = ds.underIndex;
+  if (!s.deckOrders) s.deckOrders = [];
+  if (!s.hands) s.hands = [];
+  if (!s.lockMap) s.lockMap = [];
+  for (let p=0;p<2;p++) {
+    if (!Array.isArray(s.deckOrders[p])) {
+      s.deckOrders[p] = shuffle(s.decks[p].cards.map(mkCard));
+    }
+    if (!Array.isArray(s.hands[p]) || s.hands[p].length !== 3) {
+      s.hands[p] = [drawCard(s, p), drawCard(s, p), drawCard(s, p)];
+    }
+    if (!Array.isArray(s.lockMap[p]) || s.lockMap[p].length !== 3) {
+      s.lockMap[p] = [false, false, false];
     }
   }
-  if (!s.lockIndex) s.lockIndex = [null, null];
-  if (!s.under) s.under = [[], []];
-  if (!s.underIndex) s.underIndex = [null, null];
+  if (Array.isArray(s.lockIndex)) {
+    for (let p=0;p<2;p++) {
+      const idx = s.lockIndex[p];
+      if (typeof idx === "number" && idx >= 0 && idx <= 2) s.lockMap[p][idx] = true;
+    }
+  }
 };
 
 const drawCard = (s, pid) => {
   let order = s.deckOrders[pid];
-  let idx = s.deckIndex[pid] || 0;
-  if (!order || order.length === 0) return null;
-  if (idx >= order.length) {
+  if (!order || order.length === 0) {
     order = shuffle(s.decks[pid].cards.map(mkCard));
-    idx = 0;
     s.deckOrders[pid] = order;
   }
-  const card = order[idx] || null;
-  s.deckIndex[pid] = idx + 1;
-  return card;
+  return order.shift() || null;
 };
 
 const advanceConveyorForPlayer = (s, pid) => {
   const hand = s.hands[pid];
-  const lockIndex = s.lockIndex[pid];
-  let under = s.under[pid] || [];
-  let underIndex = s.underIndex[pid];
-  const next = [null, null, null];
+  const locks = s.lockMap[pid] || [false, false, false];
 
-  if (lockIndex !== null) next[lockIndex] = hand[lockIndex];
-
-  for (let src=0;src<3;src++) {
-    if (src === lockIndex) continue;
-    const card = hand[src];
-    if (!card) continue;
-    const dst = src - 1;
-    if (dst < 0) continue;
-    if (lockIndex !== null && dst === lockIndex) {
-      if (lockIndex !== 0) under.push(card);
-      continue;
-    }
-    if (next[dst] === null) next[dst] = card;
+  for (let i=0;i<3;i++) {
+    if (locks[i]) continue;
+    const card = hand[i];
+    if (card) s.deckOrders[pid].push(card);
+    hand[i] = null;
   }
 
-  if (underIndex !== null && under.length > 0) {
-    if (underIndex >= 0 && underIndex <= 2 && next[underIndex] === null) {
-      next[underIndex] = under.shift();
-    }
-    if (under.length === 0 && lockIndex === null) underIndex = null;
+  for (let i=0;i<3;i++) {
+    if (locks[i]) continue;
+    const newCard = drawCard(s, pid);
+    if (newCard) hand[i] = newCard;
   }
 
-  const newCard = drawCard(s, pid);
-  if (newCard) {
-    if (lockIndex === 2) under.push(newCard);
-    else if (next[2] === null) next[2] = newCard;
-  }
-
-  s.hands[pid] = next;
-  s.under[pid] = under;
-  s.underIndex[pid] = underIndex;
+  s.hands[pid] = hand;
 };
 
 function applyRoundEnd(s) {
@@ -673,10 +650,6 @@ function applyMove(gs, handIndex, si) {
   }
 
   s.hands[pid][handIndex] = null;
-  if (s.lockIndex[pid] === handIndex) {
-    s.lockIndex[pid] = null;
-    s.underIndex[pid] = s.under[pid]?.length && handIndex > 0 ? handIndex - 1 : null;
-  }
 
   evts.forEach(e=>s.log.push(e));
   if (s.phase!=="ec") advanceTurn(s);
@@ -727,16 +700,9 @@ function applyLock(gs, handIndex) {
   ensureDeckState(s);
   const card = s.hands[pid][handIndex];
   if (!card) return s;
-  if (s.lockIndex[pid] === handIndex) {
-    s.lockIndex[pid] = null;
-    s.underIndex[pid] = s.under[pid]?.length && handIndex > 0 ? handIndex - 1 : null;
-    s.log.push(`${s.players[pid].name} released a lock.`);
-  } else {
-    s.lockIndex[pid] = handIndex;
-    s.underIndex[pid] = handIndex > 0 ? handIndex - 1 : null;
-    s.under[pid] = [];
-    s.log.push(`${s.players[pid].name} locked a card in place.`);
-  }
+  if (!s.lockMap) s.lockMap = [[false,false,false],[false,false,false]];
+  s.lockMap[pid][handIndex] = !s.lockMap[pid][handIndex];
+  s.log.push(`${s.players[pid].name} ${s.lockMap[pid][handIndex] ? "locked" : "released"} a card.`);
   return s;
 }
 
@@ -762,11 +728,8 @@ function initGame(p1,p2, deck1, deck2) {
     lichActive:false,
     decks,
     deckOrders:[ds1.order, ds2.order],
-    deckIndex:[ds1.index, ds2.index],
     hands:[ds1.hand, ds2.hand],
-    lockIndex:[ds1.lockIndex, ds2.lockIndex],
-    under:[ds1.under, ds2.under],
-    underIndex:[ds1.underIndex, ds2.underIndex]
+    lockMap:[ds1.lockMap, ds2.lockMap]
   };
 }
 
@@ -866,6 +829,27 @@ function TooltipModal({ eid, onClose }) {
         {def.rt && <div style={{ background:"#ff700320", border:`1px solid ${C.accent2}40`, borderRadius:8, padding:"8px 10px", fontSize:13, color:C.accent2, marginBottom:10, fontWeight:600 }}>{def.rt}</div>}
         <div style={{ fontSize:14, color:C.text, lineHeight:1.6 }}>{def.rules}</div>
         <Btn onClick={onClose} sm style={{ marginTop:16, width:"100%" }}>Close</Btn>
+      </div>
+    </div>
+  );
+}
+
+function HoverTooltip({ eid }) {
+  if (!eid) return null;
+  const def = ED[eid];
+  return (
+    <div style={{ position:"fixed", right:16, bottom:16, zIndex:80, pointerEvents:"none" }}>
+      <div style={{ background:C.surf, border:`1px solid ${C.border}`, borderRadius:14, padding:14, width:260, boxShadow:"0 12px 30px rgba(0,0,0,0.35)" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
+          <div style={{ fontSize:30 }}>{def.e}</div>
+          <div>
+            <div style={{ fontSize:14, fontWeight:800, color:C.text }}>{def.n}</div>
+            <div style={{ fontSize:11, color:C.accent, fontWeight:800 }}>{def.bp} pt{def.bp!==1?"s":""}</div>
+          </div>
+        </div>
+        {def.rarity && <div style={{ fontSize:10, color:RARITY_COLORS[def.rarity] || C.muted, fontWeight:800, textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>{def.rarity} rarity</div>}
+        {def.rt && <div style={{ background:"#ff700320", border:`1px solid ${C.accent2}40`, borderRadius:8, padding:"6px 8px", fontSize:11, color:C.accent2, marginBottom:8, fontWeight:700 }}>{def.rt}</div>}
+        <div style={{ fontSize:12, color:C.text, lineHeight:1.5 }}>{def.rules}</div>
       </div>
     </div>
   );
@@ -1048,6 +1032,7 @@ function GameScreen({ gs, onMove, onSick, onEndGame, onPass, onLock, readOnly, w
   const [selHand,setSelHand]=useState(null);
   const [selSlot,setSelSlot]=useState(null);
   const [tooltip,setTooltip]=useState(null);
+  const [hoverTooltip,setHoverTooltip]=useState(null);
   const [errMsg,setErrMsg]=useState(null);
 
   const activePid=getAP(gs); const round=getRound(gs);
@@ -1058,7 +1043,7 @@ function GameScreen({ gs, onMove, onSick, onEndGame, onPass, onLock, readOnly, w
   const handOffers=viewPid===activePid ? getHandOffers(gs) : (gs.hands?.[viewPid] || [null,null,null]).map((card)=>({ ok:false, reason:"Not your turn.", eid:card?.eid||null, validSlots:[] }));
   const hand = gs.hands?.[viewPid] || [null,null,null];
   const selectedCard = selHand!==null ? hand[selHand] : null;
-  const deckRemaining = gs.deckOrders?.[viewPid] ? Math.max(0, gs.deckOrders[viewPid].length - (gs.deckIndex?.[viewPid] || 0)) : 0;
+  const deckRemaining = gs.deckOrders?.[viewPid] ? gs.deckOrders[viewPid].length : 0;
 
   useEffect(() => {
     setSelHand(null);
@@ -1113,7 +1098,9 @@ function GameScreen({ gs, onMove, onSick, onEndGame, onPass, onLock, readOnly, w
         <div style={{ fontSize:12, color:C.muted, fontWeight:700, marginBottom:8, textTransform:"uppercase", letterSpacing:1 }}>👤 {oppname}</div>
         <div style={{ display:"flex", gap:8, justifyContent:"center" }}>
           {gs.as[oppid].map((slot,i)=>(
-            <SlotCard key={i} slot={slot} big label={LSHORT[i]} showLock />
+            <div key={i} onMouseEnter={()=>setHoverTooltip(slot.eid)} onMouseLeave={()=>setHoverTooltip(null)}>
+              <SlotCard slot={slot} big label={LSHORT[i]} showLock />
+            </div>
           ))}
         </div>
       </div>
@@ -1132,7 +1119,9 @@ function GameScreen({ gs, onMove, onSick, onEndGame, onPass, onLock, readOnly, w
             const selectable = selectedCard!==null && canRepl(slot,gs.ct);
             const err = selectedCard ? slotErr(gs,selectedCard.eid,i) : null;
             return (
-            <SlotCard key={i} slot={slot} big selected={selSlot===i} highlight={selectable&&!err} label={LSHORT[i]} showLock onClick={!readOnly ? ()=>pickSlot(i) : undefined} />
+            <div key={i} onMouseEnter={()=>setHoverTooltip(slot.eid)} onMouseLeave={()=>setHoverTooltip(null)}>
+              <SlotCard slot={slot} big selected={selSlot===i} highlight={selectable&&!err} label={LSHORT[i]} showLock onClick={!readOnly ? ()=>pickSlot(i) : undefined} />
+            </div>
           );
         })}
       </div>
@@ -1170,16 +1159,17 @@ function GameScreen({ gs, onMove, onSick, onEndGame, onPass, onLock, readOnly, w
       <div style={{ padding:"4px 16px 12px" }}>
         <div style={{ display:"flex", gap:10, justifyContent:"center", flexWrap:"wrap" }}>
           {hand.map((card,i)=>(
-            <HandCard
-              key={i}
-              card={card}
-              selected={selHand===i}
-              locked={gs.lockIndex?.[viewPid]===i}
-              disabled={!handOffers[i]?.ok}
-              onPick={()=>pickHand(i)}
-              onLock={()=>{ if (!readOnly) onLock(i); }}
-              onInfo={()=>{ if (card) setTooltip(card.eid); }}
-            />
+            <div key={i} onMouseEnter={()=>{ if (card) setHoverTooltip(card.eid); }} onMouseLeave={()=>setHoverTooltip(null)}>
+              <HandCard
+                card={card}
+                selected={selHand===i}
+              locked={gs.lockMap?.[viewPid]?.[i]}
+                disabled={!handOffers[i]?.ok}
+                onPick={()=>pickHand(i)}
+                onLock={()=>{ if (!readOnly) onLock(i); }}
+                onInfo={()=>{ if (card) setTooltip(card.eid); }}
+              />
+            </div>
           ))}
         </div>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:10 }}>
@@ -1198,6 +1188,7 @@ function GameScreen({ gs, onMove, onSick, onEndGame, onPass, onLock, readOnly, w
         </div>
       )}
 
+      <HoverTooltip eid={hoverTooltip} />
       {tooltip && <TooltipModal eid={tooltip} onClose={()=>setTooltip(null)} />}
     </div>
   );
@@ -1333,7 +1324,7 @@ function RulebookScreen({ onBack }) {
             {rule("Turn Order","Each round: Player 1 acts, then Player 2. Each player takes 5 total turns.")}
             {rule("On Your Turn","1) Choose a card from your hand. 2) Choose which of your 3 slots to replace. 3) Confirm. Any on-play effects resolve immediately.")}
             {rule("The Board","Each player has 3 slots: Left, Middle, Right. A slot always contains exactly one emoji. The Left slot faces the opponent's Left slot (and so on for Mid, Right).")}
-            {rule("Conveyor Hand","You have 3 hand slots that shift left at end of your turn. A new card enters on the right. Played cards leave blanks until they cycle off. You may lock one card to hold it while the conveyor moves underneath.")}
+            {rule("Hand Refresh","At the end of your turn, any unlocked cards return to the bottom of your deck and are replaced with new draws. No blanks remain in hand.")}
             {rule("Passing","You may pass to advance your conveyor without playing a card.")}
             {rule("Round Effects","😵 Dead Face transforms at the start of the next round. 🦴 Bone, 🐦‍⬛ Crow, and 🕯️ Candle add bonuses at round end.")}
             {rule("Scoring","Final score = base points + bonuses gained during rounds. 👑 Lich King flips 💀 to +2 and ☠️ to +4.")}
@@ -1349,7 +1340,7 @@ function RulebookScreen({ onBack }) {
             {rule("Adjacent","Left or right neighbor slot in your army.")}
             {rule("Across","Same lane on the opposing side. Your Left faces opponent's Left, etc.")}
             {rule("Rarity","Common, Rare, Epic. Decks must be 8 Commons, 4 Rares, 1 Epic with duplicate limits by rarity.")}
-            {rule("Lock","You may lock one hand slot to hold a card while the conveyor shifts underneath it.")}
+            {rule("Lock","You may lock any number of hand slots to keep those cards. Locked slots do not draw new cards." )}
           </div>
         )}
         {tab==="emojis" && (
@@ -1479,6 +1470,7 @@ function DeckEditorScreen({ deck, onBack, onSave }) {
   const [name, setName] = useState(deck.name);
   const [icon, setIcon] = useState(deck.icon);
   const [cards, setCards] = useState([...deck.cards]);
+  const [hoverTooltip, setHoverTooltip] = useState(null);
 
   useEffect(() => {
     setName(deck.name);
@@ -1528,7 +1520,13 @@ function DeckEditorScreen({ deck, onBack, onSave }) {
             <div style={{ fontSize:11, color:C.muted, textTransform:"uppercase", letterSpacing:1 }}>Deck Icon</div>
             <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
               {iconChoices.map((eid)=>(
-                <button key={eid} onClick={()=>setIcon(ED[eid].e)} style={{ width:40, height:40, borderRadius:10, background:icon===ED[eid].e?C.accent:C.hi, border:`1px solid ${C.border}`, cursor:"pointer", fontSize:20 }}>
+                <button
+                  key={eid}
+                  onClick={()=>setIcon(ED[eid].e)}
+                  onMouseEnter={()=>setHoverTooltip(eid)}
+                  onMouseLeave={()=>setHoverTooltip(null)}
+                  style={{ width:40, height:40, borderRadius:10, background:icon===ED[eid].e?C.accent:C.hi, border:`1px solid ${C.border}`, cursor:"pointer", fontSize:20 }}
+                >
                   {ED[eid].e}
                 </button>
               ))}
@@ -1554,7 +1552,7 @@ function DeckEditorScreen({ deck, onBack, onSave }) {
             {deckCounts.map(([eid,count]) => {
               const def = ED[eid];
               return (
-                <div key={eid} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, background:C.hi, border:`1px solid ${C.border}`, borderRadius:10, padding:"8px 10px" }}>
+                <div key={eid} onMouseEnter={()=>setHoverTooltip(eid)} onMouseLeave={()=>setHoverTooltip(null)} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, background:C.hi, border:`1px solid ${C.border}`, borderRadius:10, padding:"8px 10px" }}>
                   <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                     <span style={{ fontSize:20 }}>{def.e}</span>
                     <div>
@@ -1584,7 +1582,7 @@ function DeckEditorScreen({ deck, onBack, onSave }) {
                   const dupLimit = RARITY_LIMITS[rarity].dup;
                   const canAdd = copies < dupLimit && counts[rarity] < RARITY_LIMITS[rarity].count && cards.length < DECK_SIZE;
                   return (
-                    <div key={eid} style={{ background:C.hi, border:`1px solid ${C.border}`, borderRadius:10, padding:"8px 8px", textAlign:"center" }}>
+                    <div key={eid} onMouseEnter={()=>setHoverTooltip(eid)} onMouseLeave={()=>setHoverTooltip(null)} style={{ background:C.hi, border:`1px solid ${C.border}`, borderRadius:10, padding:"8px 8px", textAlign:"center" }}>
                       <div style={{ fontSize:22 }}>{def.e}</div>
                       <div style={{ fontSize:10, fontWeight:700 }}>{def.n}</div>
                       <div style={{ fontSize:10, color:C.muted, marginTop:2 }}>x{copies}/{dupLimit}</div>
@@ -1602,6 +1600,7 @@ function DeckEditorScreen({ deck, onBack, onSave }) {
           <Btn onClick={()=>onSave({ ...deck, name: name.trim() || deck.name, icon, cards })} disabled={!valid} style={{ flex:1 }}>Save Deck</Btn>
         </div>
       </div>
+      <HoverTooltip eid={hoverTooltip} />
     </div>
   );
 }
@@ -2209,6 +2208,7 @@ export default function App() {
               onEndGame={() => setScreen("menu")}
               readOnly={isBotTurn}
               waitingFor={isBotTurn ? botDisplayName : undefined}
+              viewerPid={bot ? 0 : undefined}
             />
           </>
         )}
