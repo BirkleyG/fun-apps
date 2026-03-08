@@ -23,12 +23,18 @@ const getEmojiBattleUrl = () => {
   return envUrl && envUrl.trim().length > 0 ? envUrl : "./emoji-battle/";
 };
 
+const getTimeLoopCyoaUrl = () => {
+  const envUrl = import.meta.env.VITE_TIME_LOOP_CYOA_URL as string | undefined;
+  return envUrl && envUrl.trim().length > 0 ? envUrl : "./time-loop-cyoa/";
+};
+
 export default function App() {
   const bibleUrl = getBibleUrl();
   const gradeEstimatorUrl = getGradeEstimatorUrl();
   const coinAtlasUrl = getCoinAtlasUrl();
   const bobsBooksUrl = getBobsBooksUrl();
   const emojiBattleUrl = getEmojiBattleUrl();
+  const timeLoopCyoaUrl = getTimeLoopCyoaUrl();
 
   return (
     <div className="page">
@@ -87,6 +93,15 @@ export default function App() {
           >
             <div className="tile__title">Emoji Battle</div>
             <div className="tile__subtitle">Multiplayer emoji strategy battles</div>
+          </button>
+          <button
+            className="tile"
+            onClick={() => {
+              window.location.href = timeLoopCyoaUrl;
+            }}
+          >
+            <div className="tile__title">Time Loop CYOA</div>
+            <div className="tile__subtitle">Shared time-loop story editor</div>
           </button>
         </div>
       </section>
