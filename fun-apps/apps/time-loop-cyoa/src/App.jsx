@@ -56,7 +56,18 @@ const toRoman = n => {
   const r=[['M',1000],['CM',900],['D',500],['CD',400],['C',100],['XC',90],['L',50],['XL',40],['X',10],['IX',9],['V',5],['IV',4],['I',1]];
   return r.reduce((s,[l,v])=>{while(n>=v){s+=l;n-=v;}return s;},'');
 };
-const renderText = t => t.split('\n\n').map((p,i)=><p key={i} style={{marginBottom:'1.4em',lineHeight:'1.75'}}>{p}</p>);
+const renderText = t => {
+  if (!t) return null;
+  const raw = String(t);
+  const hasDouble = /\n\s*\n/.test(raw);
+  const parts = hasDouble ? raw.split(/\n\s*\n/) : raw.split(/\n/);
+  return parts
+    .map(p => p.trim())
+    .filter(Boolean)
+    .map((p,i)=>(
+      <p key={i} style={{marginBottom:'1.4em',lineHeight:'1.75',whiteSpace:'pre-wrap'}}>{p}</p>
+    ));
+};
 const fmtDate    = ts => new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric'});
 const dayKey     = ts => Math.floor(ts/DAY);
 const wordCount  = t => (t||'').trim().split(/\s+/).filter(Boolean).length;
