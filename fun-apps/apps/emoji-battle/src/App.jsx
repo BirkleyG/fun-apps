@@ -166,6 +166,14 @@ const saveDecks = (decks, selectedDeckId, uid = null) => {
 
 const getDeckById = (decks, id) => decks.find((d) => d.id === id) || decks[0];
 const serializeDecks = (decks, selectedDeckId) => JSON.stringify({ decks, selectedDeckId });
+const sanitizeForFirestore = (value) => {
+  if (value === undefined) return null;
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    return null;
+  }
+};
 
 /* ===========================================================
    GAME LOGIC
@@ -1638,6 +1646,11 @@ export default function App() {
     }
     const name = getPlayerName(user);
     const deck = getDeckById(decks, selectedDeckId);
+    if (!deck) {
+      setMpError("Decks are still loading. Try again in a moment.");
+      return;
+    }
+    const safeDeck = sanitizeForFirestore(deck);
     const lobbyCollection = collection(db, LOBBY_COLLECTION);
     for (let i = 0; i < 6; i += 1) {
       const code = makeLobbyCode();
@@ -1648,7 +1661,7 @@ export default function App() {
         code,
         status: "waiting",
         host: { uid: user.uid, name },
-        hostDeck: deck,
+        hostDeck: safeDeck,
         guest: null,
         guestDeck: null,
         gameState: null,
@@ -1681,6 +1694,10 @@ export default function App() {
     }
     const name = getPlayerName(user);
     const deck = getDeckById(decks, selectedDeckId);
+    if (!deck) {
+      setMpError("Decks are still loading. Try again in a moment.");
+      return;
+    }
     try {
       await runTransaction(db, async (tx) => {
         const liveSnap = await tx.get(lobbyRef);
@@ -1689,11 +1706,18 @@ export default function App() {
         if (data.host?.uid === user.uid) return;
         if (data.guest?.uid && data.guest.uid !== user.uid) throw new Error("lobby-full");
         if (!data.guest) {
+          const safeDeck = sanitizeForFirestore(deck);
+          const safeHostDeck = sanitizeForFirestore(data.hostDeck || DEFAULT_DECKS[0]);
+          const safeGameState = sanitizeForFirestore(
+            initGame(data.host?.name || "Player 1", name, data.hostDeck || DEFAULT_DECKS[0], deck)
+          );
+          if (!safeDeck || !safeHostDeck || !safeGameState) throw new Error("invalid-game-state");
           tx.update(lobbyRef, {
             guest: { uid: user.uid, name },
-            guestDeck: deck,
+            guestDeck: safeDeck,
             status: "playing",
-            gameState: initGame(data.host?.name || "Player 1", name, data.hostDeck || DEFAULT_DECKS[0], deck),
+            hostDeck: safeHostDeck,
+            gameState: safeGameState,
             updatedAt: serverTimestamp()
           });
         }
@@ -1709,6 +1733,8 @@ export default function App() {
         setMpError("Lobby already has two players.");
       } else if (msg.includes("lobby-not-found")) {
         setMpError("Lobby not found.");
+      } else if (msg.includes("invalid-game-state")) {
+        setMpError("Deck data invalid. Re-open the app and try again.");
       } else {
         setMpError(`Unable to join lobby (${code || msg || "unknown"}). Try again.`);
       }
@@ -1722,6 +1748,10 @@ export default function App() {
     if (activeLobby.guest?.uid) return;
     const name = getPlayerName(user);
     const deck = getDeckById(decks, selectedDeckId);
+    if (!deck) {
+      setMpError("Decks are still loading. Try again in a moment.");
+      return;
+    }
     try {
       await runTransaction(db, async (tx) => {
         const lobbyRef = doc(db, LOBBY_COLLECTION, activeLobby.id);
@@ -1731,11 +1761,18 @@ export default function App() {
         if (data.host?.uid === user.uid) return;
         if (data.guest?.uid && data.guest.uid !== user.uid) throw new Error("lobby-full");
         if (!data.guest) {
+          const safeDeck = sanitizeForFirestore(deck);
+          const safeHostDeck = sanitizeForFirestore(data.hostDeck || DEFAULT_DECKS[0]);
+          const safeGameState = sanitizeForFirestore(
+            data.gameState || initGame(data.host?.name || "Player 1", name, data.hostDeck || DEFAULT_DECKS[0], deck)
+          );
+          if (!safeDeck || !safeHostDeck || !safeGameState) throw new Error("invalid-game-state");
           tx.update(lobbyRef, {
             guest: { uid: user.uid, name },
-            guestDeck: deck,
+            guestDeck: safeDeck,
             status: "playing",
-            gameState: data.gameState || initGame(data.host?.name || "Player 1", name, data.hostDeck || DEFAULT_DECKS[0], deck),
+            hostDeck: safeHostDeck,
+            gameState: safeGameState,
             updatedAt: serverTimestamp()
           });
         }
@@ -1749,6 +1786,8 @@ export default function App() {
         setMpError("Lobby already has two players.");
       } else if (msg.includes("lobby-not-found")) {
         setMpError("Lobby not found.");
+      } else if (msg.includes("invalid-game-state")) {
+        setMpError("Deck data invalid. Re-open the app and try again.");
       } else {
         setMpError(`Unable to join lobby (${code || msg || "unknown"}). Try again.`);
       }
