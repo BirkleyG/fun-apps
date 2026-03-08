@@ -916,7 +916,7 @@ function GameScreen({ gs, onMove, onSick, onEndGame, onPass, onLock, readOnly, w
       {/* MY PANEL */}
       <div style={{ padding:"8px 16px 12px", borderBottom:`1px solid ${C.border}` }}>
         <div style={{ display:"flex", gap:8, justifyContent:"center", marginBottom:8 }}>
-          {gs.as[pid].map((slot,i)=>{
+          {gs.as[viewPid].map((slot,i)=>{
             const selectable = selectedCard!==null && canRepl(slot,gs.ct);
             const err = selectedCard ? slotErr(gs,selectedCard.eid,i) : null;
             return (
@@ -962,7 +962,7 @@ function GameScreen({ gs, onMove, onSick, onEndGame, onPass, onLock, readOnly, w
               key={i}
               card={card}
               selected={selHand===i}
-              locked={gs.lockIndex?.[pid]===i}
+              locked={gs.lockIndex?.[viewPid]===i}
               disabled={!handOffers[i]?.ok}
               onPick={()=>pickHand(i)}
               onLock={()=>{ if (!readOnly) onLock(i); }}
@@ -971,7 +971,7 @@ function GameScreen({ gs, onMove, onSick, onEndGame, onPass, onLock, readOnly, w
           ))}
         </div>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:10 }}>
-          <div style={{ fontSize:11, color:C.muted }}>Deck {gs.decks?.[pid]?.name || "Deck"} · {deckRemaining} left</div>
+          <div style={{ fontSize:11, color:C.muted }}>Deck {gs.decks?.[viewPid]?.name || "Deck"} · {deckRemaining} left</div>
           <Btn onClick={doPass} outline color={C.muted} sm disabled={readOnly || gs.phase === "ec"}>Pass Turn</Btn>
         </div>
       </div>
@@ -1668,7 +1668,6 @@ export default function App() {
       return;
     }
     const name = getPlayerName(user);
-    const deck = getDeckById(decks, selectedDeckId);
     const lobbyCollection = collection(db, LOBBY_COLLECTION);
     for (let i = 0; i < 6; i += 1) {
       const code = makeLobbyCode();
@@ -1679,7 +1678,7 @@ export default function App() {
         code,
         status: "waiting",
         host: { uid: user.uid, name },
-        hostDeck: deck || DEFAULT_DECKS[0],
+        hostDeck: null,
         guest: null,
         guestDeck: null,
         gameState: null,
@@ -1711,7 +1710,6 @@ export default function App() {
       return;
     }
     const name = getPlayerName(user);
-    const deck = getDeckById(decks, selectedDeckId);
     try {
       const data = snap.data();
       if (data.host?.uid === user.uid) {
@@ -1726,7 +1724,6 @@ export default function App() {
       if (!data.guest) {
         await updateDoc(lobbyRef, {
           guest: { uid: user.uid, name },
-          guestDeck: deck || DEFAULT_DECKS[0],
           status: "ready",
           updatedAt: serverTimestamp()
         });
@@ -1754,11 +1751,9 @@ export default function App() {
     if (activeLobby.host?.uid === user.uid) return;
     if (activeLobby.guest?.uid) return;
     const name = getPlayerName(user);
-    const deck = getDeckById(decks, selectedDeckId);
     try {
       await updateDoc(doc(db, LOBBY_COLLECTION, activeLobby.id), {
         guest: { uid: user.uid, name },
-        guestDeck: deck || DEFAULT_DECKS[0],
         status: "ready",
         updatedAt: serverTimestamp()
       });
@@ -1786,6 +1781,7 @@ export default function App() {
 
   const handleUpdateLobbyDeck = async (deckId) => {
     if (!activeLobby || !user) return;
+    if (!deckId) return;
     const deck = getDeckById(decks, deckId) || DEFAULT_DECKS[0];
     setSelectedDeckId(deckId);
     const isHost = activeLobby.host?.uid === user.uid;
@@ -1874,6 +1870,10 @@ export default function App() {
     const guestName = activeLobby.guest?.name || "Player 2";
     const hostDeck = activeLobby.hostDeck || DEFAULT_DECKS[0];
     const guestDeck = activeLobby.guestDeck || DEFAULT_DECKS[0];
+    if (!activeLobby.hostDeck) {
+      setMpError("Pick your deck first.");
+      return;
+    }
     if (!activeLobby.guestDeck) {
       setMpError("Guest needs to pick a deck first.");
       return;
@@ -1926,6 +1926,7 @@ export default function App() {
       ? activeLobby?.hostDeck?.id
       : activeLobby?.guestDeck?.id
     : null;
+  const lobbyDeckValue = lobbyDeckId && decks.find((d) => d.id === lobbyDeckId) ? lobbyDeckId : "";
 
   if (!authReady) {
     return (
@@ -2034,10 +2035,11 @@ export default function App() {
                 <div style={{ ...card() }}>
                   <div style={{ fontWeight:800, fontSize:13, marginBottom:8 }}>Your Deck</div>
                   <select
-                    value={lobbyDeckId || selectedDeckId}
+                    value={lobbyDeckValue}
                     onChange={(e) => handleUpdateLobbyDeck(e.target.value)}
                     style={{ background:C.hi, border:`1px solid ${C.border}`, borderRadius:10, padding:"10px 12px", color:C.text, fontSize:14, fontFamily:"Nunito", fontWeight:700, width:"100%" }}
                   >
+                    <option value="" disabled>Select a deck</option>
                     {decks.map((d) => (
                       <option key={d.id} value={d.id}>{d.icon} {d.name}</option>
                     ))}
