@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, setDoc, serverTimestamp } from "firebase/firestore";
+import { collection, deleteDoc, doc, onSnapshot, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
 import { APP_VERSION, BUILD_DATE } from "./version";
 
@@ -163,7 +163,6 @@ const AUTHOR_REMAP = {
 };
 
 const NODES_COL = collection(db, "time-loop-cyoa-nodes");
-const LEGACY_DOC = doc(db, "time-loop-cyoa", "story");
 
 /* ═══ SHARED COMPONENTS (top-level to avoid remount) ════════════════════ */
 function Field({ label, children }) {
@@ -1460,29 +1459,6 @@ export default function App() {
     if (!hasUnsaved) return true;
     return window.confirm("You have unsaved changes. Switching nodes will discard them. Continue?");
   }, [hasUnsaved]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const existing = await getDocs(NODES_COL);
-        if (cancelled || !existing.empty) return;
-        const legacy = await getDoc(LEGACY_DOC);
-        const data = legacy.data();
-        if (!legacy.exists() || !data?.nodes) return;
-        const rawNodes = data.nodes;
-        await Promise.all(Object.values(rawNodes).map((node) => {
-          if (!node || !node.id) return Promise.resolve();
-          const createdBy = AUTHOR_REMAP[node.createdBy] || node.createdBy || AUTHORS[0];
-          const normalized = normalizeNode({ ...node, createdBy });
-          return setDoc(doc(db, "time-loop-cyoa-nodes", normalized.id), { ...normalized, id: normalized.id, updatedAt: serverTimestamp() }, { merge: true });
-        }));
-      } catch (_) {
-        // ignore migration failures
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
 
   useEffect(() => {
     const unsub = onSnapshot(NODES_COL, (snap) => {
