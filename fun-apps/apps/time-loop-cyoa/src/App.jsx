@@ -750,10 +750,12 @@ function MapView({ nodes, setNodes, sel, setSel, setEditNode, setATab, reachable
   const panRef     = useRef(null);
   const zoomRef    = useRef(zoom);
   const nodesRef   = useRef(nodes);
+  const commitRef  = useRef(commitNodePosition);
   const lastClickRef  = useRef({ id:null, time:0 });
   const mouseDownRef  = useRef(null); // {x,y,time}
   useEffect(()=>{ zoomRef.current=zoom; },[zoom]);
   useEffect(()=>{ nodesRef.current=nodes; },[nodes]);
+  useEffect(()=>{ commitRef.current=commitNodePosition; },[commitNodePosition]);
   const outerRef = useRef(null);
 
   /* BFS node numbering */
@@ -860,7 +862,21 @@ function MapView({ nodes, setNodes, sel, setSel, setEditNode, setATab, reachable
         setPan({x:px+(e.clientX-mx),y:py+(e.clientY-my)});
       }
     };
-    const onUp=()=>{ dragRef.current=null; panRef.current=null; setCursor('grab'); };
+    const onUp=(e)=>{
+      const drag=dragRef.current;
+      if(drag && e){
+        const z=zoomRef.current;
+        const dx=(e.clientX-drag.sx)/z, dy=(e.clientY-drag.sy)/z;
+        const dist=Math.hypot(e.clientX-drag.sx, e.clientY-drag.sy);
+        if(dist>=5){
+          const pos={x:Math.round(drag.ox+dx),y:Math.round(drag.oy+dy)};
+          setNodes(p=>({...p,[drag.id]:{...p[drag.id],position:pos}}));
+          if(commitRef.current) commitRef.current(drag.id,pos);
+        }
+      }
+      dragRef.current=null; panRef.current=null; setCursor('grab');
+      requestAnimationFrame(()=>{ mouseDownRef.current=null; });
+    };
     window.addEventListener('mousemove',onMove);
     window.addEventListener('mouseup',onUp);
     return()=>{ window.removeEventListener('mousemove',onMove); window.removeEventListener('mouseup',onUp); };
@@ -892,17 +908,11 @@ function MapView({ nodes, setNodes, sel, setSel, setEditNode, setATab, reachable
     const md=mouseDownRef.current; if(!md)return;
     const dist=Math.hypot(e.clientX-md.x,e.clientY-md.y);
     const dt=Date.now()-md.time;
-    const wasDrag = dist>=5;
-    if (wasDrag && commitNodePosition) {
-      const pos = nodesRef.current[n.id]?.position;
-      commitNodePosition(n.id, pos);
-    }
     if(dist<5&&dt<300){
       // treat as click; check for double-click
       const now=Date.now(), last=lastClickRef.current;
       const switching = sel !== n.id;
       if (switching && confirmDiscard && !confirmDiscard()) {
-        dragRef.current=null; mouseDownRef.current=null; setCursor('grab');
         return;
       }
       if(last.id===n.id&&now-last.time<400){
@@ -915,10 +925,17 @@ function MapView({ nodes, setNodes, sel, setSel, setEditNode, setATab, reachable
         lastClickRef.current={id:n.id,time:now};
       }
     }
-    dragRef.current=null; mouseDownRef.current=null; setCursor('grab');
   };
 
   const nw=NW*zoom, nh=NH*zoom;
+  const arrowScale = mini ? 0.75 : Math.min(1.35, Math.max(0.9, zoom));
+  const arrowW = 8 * arrowScale;
+  const arrowH = 6 * arrowScale;
+  const deadArrowW = 6 * arrowScale;
+  const deadArrowH = 4.5 * arrowScale;
+  const baseStroke = mini ? 0.9 : Math.max(1.1, 1.3 * Math.min(1.6, zoom));
+  const glowStroke = baseStroke + (mini ? 0.9 : 1.8);
+  const dash = `${Math.max(4, 6 * arrowScale)},${Math.max(3, 4 * arrowScale)}`;
 
   return (
     <div ref={outerRef} onMouseDown={onBgDown} style={{position:'relative',width:'100%',height:'100%',overflow:'hidden',cursor,
@@ -928,26 +945,38 @@ function MapView({ nodes, setNodes, sel, setSel, setEditNode, setATab, reachable
       <svg style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none',zIndex:1}} overflow="visible">
         <defs>
           {Object.entries(TYPE_META).map(([t,{color}])=>(
-            <marker key={t} id={`arr-${t}`} markerWidth="8" markerHeight="7" refX="8" refY="3" orient="auto" markerUnits="userSpaceOnUse">
-              <path d="M0,0 L0,6 L7,3 z" fill={color} opacity="0.85"/>
+            <marker key={t} id={`arr-${t}`} markerWidth={arrowW} markerHeight={arrowH} refX={arrowW} refY={arrowH/2} orient="auto" markerUnits="userSpaceOnUse">
+              <path d={`M0,0 L0,${arrowH} L${arrowW},${arrowH/2} z`} fill={color} opacity="0.92"/>
             </marker>
           ))}
-          <marker id="arr-dead" markerWidth="6" markerHeight="5" refX="6" refY="2.5" orient="auto" markerUnits="userSpaceOnUse">
-            <path d="M0,0 L0,5 L5,2.5 z" fill="#555" opacity="0.5"/>
+          <marker id="arr-dead" markerWidth={deadArrowW} markerHeight={deadArrowH} refX={deadArrowW} refY={deadArrowH/2} orient="auto" markerUnits="userSpaceOnUse">
+            <path d={`M0,0 L0,${deadArrowH} L${deadArrowW},${deadArrowH/2} z`} fill="#555" opacity="0.6"/>
           </marker>
         </defs>
         {edges.map((e,i)=>{
           const path=mkPath(e.from,e.to,e._idx,e._tot,e.toPos); if(!path)return null;
           const ft=nodes[e.from]?.type||'scene', isSel=sel===e.from||sel===e.to;
           const col=e.missing?C.rose:(e.dead?'#3a3a50':TYPE_META[ft]?.color||C.textDim);
+          const mainOpacity = e.dead ? 0.32 : isSel ? 0.9 : 0.55;
+          const glowOpacity = e.dead ? 0.08 : isSel ? 0.2 : 0.12;
           return (
-            <path key={i} d={path} fill="none"
-              stroke={col}
-              strokeWidth={mini?0.6:(isSel&&!e.dead?2:1.2)*zoom}
-              strokeOpacity={e.dead?0.25:isSel?0.8:0.3}
-              strokeDasharray={(e.dead||e.missing)?`${4*zoom},${3*zoom}`:'none'}
-              markerEnd={(e.dead||e.missing)?'url(#arr-dead)':`url(#arr-${ft})`}
-            />
+            <g key={i}>
+              <path d={path} fill="none"
+                stroke={col}
+                strokeWidth={glowStroke}
+                strokeOpacity={glowOpacity}
+                strokeDasharray={(e.dead||e.missing)?dash:undefined}
+                strokeLinecap="round"
+              />
+              <path d={path} fill="none"
+                stroke={col}
+                strokeWidth={baseStroke}
+                strokeOpacity={mainOpacity}
+                strokeDasharray={(e.dead||e.missing)?dash:undefined}
+                strokeLinecap="round"
+                markerEnd={(e.dead||e.missing)?'url(#arr-dead)':`url(#arr-${ft})`}
+              />
+            </g>
           );
         })}
       </svg>
@@ -1060,6 +1089,8 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
   const [newId,setNewId]=useState('');
   const [idErr,setIdErr]=useState('');
   const [saveState, setSaveState] = useState({ saving: false, error: null });
+  const [autoSaveState, setAutoSaveState] = useState({ saving: false, error: null, savedAt: null });
+  const autoSaveRef = useRef(null);
   const selectNode = id => {
     if (!id) return;
     if (sel !== id && confirmDiscard && !confirmDiscard()) return;
@@ -1097,15 +1128,40 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
   })();
 
   const isCopied=copyFlash===sel;
+  const canSave = hasUnsaved && !saveState.saving && !autoSaveState.saving;
   const saveEdit=()=>{
     if(!editNode)return;
+    if(autoSaveRef.current){ clearTimeout(autoSaveRef.current); autoSaveRef.current=null; }
     const next=normalizeNode(editNode);
-    setNodes(p=>({...p,[next.id]:{...p[next.id],...next}}));
     setSaveState({ saving: true, error: null });
     Promise.resolve(persistNode(next))
-      .then(()=>setSaveState({ saving: false, error: null }))
+      .then(()=>{
+        setNodes(p=>({...p,[next.id]:{...p[next.id],...next}}));
+        setSaveState({ saving: false, error: null });
+        setAutoSaveState(s=>({ ...s, error: null, savedAt: Date.now() }));
+      })
       .catch((err)=>setSaveState({ saving: false, error: err?.message||'Save failed' }));
   };
+  useEffect(() => {
+    if (!editNode || !hasUnsaved || saveState.saving) return;
+    if (autoSaveRef.current) clearTimeout(autoSaveRef.current);
+    autoSaveRef.current = setTimeout(() => {
+      const next = normalizeNode(editNode);
+      setAutoSaveState(s => ({ ...s, saving: true, error: null }));
+      Promise.resolve(persistNode(next))
+        .then(() => {
+          setNodes(p => ({ ...p, [next.id]: { ...p[next.id], ...next } }));
+          setAutoSaveState({ saving: false, error: null, savedAt: Date.now() });
+        })
+        .catch((err) => setAutoSaveState({ saving: false, error: err?.message || 'Auto-save failed', savedAt: null }));
+    }, 700);
+    return () => {
+      if (autoSaveRef.current) clearTimeout(autoSaveRef.current);
+    };
+  }, [editNode, hasUnsaved, saveState.saving, persistNode, setNodes]);
+  useEffect(() => {
+    setAutoSaveState(s => ({ ...s, error: null, savedAt: null }));
+  }, [editNode?.id]);
   const delNode =id=>{ if(id==='start')return; setNodes(p=>{const n={...p};delete n[id];return n;}); removeNodeRemote(id); if(sel===id){setSel(null);setEditNode(null);} };
   const toggleMulti = checked => {
     setEditNode(n => {
@@ -1262,11 +1318,14 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
             <button onClick={()=>copyContext(sel)} style={{fontFamily:"'Cinzel',serif",fontSize:9.5,letterSpacing:'0.08em',padding:'5px 11px',border:`1px solid ${isCopied?C.green+'66':C.purple+'55'}`,borderRadius:4,color:isCopied?C.green:C.purple,background:isCopied?'rgba(74,156,114,0.1)':'rgba(155,114,191,0.08)',cursor:'pointer',transition:'all .2s'}}>{isCopied?'✓ Copied!':'⊕ Copy Context'}</button>
             <button onClick={()=>playtestFrom(sel)} style={{fontFamily:"'Cinzel',serif",fontSize:9.5,letterSpacing:'0.1em',padding:'5px 11px',border:`1px solid ${C.goldDim}`,borderRadius:4,color:C.gold,background:'transparent',cursor:'pointer',transition:'all .15s'}}
               onMouseEnter={e=>e.currentTarget.style.background='rgba(196,144,58,0.1)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>▶ Playtest</button>
-            <button onClick={saveEdit} disabled={!hasUnsaved}
-              style={{fontFamily:"'Cinzel',serif",fontSize:9.5,letterSpacing:'0.1em',padding:'5px 11px',border:'none',borderRadius:4,color:C.bg,background:C.gold,cursor:!hasUnsaved?'not-allowed':'pointer',transition:'all .15s',opacity:!hasUnsaved?0.55:1}}
-              onMouseEnter={e=>{if(hasUnsaved)e.currentTarget.style.background='#d4a04a';}} onMouseLeave={e=>{e.currentTarget.style.background=C.gold;}}>Save Changes</button>
-            {saveState.saving&&<span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:C.textFaint}}>Saving…</span>}
+            <button onClick={saveEdit} disabled={!canSave}
+              style={{fontFamily:"'Cinzel',serif",fontSize:9.5,letterSpacing:'0.1em',padding:'5px 11px',border:'none',borderRadius:4,color:C.bg,background:C.gold,cursor:!canSave?'not-allowed':'pointer',transition:'all .15s',opacity:!canSave?0.55:1}}
+              onMouseEnter={e=>{if(canSave)e.currentTarget.style.background='#d4a04a';}} onMouseLeave={e=>{e.currentTarget.style.background=C.gold;}}>Save Changes</button>
+            {autoSaveState.saving&&<span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:C.textFaint}}>Auto-saving...</span>}
+            {!hasUnsaved&&autoSaveState.savedAt&&!saveState.saving&&<span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:C.textFaint}}>Auto-saved</span>}
+            {saveState.saving&&<span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:C.textFaint}}>Saving...</span>}
             {saveState.error&&<span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:C.rose,maxWidth:220,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{saveState.error}</span>}
+            {autoSaveState.error&&<span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:C.rose,maxWidth:220,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{autoSaveState.error}</span>}
             {!editNode?.isStart&&<button onClick={()=>delNode(sel)} style={{fontFamily:"'Cinzel',serif",fontSize:9.5,letterSpacing:'0.1em',padding:'5px 11px',border:`1px solid ${C.rose}44`,borderRadius:4,color:C.rose,background:'transparent',cursor:'pointer',transition:'all .15s'}}
               onMouseEnter={e=>e.currentTarget.style.background='rgba(191,91,122,0.1)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>Delete</button>}
           </>)}
@@ -1475,7 +1534,7 @@ export default function App() {
     if (!base) return false;
     const clean = n => {
       if (!n) return n;
-      const { position, ...rest } = normalizeNode(n);
+      const { position, updatedAt, ...rest } = normalizeNode(n);
       return rest;
     };
     return JSON.stringify(clean(base)) !== JSON.stringify(clean(editNode));
