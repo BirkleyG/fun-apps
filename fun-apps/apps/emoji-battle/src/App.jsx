@@ -18,6 +18,7 @@ import {
 import { auth, db, provider } from "./firebase";
 import { APP_VERSION, BUILD_DATE } from "./version";
 import { ED, PIDS, DEFAULT_DECKS } from "./emojiData";
+import { BOT_LEVELS, chooseBotAction, getBotName } from "./ai";
 
 const LANES  = ["Left","Mid","Right"];
 const LSHORT = ["L","M","R"];
@@ -170,18 +171,29 @@ const decodeGameState = (state) => {
 =========================================================== */
 const mkSlot = (id="grin") => ({ eid:id, locked:false, lu:null, tr:null, bonus:0, coffinVal:null, poison:false });
 const canRepl  = (slot,t) => !slot.locked || (slot.lu!==null && t>slot.lu);
+const canPlaySlot = (slot, t, eid) => canRepl(slot, t) || (eid === "monument" && slot.locked);
 const getAP    = gs => gs.ct%2;
 const getRound = gs => Math.floor(gs.ct/2)+1;
 
 const isPerson = eid => ED[eid].tags.includes("person");
+const isHuman = eid => ED[eid].tags.includes("human");
 const isSkull = eid => eid === "skull";
 const isCrossbones = eid => eid === "crossbones";
 const isSkullState = eid => isSkull(eid) || isCrossbones(eid);
+const isPinned = (s, pid, si) => s.as[1-pid][si]?.eid === "pin";
 const hasEid = (as, eid) => as.some(army => army.some(slot => slot.eid === eid));
 const countEid = (army, eid) => army.filter(slot => slot.eid === eid).length;
 const countSkulls = army => countEid(army, "skull");
 const countSkullStates = army => army.filter(slot => isSkullState(slot.eid)).length;
 const countSkullStatesAll = as => as.reduce((sum, army) => sum + countSkullStates(army), 0);
+
+const slotBasePoints = (slot, lichActive=false) => {
+  const def = ED[slot.eid];
+  let base = typeof slot.coffinVal === "number" ? slot.coffinVal : def.bp;
+  if (lichActive && (slot.eid === "skull" || slot.eid === "crossbones")) base = Math.abs(def.bp);
+  return base;
+};
+const slotPoints = (slot, lichActive=false) => slotBasePoints(slot, lichActive) + (slot.bonus || 0);
 
 const resolveSkullEid = (s, source) => {
   if (hasEid(s.as, "graveyard")) return "crossbones";
@@ -191,6 +203,17 @@ const resolveSkullEid = (s, source) => {
 
 const markSkullCreated = (s, prevEid, nextEid) => {
   if (prevEid !== nextEid && isSkullState(nextEid)) s.roundFlags.skullCreated = true;
+};
+
+const lockUntilNextRound = (s) => 2 * getRound(s) + 1;
+const lockSlot = (slot, untilCt) => {
+  if (slot.locked && slot.lu === null) return;
+  slot.locked = true;
+  if (typeof untilCt === "number") {
+    slot.lu = typeof slot.lu === "number" ? Math.max(slot.lu, untilCt) : untilCt;
+  } else {
+    slot.lu = null;
+  }
 };
 
 function placeSlot(s, pid, si, eid, opts = {}) {
@@ -312,32 +335,66 @@ function applyRoundEnd(s) {
   const boneSlots = [];
   const candleSlots = [];
   const crowSlotsByPlayer = [[], []];
+  const decaySlots = [];
 
   for (let p=0;p<2;p++) {
     for (let si=0;si<3;si++) {
       const slot = s.as[p][si];
-      if (slot.eid === "bone") boneSlots.push(slot);
-      if (slot.eid === "candle") candleSlots.push(slot);
-      if (slot.eid === "crow") crowSlotsByPlayer[p].push(slot);
+      if (slot.eid === "bone") boneSlots.push({ pid:p, si, slot });
+      if (slot.eid === "candle") candleSlots.push({ pid:p, si, slot });
+      if (slot.eid === "crow") crowSlotsByPlayer[p].push({ pid:p, si, slot });
+      if (slot.eid === "decay") decaySlots.push({ pid:p, si });
     }
   }
 
   if (skullStates > 0 && boneSlots.length > 0) {
-    boneSlots.forEach(slot => { slot.bonus += skullStates; });
-    s.log.push(`🦴 Bone gained +${skullStates} each (${skullStates} skull states on board).`);
+    let applied = 0;
+    boneSlots.forEach(({ pid, si, slot }) => {
+      if (isPinned(s, pid, si)) return;
+      slot.bonus += skullStates;
+      applied += 1;
+    });
+    if (applied > 0) s.log.push(`🦴 Bone gained +${skullStates} on ${applied} slot${applied!==1?"s":""} (${skullStates} skull states on board).`);
   }
 
   for (let p=0;p<2;p++) {
     const skullsOpp = countSkulls(s.as[1-p]);
     if (skullsOpp > 0 && crowSlotsByPlayer[p].length > 0) {
-      crowSlotsByPlayer[p].forEach(slot => { slot.bonus += skullsOpp; });
-      s.log.push(`🐦‍⬛ Crow gained +${skullsOpp} each (${s.players[1-p].name} has ${skullsOpp} 💀).`);
+      let applied = 0;
+      crowSlotsByPlayer[p].forEach(({ pid, si, slot }) => {
+        if (isPinned(s, pid, si)) return;
+        slot.bonus += skullsOpp;
+        applied += 1;
+      });
+      if (applied > 0) s.log.push(`🐦‍⬛ Crow gained +${skullsOpp} on ${applied} slot${applied!==1?"s":""} (${s.players[1-p].name} has ${skullsOpp} 💀).`);
     }
   }
 
+  if (decaySlots.length > 0) {
+    decaySlots.forEach(({ pid, si }) => {
+      const target = s.as[1-pid][si];
+      if (!target || isSkullState(target.eid)) return;
+      const before = slotPoints(target, s.lichActive);
+      const after = before - 1;
+      if (after <= 0) {
+        const prevEid = target.eid;
+        const result = placeSlot(s, 1-pid, si, resolveSkullEid(s, "decay"));
+        s.log.push(`🧪 Decay rotted ${ED[prevEid].e} into ${ED[result.finalEid].e}.`);
+      } else {
+        target.bonus = (target.bonus || 0) - 1;
+        s.log.push(`🧪 Decay weakened ${ED[target.eid].e} by 1.`);
+      }
+    });
+  }
+
   if (s.roundFlags.skullCreated && candleSlots.length > 0) {
-    candleSlots.forEach(slot => { slot.bonus += 2; });
-    s.log.push("🕯️ Candle triggered — +2 to each Candle.");
+    let applied = 0;
+    candleSlots.forEach(({ pid, si, slot }) => {
+      if (isPinned(s, pid, si)) return;
+      slot.bonus += 2;
+      applied += 1;
+    });
+    if (applied > 0) s.log.push(`🕯️ Candle triggered — +2 on ${applied} slot${applied!==1?"s":""}.`);
   }
 
   s.roundFlags.skullCreated = false;
@@ -373,23 +430,38 @@ function advanceTurn(s) {
   }
 }
 
-function checkGlobal(as, pid, eid) {
-  const def=ED[eid], opp=as[1-pid], r=def.req; if (!r) return null;
-  if (r==="opp_two_skulls" && countSkulls(opp)<2) return "Opponent needs ≥2 💀.";
+function checkGlobal(gs, pid, eid) {
+  const def = ED[eid];
+  const r = def.req;
+  if (!r) return null;
+  const as = gs.as;
+  const opp = as[1-pid];
+  if (r === "opp_two_skulls" && countSkulls(opp) < 2) return "Opponent needs ≥2 💀.";
+  if (r === "turn_4_or_5" && getRound(gs) < 4) return "Can only be played on Turn 4 or 5.";
+  if (r === "opp_points_gt_10") {
+    const scores = calcScores(as, gs.lichActive);
+    if (scores[1-pid].total <= 10) return "Opponent must have >10 total points.";
+  }
   return null;
 }
 
-function checkSlot(as, pid, eid, si) {
-  const def=ED[eid], mine=as[pid], opp=as[1-pid], r=def.req;
-  if (r==="replace_person" && !isPerson(mine[si].eid)) return "Must replace a Person (😀 or 😵).";
-  if (r==="replace_skull" && mine[si].eid!=="skull") return "Must replace a 💀.";
-  if (r==="replace_skull_or_crossbones" && !isSkullState(mine[si].eid)) return "Must replace a 💀 or ☠️.";
-  if (r==="adjacent_skull") {
+function checkSlot(gs, pid, eid, si) {
+  const def = ED[eid];
+  const as = gs.as;
+  const mine = as[pid];
+  const opp = as[1-pid];
+  const r = def.req;
+  if (r === "replace_person" && !isPerson(mine[si].eid)) return "Must replace a Person (😀 or 😵).";
+  if (r === "replace_skull" && mine[si].eid !== "skull") return "Must replace a 💀.";
+  if (r === "replace_skull_or_crossbones" && !isSkullState(mine[si].eid)) return "Must replace a 💀 or ☠️.";
+  if (r === "replace_min_points_2" && slotPoints(mine[si], gs.lichActive) < 2) return "Must replace an emoji worth 2+ points.";
+  if (r === "replace_locked" && !mine[si].locked) return "Must replace a locked emoji.";
+  if (r === "adjacent_skull") {
     const left = si>0 ? mine[si-1].eid : null;
     const right = si<2 ? mine[si+1].eid : null;
     if (left!=="skull" && right!=="skull") return "Must be placed next to a 💀.";
   }
-  if (r==="across_any" && !opp[si]) return "Must be played across from an emoji.";
+  if (r === "across_any" && !opp[si]) return "Must be played across from an emoji.";
   return null;
 }
 
@@ -399,33 +471,32 @@ function getHandOffers(gs) {
   return hand.map((card)=>{
     if (!card) return { ok:false, reason:"Empty slot", eid:null, validSlots:[] };
     const id = card.eid;
-    const ge=checkGlobal(as,pid,id);
+    const ge=checkGlobal(gs,pid,id);
     if (ge) return {ok:false,reason:ge,eid:id,validSlots:[]};
     const validSlots=[];
     for (let s=0;s<3;s++) {
-      if (!canRepl(as[pid][s],ct)) continue;
-      if (!checkSlot(as,pid,id,s)) validSlots.push(s);
+      if (!canPlaySlot(as[pid][s],ct,id)) continue;
+      if (!checkSlot(gs,pid,id,s)) validSlots.push(s);
     }
     if (validSlots.length>0) return {ok:true,reason:null,eid:id,validSlots};
-    if ([0,1,2].every(s=>!canRepl(as[pid][s],ct))) return {ok:false,reason:"All your slots are locked.",eid:id,validSlots:[]};
-    for (let s=0;s<3;s++) { if (!canRepl(as[pid][s],ct)) continue; const se=checkSlot(as,pid,id,s); if (se) return {ok:false,reason:se,eid:id,validSlots:[]}; }
+    if ([0,1,2].every(s=>!canPlaySlot(as[pid][s],ct,id))) return {ok:false,reason:"All your slots are locked.",eid:id,validSlots:[]};
+    for (let s=0;s<3;s++) { if (!canPlaySlot(as[pid][s],ct,id)) continue; const se=checkSlot(gs,pid,id,s); if (se) return {ok:false,reason:se,eid:id,validSlots:[]}; }
     return {ok:false,reason:"No valid slot.",eid:id,validSlots:[]};
   });
 }
 
 function slotErr(gs, eid, si) {
   const pid=getAP(gs);
-  if (!canRepl(gs.as[pid][si],gs.ct)) return "Slot is locked 🔒";
-  const ge=checkGlobal(gs.as,pid,eid); if (ge) return ge;
-  return checkSlot(gs.as,pid,eid,si);
+  if (!canPlaySlot(gs.as[pid][si],gs.ct,eid)) return "Slot is locked 🔒";
+  const ge=checkGlobal(gs,pid,eid); if (ge) return ge;
+  return checkSlot(gs,pid,eid,si);
 }
 
 function calcScores(as, lichActive=false) {
   return as.map((army,p)=>{
     const lanes=army.map((sl)=>{
       const def=ED[sl.eid];
-      let base = typeof sl.coffinVal === "number" ? sl.coffinVal : def.bp;
-      if (lichActive && (sl.eid==="skull"||sl.eid==="crossbones")) base = Math.abs(def.bp);
+      const base = slotBasePoints(sl, lichActive);
       const bonus = sl.bonus || 0;
       const fin = base + bonus;
       return {eid:sl.eid,e:def.e,name:def.n,base,buff:0,bonus,supp:false,suppMsg:null,half:false,fin};
@@ -483,6 +554,122 @@ function applyMove(gs, handIndex, si) {
     if (eid==="dead_face") evts.push("😵 Dead Face will rot next round.");
     if (eid==="poison") evts.push("⚗️ Poison set a trap across its lane.");
     if (eid==="coffin" && coffinVal!==null) evts.push(`⚰️ Coffin converted ${placed.prev.eid==="skull"?"💀":"☠️"} into +${coffinVal}.`);
+    if (eid==="executioner") {
+      const target = s.as[1-pid][si];
+      const pts = slotPoints(target, s.lichActive);
+      if (pts >= 4) {
+        const prevEid = target.eid;
+        const result = placeSlot(s, 1-pid, si, resolveSkullEid(s, "executioner"));
+        evts.push(`🪓 Executioner executed ${ED[prevEid].e} → ${ED[result.finalEid].e}.`);
+      }
+    }
+    if (eid==="duel") {
+      const scores = calcScores(s.as, s.lichActive);
+      if (scores[1-pid].total > scores[pid].total) {
+        const prevEid = s.as[1-pid][si].eid;
+        const result = placeSlot(s, 1-pid, si, resolveSkullEid(s, "duel"));
+        evts.push(`⚔️ Duel claimed ${ED[prevEid].e} → ${ED[result.finalEid].e}.`);
+      }
+    }
+    if (eid==="infection_strike") {
+      let hit = 0;
+      [si-1, si, si+1].forEach((idx) => {
+        if (idx < 0 || idx > 2) return;
+        placeSlot(s, 1-pid, idx, "dead_face");
+        hit += 1;
+      });
+      if (hit > 0) evts.push(`🦠 Infection Strike spread to ${hit} lane${hit!==1?"s":""}.`);
+    }
+    if (eid==="silent_kill") {
+      let killed = 0;
+      for (let p=0;p<2;p++) {
+        for (let sl=0;sl<3;sl++) {
+          if (!s.as[p][sl].locked) continue;
+          placeSlot(s, p, sl, resolveSkullEid(s, "silent_kill"));
+          killed++;
+        }
+      }
+      if (killed > 0) evts.push(`🔪 Silent Kill struck ${killed} locked emoji${killed!==1?"s":""}.`);
+    }
+    if (eid==="decay") evts.push("🧪 Decay will rot the opposing lane each round.");
+    if (eid==="monument") {
+      lockSlot(s.as[pid][si], null);
+      evts.push("🏛️ Monument is permanently locked.");
+    }
+    if (eid==="veteran") {
+      const skullsOpp = countSkulls(s.as[1-pid]);
+      if (skullsOpp > 0) {
+        if (!isPinned(s, pid, si)) {
+          s.as[pid][si].bonus += 2;
+          evts.push("🎖️ Veteran gained +2.");
+        } else {
+          evts.push("🧷 Pin blocked Veteran's bonus.");
+        }
+      }
+    }
+    if (eid==="freeze") {
+      lockSlot(s.as[1-pid][si], lockUntilNextRound(s));
+      evts.push("🧊 Freeze locked the opposing emoji next round.");
+    }
+    if (eid==="pin") evts.push("🧷 Pin applied — the emoji across cannot gain points.");
+    if (eid==="lockdown") {
+      const until = lockUntilNextRound(s);
+      lockSlot(s.as[pid][si], until);
+      lockSlot(s.as[1-pid][si], until);
+      evts.push("🔒 Lockdown sealed this lane until next round.");
+    }
+    if (eid==="storm") {
+      for (let p=0;p<2;p++) {
+        [s.as[p][0], s.as[p][2]] = [s.as[p][2], s.as[p][0]];
+      }
+      evts.push("🌪️ Storm swapped the left and right lanes.");
+    }
+    if (eid==="pandemic") {
+      let changed = 0;
+      for (let p=0;p<2;p++) {
+        for (let sl=0;sl<3;sl++) {
+          if (!isHuman(s.as[p][sl].eid)) continue;
+          placeSlot(s, p, sl, resolveSkullEid(s, "pandemic"));
+          changed++;
+        }
+      }
+      if (changed > 0) evts.push(`☣️ Pandemic corrupted ${changed} Human emoji${changed!==1?"s":""}.`);
+    }
+    if (eid==="cataclysm") {
+      let doomed = 0;
+      for (let p=0;p<2;p++) {
+        for (let sl=0;sl<3;sl++) {
+          if (slotPoints(s.as[p][sl], s.lichActive) > 1) continue;
+          placeSlot(s, p, sl, "dead_face");
+          doomed++;
+        }
+      }
+      if (doomed > 0) evts.push(`🌋 Cataclysm doomed ${doomed} low-value emoji${doomed!==1?"s":""}.`);
+    }
+    if (eid==="purge") {
+      for (let p=0;p<2;p++) {
+        for (let sl=0;sl<3;sl++) {
+          placeSlot(s, p, sl, "grin");
+        }
+      }
+      evts.push("🔥 Purge reset the board to 😀.");
+    }
+    if (eid==="carrion_swarm") {
+      const skullsOpp = countSkulls(s.as[1-pid]);
+      if (skullsOpp > 0) {
+        if (!isPinned(s, pid, si)) {
+          s.as[pid][si].bonus += skullsOpp;
+          evts.push(`🐦 Carrion Swarm gained +${skullsOpp}.`);
+        } else {
+          evts.push("🧷 Pin blocked Carrion Swarm's bonus.");
+        }
+      }
+    }
+    if (eid==="trick") {
+      s.pend={type:"trick",pid};
+      s.phase="ec";
+      evts.push("🤡 Trick: choose a friendly slot to swap with the emoji across.");
+    }
   }
 
   s.hands[pid][handIndex] = null;
@@ -509,6 +696,15 @@ function applySick(gs, tsi) {
       const targetEid = resolveSkullEid(s, "dagger");
       const result = placeSlot(s, pid, tsi, targetEid);
       s.log.push(`🗡️ Dagger corrupted ${ED[from].e} → ${ED[result.finalEid].e}`);
+    }
+  }
+  if (type==="trick") {
+    if (typeof tsi === "number" && tsi >= 0 && tsi <= 2) {
+      const mine = s.as[pid][tsi];
+      const opp = s.as[1-pid][tsi];
+      s.as[pid][tsi] = opp;
+      s.as[1-pid][tsi] = mine;
+      s.log.push(`🤡 Trick swapped the ${LANES[tsi]} lane.`);
     }
   }
   s.pend=null;
@@ -707,11 +903,35 @@ function MenuScreen({ onPlay, onRulebook, onSettings, onMultiplayer, onDecks }) 
 function SetupScreen({ onBack, onStart, decks, defaultDeckId }) {
   const [p1,setP1]=useState("Player 1");
   const [p2,setP2]=useState("Player 2");
+  const p2HumanRef = useRef("Player 2");
+  const [botEnabled, setBotEnabled] = useState(false);
+  const [botDifficulty, setBotDifficulty] = useState(BOT_LEVELS[1]?.id || "medium");
   const fallbackDeck = decks?.[0]?.id || DEFAULT_DECKS[0].id;
   const [p1DeckId,setP1DeckId]=useState(defaultDeckId || fallbackDeck);
   const [p2DeckId,setP2DeckId]=useState(defaultDeckId || fallbackDeck);
+  useEffect(() => {
+    if (botEnabled) {
+      p2HumanRef.current = p2;
+      setP2(getBotName(botDifficulty));
+    } else {
+      setP2(p2HumanRef.current || "Player 2");
+    }
+  }, [botEnabled, botDifficulty]);
   const inp = (val,set) => (
     <input value={val} onChange={e=>set(e.target.value)} maxLength={16} style={{ background:C.hi, border:`1px solid ${C.border}`, borderRadius:10, padding:"10px 14px", color:C.text, fontSize:16, fontFamily:"Nunito", fontWeight:700, width:"100%", outline:"none", boxSizing:"border-box" }} />
+  );
+  const inpBotAware = (val,set) => (
+    <input
+      value={val}
+      onChange={e=>{
+        if (botEnabled) return;
+        set(e.target.value);
+        p2HumanRef.current = e.target.value;
+      }}
+      disabled={botEnabled}
+      maxLength={16}
+      style={{ background:C.hi, border:`1px solid ${C.border}`, borderRadius:10, padding:"10px 14px", color:C.text, fontSize:16, fontFamily:"Nunito", fontWeight:700, width:"100%", outline:"none", boxSizing:"border-box", opacity:botEnabled?0.6:1 }}
+    />
   );
   const deckSelect = (val,set) => (
     <select value={val} onChange={e=>set(e.target.value)} style={{ background:C.hi, border:`1px solid ${C.border}`, borderRadius:10, padding:"10px 14px", color:C.text, fontSize:14, fontFamily:"Nunito", fontWeight:700, width:"100%", outline:"none", boxSizing:"border-box" }}>
@@ -725,7 +945,7 @@ function SetupScreen({ onBack, onStart, decks, defaultDeckId }) {
       <div style={{ maxWidth:380, width:"100%" }}>
         <button onClick={onBack} style={{ background:"none", border:"none", color:C.muted, fontSize:14, cursor:"pointer", marginBottom:20, fontFamily:"Nunito", fontWeight:700 }}>← Back</button>
         <h2 style={{ fontFamily:"Fredoka One", fontSize:34, color:C.accent, margin:"0 0 6px" }}>New Match</h2>
-        <p style={{ color:C.muted, fontSize:13, margin:"0 0 30px" }}>Pass-and-play — share one device</p>
+        <p style={{ color:C.muted, fontSize:13, margin:"0 0 30px" }}>{botEnabled ? "Single-player vs Bot" : "Pass-and-play — share one device"}</p>
           <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
             <div>
               <div style={{ fontSize:12, color:C.muted, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>Player 1 Name</div>
@@ -733,7 +953,21 @@ function SetupScreen({ onBack, onStart, decks, defaultDeckId }) {
             </div>
             <div>
               <div style={{ fontSize:12, color:C.muted, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>Player 2 Name</div>
-              {inp(p2,setP2)}
+              {inpBotAware(p2,setP2)}
+            </div>
+            <div style={{ background:C.hi, border:`1px solid ${C.border}`, borderRadius:12, padding:14 }}>
+              <div style={{ fontSize:12, color:C.muted, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:8 }}>Bot Settings</div>
+              <label style={{ display:"flex", alignItems:"center", gap:10, fontSize:13, color:C.text, fontWeight:700 }}>
+                <input type="checkbox" checked={botEnabled} onChange={(e)=>setBotEnabled(e.target.checked)} />
+                Play vs Bot
+              </label>
+              <div style={{ marginTop:10 }}>
+                <select value={botDifficulty} onChange={(e)=>setBotDifficulty(e.target.value)} disabled={!botEnabled} style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:10, padding:"8px 12px", color:C.text, fontSize:13, fontFamily:"Nunito", fontWeight:700, width:"100%", outline:"none", opacity:botEnabled?1:0.6 }}>
+                  {BOT_LEVELS.map((level)=>(
+                    <option key={level.id} value={level.id}>{level.label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div>
               <div style={{ fontSize:12, color:C.muted, fontWeight:700, textTransform:"uppercase", letterSpacing:1, marginBottom:6 }}>Player 1 Deck</div>
@@ -747,7 +981,7 @@ function SetupScreen({ onBack, onStart, decks, defaultDeckId }) {
               <strong style={{ color:C.text }}>Rules at a glance:</strong><br/>
             Each player manages 3 emoji slots over 5 rounds. Replace one slot per turn. Highest total score wins!
             </div>
-          <Btn onClick={()=>onStart(p1||"Player 1",p2||"Player 2",p1DeckId,p2DeckId)} style={{ width:"100%", fontSize:17, padding:"14px 0", marginTop:6 }}>⚔️ Start Match!</Btn>
+          <Btn onClick={()=>onStart(p1||"Player 1",botEnabled?getBotName(botDifficulty):(p2||"Player 2"),p1DeckId,p2DeckId,botEnabled,botDifficulty)} style={{ width:"100%", fontSize:17, padding:"14px 0", marginTop:6 }}>⚔️ Start Match!</Btn>
         </div>
       </div>
     </div>
@@ -776,10 +1010,19 @@ function SickModal({ gs, onChoose }) {
   const {pid,si:sourceSi,type}=gs.pend;
   const army=gs.as[pid];
   const isDagger = type==="dagger";
-  const icon = isDagger ? "🗡️" : "✨";
-  const title = isDagger ? "Dagger Effect" : "Choose Target";
-  const desc = isDagger ? "Choose another slot in your army to turn into 💀:" : "Choose a target slot:";
-  const footer = isDagger ? "Tap a slot to corrupt it. (Cannot target 🗡️ itself.)" : "Tap a slot to apply the effect.";
+  const isTrick = type==="trick";
+  const icon = isDagger ? "🗡️" : isTrick ? "🤡" : "✨";
+  const title = isDagger ? "Dagger Effect" : isTrick ? "Trick" : "Choose Target";
+  const desc = isDagger
+    ? "Choose another slot in your army to turn into 💀:"
+    : isTrick
+      ? "Choose a friendly slot to swap with the emoji across from it:"
+      : "Choose a target slot:";
+  const footer = isDagger
+    ? "Tap a slot to corrupt it. (Cannot target 🗡️ itself.)"
+    : isTrick
+      ? "Tap a slot to swap lanes."
+      : "Tap a slot to apply the effect.";
   return (
     <div style={{ position:"fixed", inset:0, background:"#000000cc", display:"flex", alignItems:"center", justifyContent:"center", zIndex:100, padding:20 }}>
       <div style={{ background:C.surf, border:`1px solid ${C.accent}`, borderRadius:18, padding:24, maxWidth:340, width:"100%", textAlign:"center" }}>
@@ -788,7 +1031,7 @@ function SickModal({ gs, onChoose }) {
         <div style={{ fontSize:14, color:C.muted, marginBottom:20 }}>{desc}</div>
         <div style={{ display:"flex", gap:12, justifyContent:"center" }}>
           {army.map((slot,i)=>{
-            if (i===sourceSi) return <div key={i} style={{ opacity:0.3 }}><SlotCard slot={slot} big label={LSHORT[i]} /></div>;
+            if (isDagger && i===sourceSi) return <div key={i} style={{ opacity:0.3 }}><SlotCard slot={slot} big label={LSHORT[i]} /></div>;
             return <div key={i} onClick={()=>onChoose(i)} style={{ cursor:"pointer" }}><SlotCard slot={slot} big label={LSHORT[i]} highlight /></div>;
           })}
         </div>
@@ -1101,6 +1344,7 @@ function RulebookScreen({ onBack }) {
           <div>
             {rule("Basic","😀 Basic. Default emoji. Value 0.")}
             {rule("Person","Any human-face emoji. Currently includes 😀 and 😵.")}
+            {rule("Human","Any emoji tagged Human. Currently includes 😀 and 😵.")}
             {rule("Skull States","💀 Skull (-2) cannot be placed directly. ☠️ Crossbones (-4) must replace a 💀.")}
             {rule("Adjacent","Left or right neighbor slot in your army.")}
             {rule("Across","Same lane on the opposing side. Your Left faces opponent's Left, etc.")}
@@ -1440,6 +1684,7 @@ export default function App() {
   const [decks, setDecks] = useState(DEFAULT_DECKS);
   const [selectedDeckId, setSelectedDeckId] = useState(DEFAULT_DECKS[0].id);
   const [editingDeckId, setEditingDeckId] = useState(null);
+  const [bot, setBot] = useState(null);
 
   const [mpCodeInput, setMpCodeInput] = useState("");
   const [mpError, setMpError] = useState("");
@@ -1574,10 +1819,30 @@ export default function App() {
     });
   }, [activeLobbyCode]);
 
-  function startGame(p1, p2, p1DeckId, p2DeckId) {
+  const applyNextState = (next) => {
+    setGs(next);
+    if (next.phase === "ended") {
+      setPassTo(null);
+      setScreen("results");
+      return;
+    }
+    if (next.phase === "ec") {
+      setPassTo(null);
+      return;
+    }
+    if (bot) {
+      setPassTo(null);
+      return;
+    }
+    setPassTo(next.players[getAP(next)].name);
+  };
+
+  function startGame(p1, p2, p1DeckId, p2DeckId, botEnabled = false, botDifficulty = "medium") {
     const d1 = getDeckById(decks, p1DeckId);
     const d2 = getDeckById(decks, p2DeckId);
-    const g = initGame(p1, p2, d1, d2);
+    const botConfig = botEnabled ? { pid: 1, difficulty: botDifficulty } : null;
+    const g = initGame(p1, botEnabled ? getBotName(botDifficulty) : p2, d1, d2);
+    setBot(botConfig);
     setGs(g);
     setPassTo(null);
     setScreen("game");
@@ -1585,37 +1850,17 @@ export default function App() {
 
   function handleMove(handIndex, si) {
     const next = applyMove(gs, handIndex, si);
-    setGs(next);
-    if (next.phase === "ended") {
-      setPassTo(null);
-      setScreen("results");
-    } else if (next.phase === "ec") {
-      setPassTo(null);
-    } else {
-      setPassTo(next.players[getAP(next)].name);
-    }
+    applyNextState(next);
   }
 
   function handleSick(tsi) {
     const next = applySick(gs, tsi);
-    setGs(next);
-    if (next.phase === "ended") {
-      setPassTo(null);
-      setScreen("results");
-    } else {
-      setPassTo(next.players[getAP(next)].name);
-    }
+    applyNextState(next);
   }
 
   function handlePass() {
     const next = applyPass(gs);
-    setGs(next);
-    if (next.phase === "ended") {
-      setPassTo(null);
-      setScreen("results");
-    } else {
-      setPassTo(next.players[getAP(next)].name);
-    }
+    applyNextState(next);
   }
 
   function handleLock(handIndex) {
@@ -1629,6 +1874,33 @@ export default function App() {
     setPassTo(null);
     setScreen("game");
   }
+
+  useEffect(() => {
+    if (!bot || !gs) return;
+    if (screen !== "game") return;
+    if (gs.phase === "ended") return;
+    const activePid = getAP(gs);
+    if (activePid !== bot.pid) return;
+    if (gs.phase === "ec" && gs.pend?.pid !== bot.pid) return;
+    const timer = setTimeout(() => {
+      const action = chooseBotAction(gs, bot.pid, bot.difficulty, {
+        applyMove,
+        applyPass,
+        applySick,
+        getHandOffers,
+        calcScores,
+        getAP,
+        turnLimit: TURN_LIMIT
+      });
+      if (!action) return;
+      let next = null;
+      if (action.type === "move") next = applyMove(gs, action.handIndex, action.slotIndex);
+      if (action.type === "pass") next = applyPass(gs);
+      if (action.type === "sick") next = applySick(gs, action.targetIndex);
+      if (next) applyNextState(next);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [bot, gs, screen]);
 
   const handleCreateLobby = async () => {
     setMpError("");
@@ -1896,6 +2168,8 @@ export default function App() {
       : activeLobby?.guestDeck?.id
     : null;
   const lobbyDeckValue = lobbyDeckId && decks.find((d) => d.id === lobbyDeckId) ? lobbyDeckId : "";
+  const isBotTurn = Boolean(bot && gs && screen === "game" && getAP(gs) === bot.pid);
+  const botDisplayName = bot ? getBotName(bot.difficulty) : null;
 
   if (!authReady) {
     return (
@@ -1925,8 +2199,17 @@ export default function App() {
         {screen === "setup" && <SetupScreen onBack={() => setScreen("menu")} onStart={startGame} decks={decks} defaultDeckId={selectedDeckId} />}
         {screen === "game" && gs && (
           <>
-            {gs.phase === "ec" && <SickModal gs={gs} onChoose={handleSick} />}
-            <GameScreen gs={gs} onMove={handleMove} onSick={handleSick} onPass={handlePass} onLock={handleLock} onEndGame={() => setScreen("menu")} />
+            {gs.phase === "ec" && (!bot || gs.pend?.pid !== bot.pid) && <SickModal gs={gs} onChoose={handleSick} />}
+            <GameScreen
+              gs={gs}
+              onMove={handleMove}
+              onSick={handleSick}
+              onPass={handlePass}
+              onLock={handleLock}
+              onEndGame={() => setScreen("menu")}
+              readOnly={isBotTurn}
+              waitingFor={isBotTurn ? botDisplayName : undefined}
+            />
           </>
         )}
         {screen === "results" && gs && <ResultsScreen gs={gs} onRematch={handleRematch} onMenu={() => setScreen("menu")} />}
