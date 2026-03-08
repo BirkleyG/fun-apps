@@ -924,6 +924,7 @@ function MapView({ nodes, setNodes, sel, setSel, setEditNode, setATab, reachable
       } else {
         // single click → just select
         setSel(n.id);
+        setEditNode(normalizeNode(nodesRef.current[n.id]));
         lastClickRef.current={id:n.id,time:now};
       }
     }
@@ -1176,6 +1177,31 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
     setAutoSaveState(s => ({ ...s, error: null, savedAt: null }));
   }, [editNode?.id]);
   const delNode =id=>{ if(id==='start')return; setNodes(p=>{const n={...p};delete n[id];return n;}); removeNodeRemote(id); if(sel===id){setSel(null);setEditNode(null);} };
+  const isValidNodeId = id => /^[a-zA-Z0-9_-]+$/.test(id);
+  const createNodeFromChoice = (rawId, choiceIndex = 0) => {
+    const id=(rawId||'').trim();
+    if(!id || nodes[id] || !isValidNodeId(id)) return;
+    const base = editNode || nodes[sel];
+    const basePos = base?.position || { x: 300, y: 300 };
+    const nn={
+      id,
+      title:id.replace(/_/g,' '),
+      type:'scene',
+      isStart:false,
+      isEnding:false,
+      createdAt:Date.now(),
+      createdBy:curAuthor,
+      text:'Write your scene here.',
+      choices:[],
+      tags:[],
+      notes:'',
+      position:{ x: basePos.x + 260, y: basePos.y + 80 + choiceIndex * 120 },
+      isMultiPage:false,
+      pages:[],
+    };
+    setNodes(p=>({...p,[id]:nn}));
+    persistNode(nn);
+  };
   const toggleMulti = checked => {
     setEditNode(n => {
       if (!n) return n;
@@ -1214,6 +1240,41 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
       return { ...n, pages };
     });
   };
+  const quickText = useMemo(() => {
+    if (!editNode) return '';
+    if (editNode.isMultiPage) {
+      return editNode.pages?.[0]?.text || '';
+    }
+    return editNode.text || '';
+  }, [editNode]);
+  const updateQuickText = (value) => {
+    setEditNode(n => {
+      if (!n) return n;
+      if (n.isMultiPage) {
+        const pages = Array.isArray(n.pages) ? [...n.pages] : [];
+        if (pages.length === 0) pages.push(mkPage(''));
+        pages[0] = { ...pages[0], text: value };
+        return { ...n, pages };
+      }
+      return { ...n, text: value };
+    });
+  };
+  const setQuickType = (t) => {
+    setEditNode(n => ({
+      ...n,
+      type:t,
+      isEnding:t==='ending',
+      isStart:t==='start',
+      endingData:t==='ending'?(n.endingData||{endingNumber:0,endingTitle:'',endingCategory:'',summary:'',loopConditions:{childBorn:false,clueLeft:false,deathOccurred:false,loopRestarts:true}}):n.endingData
+    }));
+  };
+  useEffect(() => {
+    if (aTab !== 'map') return;
+    if (!sel || !nodes[sel]) return;
+    if (!editNode || editNode.id !== sel) {
+      setEditNode(normalizeNode(nodes[sel]));
+    }
+  }, [aTab, sel, nodes, editNode, setEditNode]);
 
   // Sub-tabs including analytics and notes
   const TABS = [['nodes','Nodes'],['map','Map ⬡'],['endings','End'],['notes','Notes ✎'],['analytics','Stats'],['validate',`Issues${issues.length?` (${issues.length})`:''}`]];
@@ -1267,12 +1328,48 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
         )}
 
         {aTab==='map'&&(
-          <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:10,padding:18,color:C.textFaint,fontFamily:"'Cormorant Garamond',serif",fontStyle:'italic',fontSize:13,textAlign:'center'}}>
-            <div style={{fontSize:26,opacity:.2,color:C.purple}}>⬡</div>
-            <div>Map is in the main panel.</div>
-            <div style={{fontSize:9.5,fontStyle:'normal',fontFamily:"'JetBrains Mono',monospace",lineHeight:1.9,opacity:.8}}>click → select<br/>double-click → edit<br/>drag → move<br/>scroll → zoom</div>
-            <button onClick={addNode} style={{marginTop:6,width:'100%',padding:'7px',border:`1px dashed ${C.goldDim}`,borderRadius:5,color:C.goldDim,fontSize:10,fontFamily:"'Cinzel',serif",letterSpacing:'0.1em',cursor:'pointer',background:'transparent'}}
-              onMouseEnter={e=>{e.currentTarget.style.borderColor=C.gold;e.currentTarget.style.color=C.gold;}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.goldDim;e.currentTarget.style.color=C.goldDim;}}>+ New Node</button>
+          <div style={{flex:1,display:'flex',flexDirection:'column',gap:12,padding:14,overflowY:'auto'}}>
+            <div style={{fontFamily:"'Cinzel',serif",fontSize:9.5,letterSpacing:'0.2em',color:C.purple,textTransform:'uppercase'}}>Quick Edit</div>
+            {editNode?(
+              <>
+                <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:C.textFaint}}>id: {editNode.id}</div>
+                <div>
+                  <div style={{fontFamily:"'Cinzel',serif",fontSize:8.5,letterSpacing:'0.16em',color:C.textFaint,textTransform:'uppercase',marginBottom:6}}>Title</div>
+                  <input value={editNode.title||''} onChange={e=>setEditNode(n=>({...n,title:e.target.value}))} style={{...IST,padding:'6px 9px',fontSize:12}}/>
+                </div>
+                <div>
+                  <div style={{fontFamily:"'Cinzel',serif",fontSize:8.5,letterSpacing:'0.16em',color:C.textFaint,textTransform:'uppercase',marginBottom:6}}>Type</div>
+                  <select value={editNode.type||'scene'} onChange={e=>setQuickType(e.target.value)} style={{...IST,padding:'6px 9px',fontSize:12}}>
+                    {Object.entries(TYPE_META).map(([t,{label}])=>(
+                      <option key={t} value={t}>{label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <div style={{fontFamily:"'Cinzel',serif",fontSize:8.5,letterSpacing:'0.16em',color:C.textFaint,textTransform:'uppercase',marginBottom:6}}>
+                    {editNode.isMultiPage?'Page 1 Text':'Story Text'}
+                  </div>
+                  <textarea value={quickText} onChange={e=>updateQuickText(e.target.value)} rows={6}
+                    style={{...IST,resize:'vertical',fontFamily:"'Cormorant Garamond',serif",fontSize:15,lineHeight:1.6}}/>
+                  {editNode.isMultiPage&&(
+                    <div style={{marginTop:6,fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:C.textFaint}}>Multi-page node: editing page 1 only.</div>
+                  )}
+                </div>
+                <button onClick={()=>setATab('nodes')}
+                  style={{alignSelf:'flex-start',padding:'6px 10px',border:`1px solid ${C.purple}55`,borderRadius:5,color:C.purple,fontSize:9.5,fontFamily:"'Cinzel',serif",letterSpacing:'0.08em',background:'transparent',cursor:'pointer'}}
+                  onMouseEnter={e=>{e.currentTarget.style.borderColor=C.purple;e.currentTarget.style.color=C.purple;}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.purple+'55';e.currentTarget.style.color=C.purple;}}>Open Full Editor</button>
+              </>
+            ):(
+              <div style={{display:'flex',flexDirection:'column',gap:8,color:C.textFaint,fontFamily:"'Cormorant Garamond',serif",fontStyle:'italic',fontSize:13}}>
+                <div>Select a node to edit.</div>
+                <div style={{fontSize:9.5,fontStyle:'normal',fontFamily:"'JetBrains Mono',monospace",lineHeight:1.9,opacity:.8}}>click → select<br/>double-click → edit<br/>drag → move<br/>scroll → zoom</div>
+              </div>
+            )}
+            <div style={{marginTop:'auto',display:'flex',flexDirection:'column',gap:8}}>
+              <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:C.textFaint,opacity:.8}}>Auto-saves as you type.</div>
+              <button onClick={addNode} style={{width:'100%',padding:'7px',border:`1px dashed ${C.goldDim}`,borderRadius:5,color:C.goldDim,fontSize:10,fontFamily:"'Cinzel',serif",letterSpacing:'0.1em',cursor:'pointer',background:'transparent'}}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor=C.gold;e.currentTarget.style.color=C.gold;}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.goldDim;e.currentTarget.style.color=C.goldDim;}}>+ New Node</button>
+            </div>
           </div>
         )}
 
@@ -1436,14 +1533,22 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
                   <Field label="Choices">
                     <div style={{display:'flex',flexDirection:'column',gap:7}}>
                       {editNode.choices.map((c,i)=>{
-                        const alive=reachableSet.has(c.nextNodeId),exists=!!nodes[c.nextNodeId];
+                        const targetId=(c.nextNodeId||'').trim();
+                        const exists=!!nodes[targetId];
+                        const alive=reachableSet.has(targetId);
+                        const canCreate=!!targetId&&!exists&&isValidNodeId(targetId);
                         return (
                           <div key={c.id} style={{display:'flex',gap:7,alignItems:'center',background:(!alive&&exists)?'rgba(255,80,80,0.04)':'rgba(255,255,255,0.03)',border:`1px solid ${(!alive&&exists)?C.rose+'22':C.border}`,borderRadius:6,padding:'8px 10px'}}>
                             <span style={{fontFamily:"'Cinzel',serif",fontSize:10,color:C.goldDim,minWidth:14}}>{i+1}</span>
                             <input value={c.text} onChange={e=>{const ch=[...editNode.choices];ch[i]={...c,text:e.target.value};setEditNode(n=>({...n,choices:ch}));}} placeholder="Choice text" style={{flex:2,...IST,padding:'4px 8px'}}/>
                             <span style={{fontSize:10,color:C.textFaint,flexShrink:0}}>→</span>
                             <input value={c.nextNodeId} onChange={e=>{const ch=[...editNode.choices];ch[i]={...c,nextNodeId:e.target.value};setEditNode(n=>({...n,choices:ch}));}} placeholder="node_id"
-                              style={{flex:1,...IST,padding:'4px 8px',fontFamily:"'JetBrains Mono',monospace",fontSize:11,borderColor:(!exists&&c.nextNodeId)?C.rose+'66':'rgba(255,255,255,0.1)'}}/>
+                              style={{flex:1,...IST,padding:'4px 8px',fontFamily:"'JetBrains Mono',monospace",fontSize:11,borderColor:(!exists&&targetId)?C.rose+'66':'rgba(255,255,255,0.1)'}}/>
+                            {canCreate&&(
+                              <button onClick={()=>createNodeFromChoice(targetId,i)}
+                                style={{padding:'3px 7px',border:`1px solid ${C.goldDim}55`,borderRadius:4,fontSize:9,fontFamily:"'Cinzel',serif",letterSpacing:'0.08em',color:C.goldDim,background:'transparent',cursor:'pointer',flexShrink:0}}
+                                onMouseEnter={e=>{e.currentTarget.style.borderColor=C.gold;e.currentTarget.style.color=C.gold;}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.goldDim+'55';e.currentTarget.style.color=C.goldDim;}}>+ Create</button>
+                            )}
                             {(!alive&&exists)&&<span title="Dead end" style={{color:C.rose,fontSize:10,flexShrink:0}}>⚠</span>}
                             <button onClick={()=>{const ch=editNode.choices.filter((_,j)=>j!==i);setEditNode(n=>({...n,choices:ch}));}}
                               style={{color:C.rose,fontSize:13,padding:'0 3px',opacity:.6,cursor:'pointer',flexShrink:0,background:'transparent'}}>✕</button>
