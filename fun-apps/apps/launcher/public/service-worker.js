@@ -1,5 +1,5 @@
-const CACHE_NAME = "launcher-shell-v1";
-const RUNTIME_CACHE = "launcher-runtime-v1";
+const CACHE_NAME = "launcher-shell-v2";
+const RUNTIME_CACHE = "launcher-runtime-v2";
 const APP_SHELL = ["./", "./index.html", "./manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
@@ -32,8 +32,20 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  const basePath = self.location.pathname.replace(/service-worker\.js$/, "");
+  const path = url.pathname;
+  const isLauncherNav = path === basePath || path === `${basePath}index.html`;
+  const isLauncherAsset =
+    path.startsWith(`${basePath}assets/`) ||
+    path === `${basePath}manifest.webmanifest` ||
+    path === `${basePath}service-worker.js` ||
+    path === `${basePath}icon.svg`;
 
   if (request.mode === "navigate") {
+    if (!isLauncherNav) {
+      event.respondWith(fetch(request, { cache: "no-store" }));
+      return;
+    }
     event.respondWith(
       fetch(request)
         .then((response) => {
@@ -46,6 +58,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  if (!isLauncherAsset) return;
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;
