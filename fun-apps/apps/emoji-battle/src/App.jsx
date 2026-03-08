@@ -10,6 +10,7 @@ import {
   onSnapshot,
   orderBy,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -1678,35 +1679,38 @@ export default function App() {
       setMpError("Lobby not found.");
       return;
     }
-    const data = snap.data();
     const name = getPlayerName(user);
     const deck = getDeckById(decks, selectedDeckId);
-    if (data.host?.uid === user.uid) {
-      setActiveLobbyCode(code);
-      setScreen("mp-lobby");
-      return;
-    }
-    if (data.guest?.uid && data.guest.uid !== user.uid) {
-      setMpError("Lobby already has two players.");
-      return;
-    }
     try {
-      if (!data.guest) {
-        await updateDoc(lobbyRef, {
-          guest: { uid: user.uid, name },
-          guestDeck: deck,
-          status: "playing",
-          gameState: initGame(data.host?.name || "Player 1", name, data.hostDeck || DEFAULT_DECKS[0], deck),
-          updatedAt: serverTimestamp()
-        });
-      }
+      await runTransaction(db, async (tx) => {
+        const liveSnap = await tx.get(lobbyRef);
+        if (!liveSnap.exists()) throw new Error("lobby-not-found");
+        const data = liveSnap.data();
+        if (data.host?.uid === user.uid) return;
+        if (data.guest?.uid && data.guest.uid !== user.uid) throw new Error("lobby-full");
+        if (!data.guest) {
+          tx.update(lobbyRef, {
+            guest: { uid: user.uid, name },
+            guestDeck: deck,
+            status: "playing",
+            gameState: initGame(data.host?.name || "Player 1", name, data.hostDeck || DEFAULT_DECKS[0], deck),
+            updatedAt: serverTimestamp()
+          });
+        }
+      });
       setActiveLobbyCode(code);
       setScreen("mp-lobby");
     } catch (err) {
-      if (err?.code === "permission-denied") {
+      const code = err?.code || "";
+      const msg = err?.message || "";
+      if (code === "permission-denied") {
         setMpError("Join blocked by Firestore rules. Check rules and try again.");
+      } else if (msg.includes("lobby-full")) {
+        setMpError("Lobby already has two players.");
+      } else if (msg.includes("lobby-not-found")) {
+        setMpError("Lobby not found.");
       } else {
-        setMpError("Unable to join lobby. Try again.");
+        setMpError(`Unable to join lobby (${code || msg || "unknown"}). Try again.`);
       }
     }
   };
@@ -1719,18 +1723,34 @@ export default function App() {
     const name = getPlayerName(user);
     const deck = getDeckById(decks, selectedDeckId);
     try {
-      await updateDoc(doc(db, LOBBY_COLLECTION, activeLobby.id), {
-        guest: { uid: user.uid, name },
-        guestDeck: deck,
-        status: "playing",
-        gameState: activeLobby.gameState || initGame(activeLobby.host?.name || "Player 1", name, activeLobby.hostDeck || DEFAULT_DECKS[0], deck),
-        updatedAt: serverTimestamp()
+      await runTransaction(db, async (tx) => {
+        const lobbyRef = doc(db, LOBBY_COLLECTION, activeLobby.id);
+        const liveSnap = await tx.get(lobbyRef);
+        if (!liveSnap.exists()) throw new Error("lobby-not-found");
+        const data = liveSnap.data();
+        if (data.host?.uid === user.uid) return;
+        if (data.guest?.uid && data.guest.uid !== user.uid) throw new Error("lobby-full");
+        if (!data.guest) {
+          tx.update(lobbyRef, {
+            guest: { uid: user.uid, name },
+            guestDeck: deck,
+            status: "playing",
+            gameState: data.gameState || initGame(data.host?.name || "Player 1", name, data.hostDeck || DEFAULT_DECKS[0], deck),
+            updatedAt: serverTimestamp()
+          });
+        }
       });
     } catch (err) {
-      if (err?.code === "permission-denied") {
+      const code = err?.code || "";
+      const msg = err?.message || "";
+      if (code === "permission-denied") {
         setMpError("Join blocked by Firestore rules. Check rules and try again.");
+      } else if (msg.includes("lobby-full")) {
+        setMpError("Lobby already has two players.");
+      } else if (msg.includes("lobby-not-found")) {
+        setMpError("Lobby not found.");
       } else {
-        setMpError("Unable to join lobby. Try again.");
+        setMpError(`Unable to join lobby (${code || msg || "unknown"}). Try again.`);
       }
     }
   };
