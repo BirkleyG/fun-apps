@@ -17,6 +17,14 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    match /time-loop-cyoa-notes/{docId} {
+      allow read, write: if true;
+    }
+
+    match /time-loop-cyoa-config/{docId} {
+      allow read, write: if true;
+    }
+
     match /emoji-battle-lobbies/{lobbyId} {
       allow read: if signedIn();
       allow create: if signedIn() && request.resource.data.host.uid == request.auth.uid;

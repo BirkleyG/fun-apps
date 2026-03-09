@@ -47,9 +47,14 @@ const TYPE_META = {
   anchor: { color:'#c4903a', label:'Anchor', icon:'⊕', desc:'A narrative inevitability — must happen in some form.' },
   ending: { color:'#bf5b7a', label:'Ending', icon:'★', desc:'A terminal scene. Loops back to Page 1.' },
 };
-const LOOP_LBL    = { childBorn:'Child Born', clueLeft:'Clue Left', deathOccurred:'Death', loopRestarts:'Loop Restarts' };
-const ALL_TAGS    = ['start','present_day','past','clue','machine','bertha','birth','marriage','death','loop','hub','anchor','escape','prophecy','cult'];
-const ENDING_CATS = ["Become Part of the Loop","Alternative Escapes","Birth Bertha's Child","Marry Bertha","Do Not Marry Bertha","Train Yourself"];
+const DEFAULT_LOOP_LABELS = [
+  { key:'childBorn', label:'Child Born' },
+  { key:'clueLeft', label:'Clue Left' },
+  { key:'deathOccurred', label:'Death' },
+  { key:'loopRestarts', label:'Loop Restarts' },
+];
+const DEFAULT_TAGS = ['start','present_day','past','clue','machine','bertha','birth','marriage','death','loop','hub','anchor','escape','prophecy','cult'];
+const DEFAULT_ENDING_CATEGORIES = ["Become Part of the Loop","Alternative Escapes","Birth Bertha's Child","Marry Bertha","Do Not Marry Bertha","Train Yourself"];
 
 /* ═══ HELPERS ════════════════════════════════════════════════════════════ */
 const toRoman = n => {
@@ -88,6 +93,15 @@ const normalizeNode = node => {
     isMultiPage: !!node.isMultiPage,
     pages: Array.isArray(node.pages) ? node.pages : [],
   };
+};
+const normalizeConfig = (data = {}) => {
+  const endingCategories = Array.isArray(data.endingCategories) ? data.endingCategories : DEFAULT_ENDING_CATEGORIES;
+  const tags = Array.isArray(data.tags) ? data.tags : DEFAULT_TAGS;
+  const rawLoop = Array.isArray(data.loopLabels) ? data.loopLabels : DEFAULT_LOOP_LABELS;
+  const loopLabels = rawLoop
+    .map((l) => ({ key:String(l?.key||'').trim(), label:String(l?.label||l?.key||'').trim() }))
+    .filter((l) => l.key);
+  return { endingCategories, tags, loopLabels };
 };
 const mkPage = (text = '', buttonLabel = 'Continue') => ({
   id: `p_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
@@ -327,11 +341,17 @@ function ReaderView({ curNode, fading, reachableSet, nodes, go, restart, pageIdx
   const showChoices = !pages || !canAdvance;
   const displayText = pages ? (page?.text || '') : (curNode.text || '');
   const nextLabel = page?.buttonLabel || 'Continue';
+  const isEnding = !!curNode.isEnding;
+  const loopLabel = (curNode.endingData?.endingLoopChoiceLabel || '').trim() || 'Continue';
+  const loopTarget = nodes.start ? 'start' : Object.keys(nodes)[0];
+  const choices = isEnding && loopTarget ? [{ id:'loop', text: loopLabel, nextNodeId: loopTarget, _loop:true }] : (curNode.choices || []);
 
   return (
     <div style={{minHeight:'100vh',paddingTop:80,paddingBottom:80,display:'flex',justifyContent:'center',background:C.bg}}>
       <div style={{width:'100%',maxWidth:620,padding:'0 24px',opacity:fading?0:1,transform:fading?'translateY(12px)':'translateY(0)',transition:'opacity .28s,transform .28s',animation:'fadeUp .35s ease both'}}>
-        <div style={{marginBottom:10}}><span style={{fontFamily:"'Cinzel',serif",fontSize:9.5,letterSpacing:'0.25em',color:TYPE_META[curNode?.type]?.color||C.textDim,textTransform:'uppercase'}}>{TYPE_META[curNode?.type]?.label}</span></div>
+        {!isEnding&&(
+          <div style={{marginBottom:10}}><span style={{fontFamily:"'Cinzel',serif",fontSize:9.5,letterSpacing:'0.25em',color:TYPE_META[curNode?.type]?.color||C.textDim,textTransform:'uppercase'}}>{TYPE_META[curNode?.type]?.label}</span></div>
+        )}
         <h1 style={{fontFamily:"'Cinzel',serif",fontSize:28,fontWeight:500,color:C.text,letterSpacing:'0.05em',marginBottom:36,lineHeight:1.3}}>{curNode?.title}</h1>
         <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:21,color:C.text,marginBottom:48,opacity:.9}}>{renderText(displayText)}</div>
 
@@ -347,18 +367,22 @@ function ReaderView({ curNode, fading, reachableSet, nodes, go, restart, pageIdx
           </div>
         )}
 
-        {showChoices&&curNode?.choices?.length>0&&(
+                {showChoices&&choices.length>0&&(
           <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:40}}>
-            {curNode.choices.map((c,i)=>{
-              const alive=reachableSet.has(c.nextNodeId),exists=!!nodes[c.nextNodeId],dead=!alive||!exists;
+            {choices.map((c,i)=>{
+              const isLoop = !!c._loop;
+              const alive = !isLoop && reachableSet.has(c.nextNodeId);
+              const exists = !isLoop && !!nodes[c.nextNodeId];
+              const dead = isLoop ? !c.nextNodeId : (!alive||!exists);
+              const badge = i + 1;
               return (
-                <button key={c.id} onClick={()=>!dead&&go(c.nextNodeId)}
+                <button key={c.id||i} onClick={()=>{ if(dead)return; if(isLoop)restart(); else go(c.nextNodeId); }}
                   style={{display:'flex',alignItems:'flex-start',gap:16,padding:'15px 20px',width:'100%',background:'transparent',border:`1px solid ${dead?'rgba(255,255,255,0.04)':C.border}`,borderLeft:`3px solid ${dead?'rgba(255,255,255,0.05)':C.goldDim}`,borderRadius:4,color:dead?C.textFaint:C.text,fontSize:17,fontFamily:"'Cormorant Garamond',serif",textAlign:'left',cursor:dead?'not-allowed':'pointer',transition:'all .18s',lineHeight:1.5,opacity:dead?.38:1}}
                   onMouseEnter={e=>{if(!dead){e.currentTarget.style.borderLeftColor=C.gold;e.currentTarget.style.background='rgba(196,144,58,0.08)';e.currentTarget.style.color='#f5e6c8';}}}
                   onMouseLeave={e=>{if(!dead){e.currentTarget.style.borderLeftColor=C.goldDim;e.currentTarget.style.background='transparent';e.currentTarget.style.color=C.text;}}}>
-                  <span style={{fontFamily:"'Cinzel',serif",fontSize:10,color:dead?C.textFaint:C.goldDim,paddingTop:4,minWidth:16}}>{i+1}</span>
+                  <span style={{fontFamily:"'Cinzel',serif",fontSize:10,color:dead?C.textFaint:C.goldDim,paddingTop:4,minWidth:16}}>{badge}</span>
                   <span style={{flex:1}}>{c.text}</span>
-                  {dead&&<span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:C.textFaint,alignSelf:'center',border:'1px solid rgba(255,255,255,0.07)',padding:'2px 7px',borderRadius:3,flexShrink:0}}>sealed</span>}
+                  {!isLoop&&dead&&<span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:C.textFaint,alignSelf:'center',border:'1px solid rgba(255,255,255,0.07)',padding:'2px 7px',borderRadius:3,flexShrink:0}}>sealed</span>}
                 </button>
               );
             })}
@@ -378,7 +402,7 @@ function ReaderView({ curNode, fading, reachableSet, nodes, go, restart, pageIdx
 }
 
 /* ═══ ENDING ═════════════════════════════════════════════════════════════ */
-function EndingView({ curNode, fading, restart, setMode }) {
+function EndingView({ curNode, fading, restart, setMode, loopLabelMap = {} }) {
   const ed=curNode?.endingData;
   return (
     <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:C.bg,padding:'80px 24px 60px',opacity:fading?0:1,transition:'opacity .3s'}}>
@@ -397,7 +421,7 @@ function EndingView({ curNode, fading, restart, setMode }) {
         {ed?.loopConditions&&(
           <div style={{display:'flex',gap:7,justifyContent:'center',marginTop:16,flexWrap:'wrap'}}>
             {Object.entries(ed.loopConditions).map(([k,v])=>(
-              <span key={k} style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9.5,padding:'3px 9px',borderRadius:100,background:v?'rgba(196,144,58,0.14)':'rgba(255,255,255,0.03)',color:v?C.gold:C.textFaint,border:`1px solid ${v?C.goldDim+'44':'rgba(255,255,255,0.06)'}`}}>{v?'✓':'✗'} {LOOP_LBL[k]}</span>
+              <span key={k} style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9.5,padding:'3px 9px',borderRadius:100,background:v?'rgba(196,144,58,0.14)':'rgba(255,255,255,0.03)',color:v?C.gold:C.textFaint,border:`1px solid ${v?C.goldDim+'44':'rgba(255,255,255,0.06)'}`}}>{v?'✓':'✗'} {loopLabelMap?.[k]||k}</span>
             ))}
           </div>
         )}
@@ -407,7 +431,7 @@ function EndingView({ curNode, fading, restart, setMode }) {
 }
 
 /* ═══ GALLERY ════════════════════════════════════════════════════════════ */
-function GalleryView({ nodes, found, totalEndings, loopN }) {
+function GalleryView({ nodes, found, totalEndings, loopN, loopLabelMap }) {
   return (
     <div style={{minHeight:'100vh',background:C.bg,padding:'92px 28px 60px'}}>
       <div style={{maxWidth:880,margin:'0 auto'}}>
@@ -425,7 +449,7 @@ function GalleryView({ nodes, found, totalEndings, loopN }) {
                 {d&&e.endingData?.loopConditions&&(
                   <div style={{display:'flex',gap:4,marginTop:10,flexWrap:'wrap'}}>
                     {Object.entries(e.endingData.loopConditions).filter(([,v])=>v).map(([k])=>(
-                      <span key={k} style={{fontFamily:"'JetBrains Mono',monospace",fontSize:8.5,padding:'2px 6px',borderRadius:100,background:'rgba(191,91,122,0.12)',color:C.rose,border:`1px solid ${C.rose}22`}}>{LOOP_LBL[k]}</span>
+                      <span key={k} style={{fontFamily:"'JetBrains Mono',monospace",fontSize:8.5,padding:'2px 6px',borderRadius:100,background:'rgba(191,91,122,0.12)',color:C.rose,border:`1px solid ${C.rose}22`}}>{loopLabelMap?.[k]||k}</span>
                     ))}
                   </div>
                 )}
@@ -632,10 +656,37 @@ function NotesView() {
   const [addingNote, setAddingNote] = useState(false);
   const [inputVal, setInputVal] = useState('');
   const inputRef = useRef(null);
+  const [notesLoaded, setNotesLoaded] = useState(false);
+  const [notesDirty, setNotesDirty] = useState(false);
+  const [notesState, setNotesState] = useState({ saving: false, error: null });
+  const notesSaveRef = useRef(null);
+  const notesVersionRef = useRef(0);
+  const notesDocRef = useRef(doc(db, "time-loop-cyoa-notes", "story"));
 
   const note = notes[selNote] || notes[0];
+  const normalizeNotes = (raw) => {
+    if (!Array.isArray(raw)) return null;
+    return raw.map((n) => ({
+      id: n?.id || `note_${Date.now()}_${Math.random()}`,
+      title: n?.title || 'Untitled Note',
+      checkboxMode: !!n?.checkboxMode,
+      items: Array.isArray(n?.items) ? n.items.map((it) => ({
+        id: it?.id || `item_${Date.now()}_${Math.random()}`,
+        text: it?.text || '',
+        checked: !!it?.checked,
+      })) : [],
+    }));
+  };
+  const markNotesDirty = () => {
+    notesVersionRef.current += 1;
+    setNotesDirty(true);
+  };
+  const updateNotes = (fn) => {
+    markNotesDirty();
+    setNotes((ns) => fn(ns));
+  };
 
-  const updateNote = fn => setNotes(ns => ns.map((n,i)=>i===selNote?fn(n):n));
+  const updateNote = fn => updateNotes(ns => ns.map((n,i)=>i===selNote?fn(n):n));
 
   const addItem = () => {
     const text = inputVal.trim(); if(!text) return;
@@ -652,13 +703,52 @@ function NotesView() {
 
   const addNote = () => {
     const t=newTitle.trim()||'Untitled Note';
-    setNotes(ns=>[...ns,mkNote(t)]);
-    setSelNote(notes.length);
+    updateNotes(ns=>{
+      const next=[...ns,mkNote(t)];
+      setSelNote(next.length-1);
+      return next;
+    });
     setAddingNote(false); setNewTitle('');
   };
 
+
+  useEffect(() => {
+    const unsub = onSnapshot(notesDocRef.current, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data() || {};
+        const raw = Array.isArray(data.notes) ? data.notes : null;
+        if (raw) {
+          const normalized = normalizeNotes(raw) || [];
+          setNotes(normalized.length ? normalized : [mkNote('Story Notes')]);
+        }
+      }
+      setNotesLoaded(true);
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    if (!notesLoaded || !notesDirty) return;
+    if (notesSaveRef.current) clearTimeout(notesSaveRef.current);
+    const version = notesVersionRef.current;
+    notesSaveRef.current = setTimeout(() => {
+      setNotesState((s) => ({ ...s, saving: true, error: null }));
+      const payload = stripUndefined({ notes, updatedAt: serverTimestamp() });
+      setDoc(notesDocRef.current, payload, { merge: true })
+        .then(() => {
+          setNotesState((s) => (notesVersionRef.current === version ? { ...s, saving: false, error: null } : { ...s, saving: false }));
+          if (notesVersionRef.current === version) setNotesDirty(false);
+        })
+        .catch((err) => setNotesState((s) => ({ ...s, saving: false, error: err?.message || 'Notes save failed' })));
+    }, 700);
+    return () => { if (notesSaveRef.current) clearTimeout(notesSaveRef.current); };
+  }, [notes, notesDirty, notesLoaded]);
+
   const deleteNote = i => {
-    setNotes(ns=>ns.filter((_,j)=>j!==i));
+    updateNotes(ns=>{
+      const next = ns.filter((_,j)=>j!==i);
+      return next.length ? next : [mkNote('Story Notes')];
+    });
     setSelNote(s=>Math.max(0,s>=i?s-1:s));
   };
 
@@ -1097,7 +1187,7 @@ function MapView({ nodes, setNodes, sel, setSel, setEditNode, setATab, reachable
 }
 
 /* ═══ AUTHOR VIEW ════════════════════════════════════════════════════════ */
-function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, setQ, aTab, setATab, reachableSet, copyFlash, copyContext, renameNodeId, playtestFrom, addNode, setShowTut, curAuthor, curAuthorIdx, setCurAuthorIdx, found, totalEndings, hasUnsaved, confirmDiscard, commitNodePosition, persistNode, removeNodeRemote }) {
+function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, setQ, aTab, setATab, reachableSet, copyFlash, copyContext, renameNodeId, playtestFrom, addNode, setShowTut, curAuthor, curAuthorIdx, setCurAuthorIdx, found, totalEndings, hasUnsaved, confirmDiscard, commitNodePosition, persistNode, removeNodeRemote, config, loopLabelMap, configState, updateConfig }) {
 
   const [editingId,setEditingId]=useState(false);
   const [newId,setNewId]=useState('');
@@ -1276,7 +1366,7 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
       type:t,
       isEnding:t==='ending',
       isStart:t==='start',
-      endingData:t==='ending'?(n.endingData||{endingNumber:0,endingTitle:'',endingCategory:'',summary:'',loopConditions:{childBorn:false,clueLeft:false,deathOccurred:false,loopRestarts:true}}):n.endingData
+      endingData:t==='ending'?(n.endingData||{endingNumber:0,endingTitle:'',endingCategory:'',summary:'',endingLoopChoiceLabel:'',loopConditions:{childBorn:false,clueLeft:false,deathOccurred:false,loopRestarts:true}}):n.endingData
     }));
   };
   useEffect(() => {
@@ -1287,15 +1377,51 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
     }
   }, [aTab, sel, nodes, editNode, setEditNode]);
 
+  const updateConfigList = (field, idx, value) => {
+    updateConfig(cfg => {
+      const list=[...(cfg[field]||[])];
+      list[idx]=value;
+      return { ...cfg, [field]: list };
+    });
+  };
+  const addConfigItem = (field, value) => {
+    updateConfig(cfg => ({ ...cfg, [field]: [...(cfg[field]||[]), value] }));
+  };
+  const removeConfigItem = (field, idx) => {
+    updateConfig(cfg => ({ ...cfg, [field]: (cfg[field]||[]).filter((_,i)=>i!==idx) }));
+  };
+  const updateLoopLabel = (idx, patch) => {
+    updateConfig(cfg => {
+      const list=[...(cfg.loopLabels||[])];
+      list[idx] = { ...(list[idx]||{}), ...patch };
+      return { ...cfg, loopLabels: list };
+    });
+  };
+  const addLoopLabel = () => {
+    const stamp = Date.now().toString(36);
+    updateConfig(cfg => ({ ...cfg, loopLabels: [...(cfg.loopLabels||[]), { key:`flag_${stamp}`, label:'New Flag' }] }));
+  };
+  const removeLoopLabel = (idx) => {
+    updateConfig(cfg => ({ ...cfg, loopLabels: (cfg.loopLabels||[]).filter((_,i)=>i!==idx) }));
+  };
+  const loopKeyCounts = useMemo(() => {
+    const counts = {};
+    (config.loopLabels||[]).forEach(l => {
+      const k = (l?.key||'').trim();
+      if(!k) return;
+      counts[k]=(counts[k]||0)+1;
+    });
+    return counts;
+  }, [config]);
   // Sub-tabs including analytics and notes
-  const TABS = [['nodes','Nodes'],['map','Map ⬡'],['endings','End'],['notes','Notes ✎'],['analytics','Stats'],['validate',`Issues${issues.length?` (${issues.length})`:''}`]];
+  const TABS = [['nodes','Nodes'],['map','Map ⬡'],['endings','End'],['config','Config'],['notes','Notes ✎'],['analytics','Stats'],['validate',`Issues${issues.length?` (${issues.length})`:''}`]];
 
   return (
     <div style={{display:'flex',height:'calc(100vh - 54px)',marginTop:54,background:C.bg,overflow:'hidden'}}>
 
       {/* ─── Sidebar ─── */}
       <div style={{width:240,flexShrink:0,borderRight:`1px solid ${C.border}`,display:'flex',flexDirection:'column',background:C.bg2,overflow:'hidden'}}>
-        {aTab!=='notes'&&aTab!=='analytics'&&(
+        {aTab!=='notes'&&aTab!=='analytics'&&aTab!=='config'&&(
           <div style={{padding:'10px 10px 8px',borderBottom:`1px solid ${C.border}`}}>
             <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search nodes…"
               style={{...IST,padding:'7px 10px',fontSize:12,fontFamily:"'JetBrains Mono',monospace"}}/>
@@ -1430,12 +1556,12 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
         {/* Toolbar */}
         <div style={{display:'flex',alignItems:'center',gap:7,padding:'8px 14px',borderBottom:`1px solid ${C.border}`,background:C.bg2,flexShrink:0}}>
           <span style={{fontFamily:"'Cinzel',serif",fontSize:9,letterSpacing:'0.15em',color:C.textFaint,textTransform:'uppercase'}}>
-            {aTab==='map'?'Node Map':aTab==='notes'?'Notes':aTab==='analytics'?'Dashboard':sel&&nodes[sel]?`Editing: ${nodes[sel].title}`:'Select a node'}
+            {aTab==='map'?'Node Map':aTab==='config'?'Config':aTab==='notes'?'Notes':aTab==='analytics'?'Dashboard':sel&&nodes[sel]?`Editing: ${nodes[sel].title}`:'Select a node'}
           </span>
           <div style={{flex:1}}/>
           <button onClick={()=>setShowTut(true)} title="Guide" style={{width:26,height:26,borderRadius:5,background:'transparent',border:`1px solid ${C.border}`,color:C.textDim,fontSize:12,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',transition:'all .15s'}}
             onMouseEnter={e=>{e.currentTarget.style.borderColor=C.gold+'66';e.currentTarget.style.color=C.gold;}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.textDim;}}>?</button>
-          {sel&&nodes[sel]&&aTab!=='notes'&&aTab!=='analytics'&&(<>
+          {sel&&nodes[sel]&&aTab!=='notes'&&aTab!=='analytics'&&aTab!=='config'&&(<>
             <button onClick={()=>copyContext(sel)} style={{fontFamily:"'Cinzel',serif",fontSize:9.5,letterSpacing:'0.08em',padding:'5px 11px',border:`1px solid ${isCopied?C.green+'66':C.purple+'55'}`,borderRadius:4,color:isCopied?C.green:C.purple,background:isCopied?'rgba(74,156,114,0.1)':'rgba(155,114,191,0.08)',cursor:'pointer',transition:'all .2s'}}>{isCopied?'✓ Copied!':'⊕ Copy Context'}</button>
             <button onClick={()=>playtestFrom(sel)} style={{fontFamily:"'Cinzel',serif",fontSize:9.5,letterSpacing:'0.1em',padding:'5px 11px',border:`1px solid ${C.goldDim}`,borderRadius:4,color:C.gold,background:'transparent',cursor:'pointer',transition:'all .15s'}}
               onMouseEnter={e=>e.currentTarget.style.background='rgba(196,144,58,0.1)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>▶ Playtest</button>
@@ -1458,6 +1584,71 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
         {aTab==='map'&&<div style={{flex:1,overflow:'hidden'}}><MapView nodes={nodes} setNodes={setNodes} sel={sel} setSel={setSel} setEditNode={setEditNode} setATab={setATab} reachableSet={reachableSet} totalEndings={totalEndings} copyFlash={copyFlash} copyContext={copyContext} confirmDiscard={confirmDiscard} commitNodePosition={commitNodePosition}/></div>}
         {aTab==='notes'&&<div style={{flex:1,overflow:'hidden'}}><NotesView/></div>}
         {aTab==='analytics'&&<AnalyticsView nodes={nodes} found={found} totalEndings={totalEndings} loopN={1} curAuthorIdx={curAuthorIdx} setCurAuthorIdx={setCurAuthorIdx} onAddNode={addNode} reachableSet={reachableSet}/>}
+        {aTab==='config'&&(
+          <div style={{flex:1,overflowY:'auto',padding:'22px'}}>
+            <div style={{maxWidth:720,margin:'0 auto',display:'flex',flexDirection:'column',gap:16}}>
+              <SectionCard title="Ending Categories" color={C.rose}>
+                <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                  {(config.endingCategories||[]).map((c,i)=> (
+                    <div key={`${c}_${i}`} style={{display:'flex',gap:8,alignItems:'center'}}>
+                      <input value={c} onChange={e=>updateConfigList('endingCategories', i, e.target.value)} style={{...IST,flex:1}}/>
+                      <button onClick={()=>removeConfigItem('endingCategories', i)} style={{fontSize:10,color:C.rose,opacity:.8,cursor:'pointer'}}>Remove</button>
+                    </div>
+                  ))}
+                  <button onClick={()=>addConfigItem('endingCategories','New Category')}
+                    style={{padding:'7px',border:`1px dashed ${C.rose}55`,borderRadius:5,color:C.rose,fontSize:10.5,fontFamily:"'Cinzel',serif",letterSpacing:'0.08em',cursor:'pointer',background:'transparent'}}
+                    onMouseEnter={e=>{e.currentTarget.style.borderColor=C.rose;e.currentTarget.style.color=C.rose;}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.rose+'55';e.currentTarget.style.color=C.rose;}}>+ Add Category</button>
+                </div>
+              </SectionCard>
+
+              <SectionCard title="Ending Checkboxes" color={C.gold}>
+                <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                  {(config.loopLabels||[]).map((l,i)=>{
+                    const key = (l?.key||'').trim();
+                    const dup = key && loopKeyCounts[key] > 1;
+                    const warn = !key || dup;
+                    return (
+                      <div key={`${key}_${i}`} style={{display:'flex',gap:8,alignItems:'center'}}>
+                        <input value={key} onChange={e=>updateLoopLabel(i,{key:e.target.value.replace(/\s+/g,'_')})} placeholder="key"
+                          style={{...IST,flex:'0 0 140px',borderColor:warn?C.rose+'66':'rgba(255,255,255,0.1)'}}/>
+                        <input value={l?.label||''} onChange={e=>updateLoopLabel(i,{label:e.target.value})} placeholder="Label"
+                          style={{...IST,flex:1}}/>
+                        <button onClick={()=>removeLoopLabel(i)} style={{fontSize:10,color:C.rose,opacity:.8,cursor:'pointer'}}>Remove</button>
+                      </div>
+                    );
+                  })}
+                  <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:C.textFaint,opacity:.8}}>
+                    Keys must be unique. Existing node data is not changed when keys change.
+                  </div>
+                  <button onClick={addLoopLabel}
+                    style={{padding:'7px',border:`1px dashed ${C.goldDim}55`,borderRadius:5,color:C.goldDim,fontSize:10.5,fontFamily:"'Cinzel',serif",letterSpacing:'0.08em',cursor:'pointer',background:'transparent'}}
+                    onMouseEnter={e=>{e.currentTarget.style.borderColor=C.gold;e.currentTarget.style.color=C.gold;}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.goldDim+'55';e.currentTarget.style.color=C.goldDim;}}>+ Add Checkbox</button>
+                </div>
+              </SectionCard>
+
+              <SectionCard title="Tags" color={C.blue}>
+                <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                  {(config.tags||[]).map((t,i)=> (
+                    <div key={`${t}_${i}`} style={{display:'flex',gap:8,alignItems:'center'}}>
+                      <input value={t} onChange={e=>updateConfigList('tags', i, e.target.value)} style={{...IST,flex:1}}/>
+                      <button onClick={()=>removeConfigItem('tags', i)} style={{fontSize:10,color:C.rose,opacity:.8,cursor:'pointer'}}>Remove</button>
+                    </div>
+                  ))}
+                  <button onClick={()=>addConfigItem('tags','new_tag')}
+                    style={{padding:'7px',border:`1px dashed ${C.blue}55`,borderRadius:5,color:C.blue,fontSize:10.5,fontFamily:"'Cinzel',serif",letterSpacing:'0.08em',cursor:'pointer',background:'transparent'}}
+                    onMouseEnter={e=>{e.currentTarget.style.borderColor=C.blue;e.currentTarget.style.color=C.blue;}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.blue+'55';e.currentTarget.style.color=C.blue;}}>+ Add Tag</button>
+                </div>
+              </SectionCard>
+
+              {(configState.saving||configState.error)&&(
+                <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:configState.error?C.rose:C.textFaint}}>
+                  {configState.saving?'Saving config...':configState.error}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
 
         {(aTab==='nodes'||aTab==='endings'||aTab==='validate')&&(
           <div style={{flex:1,overflowY:'auto',padding:'22px'}}>
@@ -1495,7 +1686,7 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
                 <Field label="Type">
                   <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
                     {Object.entries(TYPE_META).map(([t,{color,label,icon}])=>(
-                      <button key={t} onClick={()=>setEditNode(n=>({...n,type:t,isEnding:t==='ending',isStart:t==='start',endingData:t==='ending'?(n.endingData||{endingNumber:0,endingTitle:'',endingCategory:'',summary:'',loopConditions:{childBorn:false,clueLeft:false,deathOccurred:false,loopRestarts:true}}):n.endingData}))}
+                      <button key={t} onClick={()=>setEditNode(n=>({...n,type:t,isEnding:t==='ending',isStart:t==='start',endingData:t==='ending'?(n.endingData||{endingNumber:0,endingTitle:'',endingCategory:'',summary:'',endingLoopChoiceLabel:'',loopConditions:{childBorn:false,clueLeft:false,deathOccurred:false,loopRestarts:true}}):n.endingData}))}
                         style={{padding:'5px 12px',borderRadius:4,fontSize:10,fontFamily:"'Cinzel',serif",letterSpacing:'0.08em',color:editNode.type===t?C.bg:color,background:editNode.type===t?color:'transparent',border:`1px solid ${color}55`,cursor:'pointer',transition:'all .15s'}}>{icon} {label}</button>
                     ))}
                   </div>
@@ -1580,17 +1771,18 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
                         <input value={editNode.endingData.endingNumber||''} onChange={e=>setEditNode(n=>({...n,endingData:{...n.endingData,endingNumber:parseInt(e.target.value)||0}}))} placeholder="#" style={{width:66,...IST}}/>
                         <input value={editNode.endingData.endingTitle||''} onChange={e=>setEditNode(n=>({...n,endingData:{...n.endingData,endingTitle:e.target.value}}))} placeholder="Ending Title" style={{flex:1,...IST}}/>
                       </div>
+                      <input value={editNode.endingData.endingLoopChoiceLabel||''} onChange={e=>setEditNode(n=>({...n,endingData:{...n.endingData,endingLoopChoiceLabel:e.target.value}}))} placeholder="Loop choice label (default: Continue)" style={IST}/>
                       <select value={editNode.endingData.endingCategory||''} onChange={e=>setEditNode(n=>({...n,endingData:{...n.endingData,endingCategory:e.target.value}}))} style={IST}>
                         <option value="">Select category…</option>
-                        {ENDING_CATS.map(c=><option key={c} value={c}>{c}</option>)}
+                        {config.endingCategories.map(c=><option key={c} value={c}>{c}</option>)}
                       </select>
                       <textarea value={editNode.endingData.summary||''} onChange={e=>setEditNode(n=>({...n,endingData:{...n.endingData,summary:e.target.value}}))} placeholder="Summary (for gallery)" rows={2} style={{...IST,resize:'vertical'}}/>
                       <div style={{display:'flex',gap:12,flexWrap:'wrap',marginTop:4}}>
-                        {Object.entries(LOOP_LBL).map(([k,lbl])=>(
-                          <label key={k} style={{display:'flex',alignItems:'center',gap:5,cursor:'pointer',fontFamily:"'JetBrains Mono',monospace",fontSize:10.5,color:editNode.endingData.loopConditions?.[k]?C.gold:C.textFaint}}>
-                            <input type="checkbox" checked={editNode.endingData.loopConditions?.[k]||false}
-                              onChange={e=>setEditNode(n=>({...n,endingData:{...n.endingData,loopConditions:{...(n.endingData.loopConditions||{}),[k]:e.target.checked}}}))}
-                              style={{accentColor:C.gold}}/>{lbl}
+                        {config.loopLabels.map(({key,label})=>(
+                          <label key={key} style={{display:'flex',alignItems:'center',gap:5,cursor:'pointer',fontFamily:"'JetBrains Mono',monospace",fontSize:10.5,color:editNode.endingData.loopConditions?.[key]?C.gold:C.textFaint}}>
+                            <input type="checkbox" checked={editNode.endingData.loopConditions?.[key]||false}
+                              onChange={e=>setEditNode(n=>({...n,endingData:{...n.endingData,loopConditions:{...(n.endingData.loopConditions||{}),[key]:e.target.checked}}}))}
+                              style={{accentColor:C.gold}}/>{label}
                           </label>
                         ))}
                       </div>
@@ -1600,7 +1792,7 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
 
                 <Field label="Tags">
                   <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
-                    {ALL_TAGS.map(t=>(
+                    {config.tags.map(t=>(
                       <button key={t} onClick={()=>setEditNode(n=>({...n,tags:(n.tags||[]).includes(t)?(n.tags||[]).filter(x=>x!==t):[...(n.tags||[]),t]}))}
                         style={{padding:'3px 9px',borderRadius:100,fontSize:9.5,fontFamily:"'JetBrains Mono',monospace",color:(editNode.tags||[]).includes(t)?C.bg:C.textFaint,background:(editNode.tags||[]).includes(t)?C.gold:'transparent',border:`1px solid ${(editNode.tags||[]).includes(t)?C.gold:C.border}`,cursor:'pointer',transition:'all .12s'}}>{t}</button>
                     ))}
@@ -1644,7 +1836,6 @@ export default function App() {
   const [found,        setFound]        = useState(new Set());
   const [loopN,        setLoopN]        = useState(1);
   const [fading,       setFading]       = useState(false);
-  const [showEnd,      setShowEnd]      = useState(false);
   const [sel,          setSel]          = useState(null);
   const [q,            setQ]            = useState('');
   const [editNode,     setEditNode]     = useState(null);
@@ -1655,10 +1846,19 @@ export default function App() {
   const [authUnlocked, setAuthUnlocked] = useState(false);
   const [copyFlash,    setCopyFlash]    = useState(null);
   const [pageIdx,      setPageIdx]      = useState(0);
+  const [config,       setConfig]       = useState(normalizeConfig({}));
+  const [configState,  setConfigState]  = useState({ loaded: false, dirty: false, saving: false, error: null });
+  const configSaveRef = useRef(null);
+  const configVersionRef = useRef(0);
 
   const curNode      = nodes[nodeId];
   const totalEndings = Object.values(nodes).filter(n=>n.isEnding).length;
   const curAuthor    = AUTHORS[curAuthorIdx];
+  const loopLabelMap = useMemo(() => {
+    const out = {};
+    (config.loopLabels || []).forEach((l) => { if (l?.key) out[l.key] = l.label || l.key; });
+    return out;
+  }, [config]);
   const hasUnsaved   = useMemo(() => {
     if (!editNode) return false;
     const base = nodes[editNode.id];
@@ -1674,6 +1874,17 @@ export default function App() {
     if (!hasUnsaved) return true;
     return window.confirm("You have unsaved changes. Switching nodes will discard them. Continue?");
   }, [hasUnsaved]);
+  const markConfigDirty = useCallback(() => {
+    configVersionRef.current += 1;
+    setConfigState((s) => ({ ...s, dirty: true }));
+  }, []);
+  const updateConfig = useCallback((updater) => {
+    setConfig((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      return next;
+    });
+    markConfigDirty();
+  }, [markConfigDirty]);
 
   useEffect(() => {
     const unsub = onSnapshot(NODES_COL, (snap) => {
@@ -1687,6 +1898,35 @@ export default function App() {
     });
     return () => unsub();
   }, []);
+
+  useEffect(() => {
+    const cfgRef = doc(db, "time-loop-cyoa-config", "story");
+    const unsub = onSnapshot(cfgRef, (snap) => {
+      if (snap.exists()) {
+        setConfig(normalizeConfig(snap.data() || {}));
+      }
+      setConfigState((s) => ({ ...s, loaded: true }));
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    if (!configState.loaded || !configState.dirty) return;
+    if (configSaveRef.current) clearTimeout(configSaveRef.current);
+    const version = configVersionRef.current;
+    configSaveRef.current = setTimeout(() => {
+      setConfigState((s) => ({ ...s, saving: true, error: null }));
+      const payload = stripUndefined({ ...config, updatedAt: serverTimestamp() });
+      setDoc(doc(db, "time-loop-cyoa-config", "story"), payload, { merge: true })
+        .then(() => {
+          setConfigState((s) => (configVersionRef.current === version ? { ...s, dirty: false, saving: false, error: null } : { ...s, saving: false }));
+        })
+        .catch((err) => setConfigState((s) => ({ ...s, saving: false, error: err?.message || 'Config save failed' })));
+    }, 700);
+    return () => {
+      if (configSaveRef.current) clearTimeout(configSaveRef.current);
+    };
+  }, [config, configState.loaded, configState.dirty]);
 
   useEffect(() => {
     if (nodes[nodeId]) return;
@@ -1713,30 +1953,40 @@ export default function App() {
     while(changed){ changed=false; Object.values(nodes).forEach(n=>{ if(!reach.has(n.id)&&n.choices.some(c=>reach.has(c.nextNodeId))){ reach.add(n.id); changed=true; } }); }
     return reach;
   },[nodes]);
-
-  const getShortestPath = useCallback((targetId)=>{
-    if(targetId==='start')return[{nodeId:'start',choiceTaken:null}];
-    const queue=[{path:[{nodeId:'start',choiceTaken:null}]}],visited=new Set(['start']);
+  const getShortestPathFrom = useCallback((startId, isGoal)=>{
+    if(!nodes[startId])return null;
+    const first=[{nodeId:startId,choiceTaken:null}];
+    if(isGoal(startId))return first;
+    const queue=[{path:first}],visited=new Set([startId]);
     while(queue.length){
       const{path}=queue.shift(),last=path[path.length-1],n=nodes[last.nodeId]; if(!n)continue;
-      for(const c of n.choices){ if(!c.nextNodeId)continue; const np=[...path,{nodeId:c.nextNodeId,choiceTaken:c.text}]; if(c.nextNodeId===targetId)return np; if(!visited.has(c.nextNodeId)){visited.add(c.nextNodeId);queue.push({path:np});} }
+      for(const c of n.choices){
+        if(!c.nextNodeId||!nodes[c.nextNodeId])continue;
+        const np=[...path,{nodeId:c.nextNodeId,choiceTaken:c.text}];
+        if(isGoal(c.nextNodeId))return np;
+        if(!visited.has(c.nextNodeId)){visited.add(c.nextNodeId);queue.push({path:np});}
+      }
     }
     return null;
   },[nodes]);
 
   const copyContext = useCallback((targetId)=>{
-    const path=getShortestPath(targetId),target=nodes[targetId]; if(!target)return;
-    let out=`=== AI WRITING CONTEXT: "${target.title}" ===\nStory: The Loop · Type: ${target.type}\n`;
+    const target=nodes[targetId]; if(!target)return;
+    const pathToTarget=getShortestPathFrom('start', id=>id===targetId);
+    const pathToEnd=getShortestPathFrom(targetId, id=>nodes[id]?.isEnding);
+    const path=pathToTarget ? (pathToEnd ? [...pathToTarget, ...pathToEnd.slice(1)] : pathToTarget) : null;
+    let out=`=== AI WRITING CONTEXT: "${target.title}" ===\nStory: The Loop � Type: ${target.type}\n`;
     if(path){
-      out+=`Shortest path: ${path.length} steps\n\n${'─'.repeat(50)}\n\n`;
-      path.forEach((step,i)=>{ const n=nodes[step.nodeId];if(!n)return; const isTgt=step.nodeId===targetId; const nodeText=getNodeText(n); out+=`[${i+1}] ${n.title.toUpperCase()} (${n.type})${isTgt?' ← WRITE HERE':''}\n${nodeText}\n`; if(!isTgt&&path[i+1])out+=`\n→ CHOICE: "${path[i+1].choiceTaken}"\n`; out+='\n'; });
-      out+=`${'─'.repeat(50)}\nWriting for: "${target.title}".\n`;
-      if(target.choices.length>0){out+='Available exits:\n';target.choices.forEach((c,i)=>{out+=`  ${i+1}. "${c.text}" → ${c.nextNodeId}\n`;});}
+      out+=`Shortest path (start -> ending): ${path.length} steps\n\n${'-'.repeat(50)}\n\n`;
+      path.forEach((step,i)=>{ const n=nodes[step.nodeId];if(!n)return; const isTgt=step.nodeId===targetId; const nodeText=getNodeText(n); out+=`[${i+1}] ${n.title.toUpperCase()} (${n.type})${isTgt?' <- WRITE HERE':''}\n${nodeText}\n`; if(path[i+1])out+=`\n-> CHOICE: "${path[i+1].choiceTaken}"\n`; out+='\n'; });
+      if(!pathToEnd) out+=`(No ending reachable from "${target.title}")\n`;
+      out+=`${'-'.repeat(50)}\nWriting for: "${target.title}".\n`;
+      if(target.choices.length>0){out+='Available exits:\n';target.choices.forEach((c,i)=>{out+=`  ${i+1}. "${c.text}" -> ${c.nextNodeId}\n`;});}
     } else { out+=`\n(Node unreachable from start)\n\n${getNodeText(target)}\n`; }
     out+='\n=== END CONTEXT ===';
     copyToClipboard(out);
     setCopyFlash(targetId); setTimeout(()=>setCopyFlash(null),2200);
-  },[nodes,getShortestPath]);
+  },[nodes,getShortestPathFrom]);
 
   const persistNode = useCallback((node) => {
     if (!node || !node.id) return Promise.resolve();
@@ -1764,9 +2014,9 @@ export default function App() {
     return true;
   },[nodes,sel,nodeId,persistNode,removeNodeRemote]);
 
-  const go          = useCallback((id)=>{ if(!nodes[id])return; setFading(true); setTimeout(()=>{ setNodeId(id); if(nodes[id]?.isEnding){setFound(f=>new Set([...f,id]));setShowEnd(true);}else setShowEnd(false); setFading(false); },300); },[nodes]);
-  const restart     = useCallback(()=>{ setFading(true); setTimeout(()=>{ const nextId = nodes.start ? 'start' : Object.keys(nodes)[0]; if(nextId) setNodeId(nextId); setShowEnd(false); setLoopN(l=>l+1); setFading(false); },400); },[nodes]);
-  const playtestFrom= useCallback((id)=>{ setNodeId(id); setShowEnd(nodes[id]?.isEnding||false); setMode('reader'); setFading(false); },[nodes]);
+  const go          = useCallback((id)=>{ if(!nodes[id])return; setFading(true); setTimeout(()=>{ setNodeId(id); if(nodes[id]?.isEnding){setFound(f=>new Set([...f,id]));} setFading(false); },300); },[nodes]);
+  const restart     = useCallback(()=>{ setFading(true); setTimeout(()=>{ const nextId = nodes.start ? 'start' : Object.keys(nodes)[0]; if(nextId) setNodeId(nextId); setLoopN(l=>l+1); setFading(false); },400); },[nodes]);
+  const playtestFrom= useCallback((id)=>{ setNodeId(id); setMode('reader'); setFading(false); },[nodes]);
   const addNode     = useCallback(()=>{
     if (confirmDiscard && !confirmDiscard()) return;
     const isFirst = Object.keys(nodes).length === 0;
@@ -1780,17 +2030,58 @@ export default function App() {
       <style>{GLOBAL_CSS}</style>
       <Header mode={mode} setMode={setMode} authUnlocked={authUnlocked} found={found} totalEndings={totalEndings} loopN={loopN} curAuthorIdx={curAuthorIdx} setCurAuthorIdx={setCurAuthorIdx}/>
 
-      {mode==='reader'&&!showEnd&&<ReaderView curNode={curNode} fading={fading} reachableSet={reachableSet} nodes={nodes} go={go} restart={restart} pageIdx={pageIdx} setPageIdx={setPageIdx}/>}
-      {mode==='reader'&&showEnd&&<EndingView curNode={curNode} fading={fading} restart={restart} setMode={setMode}/>}
+      {mode==='reader'&&<ReaderView curNode={curNode} fading={fading} reachableSet={reachableSet} nodes={nodes} go={go} restart={restart} pageIdx={pageIdx} setPageIdx={setPageIdx}/>}
 
       {mode==='author'&&!authUnlocked&&<PasswordGate onUnlock={()=>setAuthUnlocked(true)} goBack={()=>setMode('reader')}/>}
       {mode==='author'&&authUnlocked&&(
-        <AuthorView nodes={nodes} setNodes={setNodes} sel={sel} setSel={setSel} editNode={editNode} setEditNode={setEditNode} q={q} setQ={setQ} aTab={aTab} setATab={setATab} reachableSet={reachableSet} copyFlash={copyFlash} copyContext={copyContext} renameNodeId={renameNodeId} playtestFrom={playtestFrom} addNode={addNode} setShowTut={setShowTut} curAuthor={curAuthor} curAuthorIdx={curAuthorIdx} setCurAuthorIdx={setCurAuthorIdx} found={found} totalEndings={totalEndings} hasUnsaved={hasUnsaved} confirmDiscard={confirmDiscard} commitNodePosition={commitNodePosition} persistNode={persistNode} removeNodeRemote={removeNodeRemote}/>
+        <AuthorView nodes={nodes} setNodes={setNodes} sel={sel} setSel={setSel} editNode={editNode} setEditNode={setEditNode} q={q} setQ={setQ} aTab={aTab} setATab={setATab} reachableSet={reachableSet} copyFlash={copyFlash} copyContext={copyContext} renameNodeId={renameNodeId} playtestFrom={playtestFrom} addNode={addNode} setShowTut={setShowTut} curAuthor={curAuthor} curAuthorIdx={curAuthorIdx} setCurAuthorIdx={setCurAuthorIdx} found={found} totalEndings={totalEndings} hasUnsaved={hasUnsaved} confirmDiscard={confirmDiscard} commitNodePosition={commitNodePosition} persistNode={persistNode} removeNodeRemote={removeNodeRemote} config={config} loopLabelMap={loopLabelMap} configState={configState} updateConfig={updateConfig}/>
       )}
 
-      {mode==='gallery'&&<GalleryView nodes={nodes} found={found} totalEndings={totalEndings} loopN={loopN}/>}
+      {mode==='gallery'&&<GalleryView nodes={nodes} found={found} totalEndings={totalEndings} loopN={loopN} loopLabelMap={loopLabelMap}/>}
 
       {showTut&&<TutModal onClose={()=>setShowTut(false)}/>}
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
