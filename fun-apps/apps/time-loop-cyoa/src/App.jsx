@@ -24,6 +24,7 @@ const PASSWORD    = "P4t4t0z";
 const DAY         = 86400000;
 const D           = ago => Date.now() - ago * DAY;
 const NW = 172, NH = 82, MINI = 30, MINI_ZOOM = 0.52;
+const KNOWLEDGE_STORAGE_KEY = "time-loop-cyoa:knowledge";
 
 const C = {
   bg:'#08080f', bg2:'#0e0d1a', bg3:'#141228',
@@ -54,6 +55,7 @@ const DEFAULT_LOOP_LABELS = [
   { key:'loopRestarts', label:'Loop Restarts' },
 ];
 const DEFAULT_TAGS = ['start','present_day','past','clue','machine','bertha','birth','marriage','death','loop','hub','anchor','escape','prophecy','cult'];
+const DEFAULT_KNOWLEDGE_TAGS = [];
 const DEFAULT_ENDING_CATEGORIES = ["Become Part of the Loop","Alternative Escapes","Birth Bertha's Child","Marry Bertha","Do Not Marry Bertha","Train Yourself"];
 
 /* ═══ HELPERS ════════════════════════════════════════════════════════════ */
@@ -83,12 +85,30 @@ const getNodeText = node => {
   }
   return node.text || '';
 };
+const normalizeChoice = (choice) => {
+  if (!choice) return { text: '', nextNodeId: '', keyedOverride: null };
+  const ko = choice.keyedOverride;
+  const hasKo = !!(ko && (ko.requiresKey || ko.text || ko.nextNodeId));
+  return {
+    ...choice,
+    text: choice.text || '',
+    nextNodeId: choice.nextNodeId || '',
+    keyedOverride: hasKo ? {
+      requiresKey: (ko.requiresKey || '').trim(),
+      text: ko.text || '',
+      nextNodeId: ko.nextNodeId || '',
+    } : null,
+  };
+};
 const normalizeNode = node => {
   if (!node) return node;
   return {
     ...node,
-    choices: Array.isArray(node.choices) ? node.choices : [],
+    choices: Array.isArray(node.choices) ? node.choices.map(normalizeChoice) : [],
     tags: Array.isArray(node.tags) ? node.tags : [],
+    knowledgeGains: Array.isArray(node.knowledgeGains)
+      ? node.knowledgeGains.map((g) => ({ key: (g?.key || '').trim(), persistent: !!g?.persistent }))
+      : [],
     position: node.position || { x: 0, y: 0 },
     isMultiPage: !!node.isMultiPage,
     pages: Array.isArray(node.pages) ? node.pages : [],
@@ -97,11 +117,12 @@ const normalizeNode = node => {
 const normalizeConfig = (data = {}) => {
   const endingCategories = Array.isArray(data.endingCategories) ? data.endingCategories : DEFAULT_ENDING_CATEGORIES;
   const tags = Array.isArray(data.tags) ? data.tags : DEFAULT_TAGS;
+  const knowledgeTags = Array.isArray(data.knowledgeTags) ? data.knowledgeTags : DEFAULT_KNOWLEDGE_TAGS;
   const rawLoop = Array.isArray(data.loopLabels) ? data.loopLabels : DEFAULT_LOOP_LABELS;
   const loopLabels = rawLoop
     .map((l) => ({ key:String(l?.key||'').trim(), label:String(l?.label||l?.key||'').trim() }))
     .filter((l) => l.key);
-  return { endingCategories, tags, loopLabels };
+  return { endingCategories, tags, knowledgeTags, loopLabels };
 };
 const mkPage = (text = '', buttonLabel = 'Continue') => ({
   id: `p_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
@@ -121,6 +142,105 @@ const stripUndefined = (value) => {
     return out;
   }
   return value;
+};
+const setEquals = (a, b) => {
+  if (a.size !== b.size) return false;
+  for (const v of a) if (!b.has(v)) return false;
+  return true;
+};
+const setUnion = (a, b) => {
+  const out = new Set(a);
+  for (const v of b) out.add(v);
+  return out;
+};
+const setIntersect = (a, b) => {
+  const out = new Set();
+  for (const v of a) if (b.has(v)) out.add(v);
+  return out;
+};
+const computeKnowledgeStats = (nodes, knowledgeList = []) => {
+  const allNodes = Object.values(nodes || {});
+  const knowledgeKeys = new Set(knowledgeList.map((k) => String(k || '').trim()).filter(Boolean));
+  const persistentAll = new Set();
+  allNodes.forEach((n) => {
+    (n.knowledgeGains || []).forEach((g) => {
+      if (!g?.key) return;
+      knowledgeKeys.add(g.key);
+      if (g.persistent) persistentAll.add(g.key);
+    });
+  });
+
+  const ids = allNodes.map((n) => n.id);
+  if (!ids.length) return { byNode: {}, persistentAll, knowledgeKeys };
+  const startId = nodes.start ? 'start' : ids[0];
+  const edges = {};
+  const preds = {};
+  ids.forEach((id) => { edges[id] = []; preds[id] = []; });
+  allNodes.forEach((n) => {
+    const from = n.id;
+    (n.choices || []).forEach((c) => {
+      const base = c.nextNodeId;
+      if (base && nodes[base]) edges[from].push(base);
+      const ko = c.keyedOverride;
+      if (ko?.nextNodeId && nodes[ko.nextNodeId]) edges[from].push(ko.nextNodeId);
+    });
+  });
+  Object.entries(edges).forEach(([from, list]) => {
+    list.forEach((to) => {
+      if (!preds[to]) preds[to] = [];
+      preds[to].push(from);
+    });
+  });
+
+  const inMay = {};
+  const inMust = {};
+  ids.forEach((id) => {
+    inMay[id] = new Set();
+    inMust[id] = new Set(knowledgeKeys);
+  });
+  if (startId) inMust[startId] = new Set();
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    ids.forEach((id) => {
+      if (id === startId) return;
+      const ps = preds[id] || [];
+      let nextMust = null;
+      if (!ps.length) {
+        nextMust = new Set();
+      } else {
+        ps.forEach((pid) => {
+          const outMust = setUnion(inMust[pid], new Set((nodes[pid]?.knowledgeGains || []).map((g) => g.key)));
+          nextMust = nextMust ? setIntersect(nextMust, outMust) : new Set(outMust);
+        });
+      }
+      if (!setEquals(inMust[id], nextMust)) {
+        inMust[id] = nextMust;
+        changed = true;
+      }
+    });
+
+    ids.forEach((id) => {
+      const outMay = setUnion(inMay[id], new Set((nodes[id]?.knowledgeGains || []).map((g) => g.key)));
+      (edges[id] || []).forEach((to) => {
+        const nextMay = setUnion(inMay[to], outMay);
+        if (!setEquals(inMay[to], nextMay)) {
+          inMay[to] = nextMay;
+          changed = true;
+        }
+      });
+    });
+  }
+
+  const byNode = {};
+  ids.forEach((id) => {
+    byNode[id] = {
+      definitely: inMust[id] || new Set(),
+      may: setUnion(inMay[id] || new Set(), persistentAll),
+    };
+  });
+  return { byNode, persistentAll, knowledgeKeys };
 };
 
 function copyToClipboard(text) {
@@ -322,7 +442,7 @@ function Header({ mode, setMode, authUnlocked, found, totalEndings, loopN, curAu
 }
 
 /* ═══ READER ═════════════════════════════════════════════════════════════ */
-function ReaderView({ curNode, fading, reachableSet, nodes, go, restart, pageIdx, setPageIdx }) {
+function ReaderView({ curNode, fading, reachableSet, nodes, go, restart, pageIdx, setPageIdx, knowledge, persistentKnowledge, onChoose }) {
   if (!curNode) {
     return (
       <div style={{minHeight:'100vh',paddingTop:80,paddingBottom:80,display:'flex',justifyContent:'center',alignItems:'center',background:C.bg}}>
@@ -345,6 +465,17 @@ function ReaderView({ curNode, fading, reachableSet, nodes, go, restart, pageIdx
   const loopLabel = (curNode.endingData?.endingLoopChoiceLabel || '').trim() || 'Continue';
   const loopTarget = nodes.start ? 'start' : Object.keys(nodes)[0];
   const choices = isEnding && loopTarget ? [{ id:'loop', text: loopLabel, nextNodeId: loopTarget, _loop:true }] : (curNode.choices || []);
+  const knowledgeSet = new Set();
+  (knowledge || []).forEach((k) => knowledgeSet.add(k));
+  (persistentKnowledge || []).forEach((k) => knowledgeSet.add(k));
+  const effectiveChoices = choices.map((c) => {
+    if (c._loop) return c;
+    const ko = c.keyedOverride;
+    if (ko?.requiresKey && knowledgeSet.has(ko.requiresKey)) {
+      return { ...c, text: ko.text || c.text, nextNodeId: ko.nextNodeId || c.nextNodeId, _override: true, _overrideKey: ko.requiresKey };
+    }
+    return c;
+  });
 
   return (
     <div style={{minHeight:'100vh',paddingTop:80,paddingBottom:80,display:'flex',justifyContent:'center',background:C.bg}}>
@@ -367,16 +498,16 @@ function ReaderView({ curNode, fading, reachableSet, nodes, go, restart, pageIdx
           </div>
         )}
 
-                {showChoices&&choices.length>0&&(
+        {showChoices&&effectiveChoices.length>0&&(
           <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:40}}>
-            {choices.map((c,i)=>{
+            {effectiveChoices.map((c,i)=>{
               const isLoop = !!c._loop;
               const alive = !isLoop && reachableSet.has(c.nextNodeId);
               const exists = !isLoop && !!nodes[c.nextNodeId];
               const dead = isLoop ? !c.nextNodeId : (!alive||!exists);
               const badge = i + 1;
               return (
-                <button key={c.id||i} onClick={()=>{ if(dead)return; if(isLoop)restart(); else go(c.nextNodeId); }}
+                <button key={c.id||i} onClick={()=>{ if(dead)return; if(onChoose) onChoose(curNode); if(isLoop)restart(); else go(c.nextNodeId); }}
                   style={{display:'flex',alignItems:'flex-start',gap:16,padding:'15px 20px',width:'100%',background:'transparent',border:`1px solid ${dead?'rgba(255,255,255,0.04)':C.border}`,borderLeft:`3px solid ${dead?'rgba(255,255,255,0.05)':C.goldDim}`,borderRadius:4,color:dead?C.textFaint:C.text,fontSize:17,fontFamily:"'Cormorant Garamond',serif",textAlign:'left',cursor:dead?'not-allowed':'pointer',transition:'all .18s',lineHeight:1.5,opacity:dead?.38:1}}
                   onMouseEnter={e=>{if(!dead){e.currentTarget.style.borderLeftColor=C.gold;e.currentTarget.style.background='rgba(196,144,58,0.08)';e.currentTarget.style.color='#f5e6c8';}}}
                   onMouseLeave={e=>{if(!dead){e.currentTarget.style.borderLeftColor=C.goldDim;e.currentTarget.style.background='transparent';e.currentTarget.style.color=C.text;}}}>
@@ -1195,6 +1326,7 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
   const [saveState, setSaveState] = useState({ saving: false, error: null });
   const [autoSaveState, setAutoSaveState] = useState({ saving: false, error: null, savedAt: null });
   const autoSaveRef = useRef(null);
+  const editScrollRef = useRef(null);
   const selectNode = id => {
     if (!id) return;
     if (sel !== id && confirmDiscard && !confirmDiscard()) return;
@@ -1203,6 +1335,7 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
     setSel(id);
     setEditNode(normalizeNode(node));
     setEditingId(false);
+    setTimeout(() => { editScrollRef.current?.scrollTo({ top: 0, behavior: 'auto' }); }, 0);
   };
 
   const startIdEdit  = ()=>{ setNewId(editNode?.id||''); setEditingId(true); setIdErr(''); };
@@ -1218,6 +1351,7 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
   };
 
   const allNodes=Object.values(nodes);
+  const knowledgeStats = useMemo(() => computeKnowledgeStats(nodes, config.knowledgeTags || []), [nodes, config]);
   const filtered=allNodes.filter(n=>!q||n.title.toLowerCase().includes(q.toLowerCase())||n.id.toLowerCase().includes(q.toLowerCase())||(n.tags||[]).some(t=>t.includes(q.toLowerCase())));
   const filteredByMap = useMemo(() => {
     const list=[...filtered];
@@ -1233,7 +1367,14 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
     const iss=[];
     allNodes.forEach(n=>{
       if(!n.isEnding&&n.choices.length===0)iss.push({type:'warn',node:n.id,msg:`"${n.title}" has no choices`});
-      n.choices.forEach(c=>{ if(!c.nextNodeId||!nodes[c.nextNodeId])iss.push({type:'error',node:n.id,msg:`"${n.title}" → "${c.text||'(empty)'}" → missing "${c.nextNodeId}"`}); });
+      n.choices.forEach(c=>{
+        if(!c.nextNodeId||!nodes[c.nextNodeId])iss.push({type:'error',node:n.id,msg:`"${n.title}" → "${c.text||'(empty)'}" → missing "${c.nextNodeId}"`});
+        const ko=c.keyedOverride;
+        if(ko && (ko.requiresKey||ko.text||ko.nextNodeId)){
+          if(!ko.requiresKey)iss.push({type:'warn',node:n.id,msg:`"${n.title}" has a keyed override missing a knowledge key`});
+          if(!ko.nextNodeId||!nodes[ko.nextNodeId])iss.push({type:'error',node:n.id,msg:`"${n.title}" keyed override → missing "${ko.nextNodeId}"`});
+        }
+      });
       if(n.isEnding&&!n.endingData?.endingCategory)iss.push({type:'warn',node:n.id,msg:`Ending "${n.title}" has no category`});
     });
     const starts=allNodes.filter(n=>n.isStart);
@@ -1244,6 +1385,10 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
   const isCopied=copyFlash===sel;
   const canSave = hasUnsaved && !saveState.saving && !autoSaveState.saving;
   const showSave = hasUnsaved && (autoSaveState.error || saveState.error);
+  const knowledgeInfo = editNode ? (knowledgeStats.byNode[editNode.id] || { definitely: new Set(), may: new Set() }) : { definitely: new Set(), may: new Set() };
+  const definitelyKnow = Array.from(knowledgeInfo.definitely || []).sort();
+  const mayKnow = Array.from(knowledgeInfo.may || []).sort();
+  const knowledgeOptions = (config.knowledgeTags || []).filter(Boolean);
   const saveEdit=()=>{
     if(!editNode)return;
     if(autoSaveRef.current){ clearTimeout(autoSaveRef.current); autoSaveRef.current=null; }
@@ -1295,6 +1440,7 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
       text:'Write your scene here.',
       choices:[],
       tags:[],
+      knowledgeGains:[],
       notes:'',
       position:{ x: basePos.x + 260, y: basePos.y + 80 + choiceIndex * 120 },
       isMultiPage:false,
@@ -1640,6 +1786,20 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
                 </div>
               </SectionCard>
 
+              <SectionCard title="Knowledge" color={C.green}>
+                <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                  {(config.knowledgeTags||[]).map((t,i)=> (
+                    <div key={`${t}_${i}`} style={{display:'flex',gap:8,alignItems:'center'}}>
+                      <input value={t} onChange={e=>updateConfigList('knowledgeTags', i, e.target.value)} style={{...IST,flex:1}}/>
+                      <button onClick={()=>removeConfigItem('knowledgeTags', i)} style={{fontSize:10,color:C.rose,opacity:.8,cursor:'pointer'}}>Remove</button>
+                    </div>
+                  ))}
+                  <button onClick={()=>addConfigItem('knowledgeTags','new_knowledge')}
+                    style={{padding:'7px',border:`1px dashed ${C.green}55`,borderRadius:5,color:C.green,fontSize:10.5,fontFamily:"'Cinzel',serif",letterSpacing:'0.08em',cursor:'pointer',background:'transparent'}}
+                    onMouseEnter={e=>{e.currentTarget.style.borderColor=C.green;e.currentTarget.style.color=C.green;}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.green+'55';e.currentTarget.style.color=C.green;}}>+ Add Knowledge</button>
+                </div>
+              </SectionCard>
+
               {(configState.saving||configState.error)&&(
                 <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:configState.error?C.rose:C.textFaint}}>
                   {configState.saving?'Saving config...':configState.error}
@@ -1651,7 +1811,7 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
 
 
         {(aTab==='nodes'||aTab==='endings'||aTab==='validate')&&(
-          <div style={{flex:1,overflowY:'auto',padding:'22px'}}>
+          <div ref={editScrollRef} style={{flex:1,overflowY:'auto',padding:'22px'}}>
             {editNode?(
               <div style={{maxWidth:700,margin:'0 auto'}}>
                 {isCopied&&<div style={{background:'rgba(74,156,114,0.08)',border:`1px solid ${C.green}33`,borderRadius:7,padding:'9px 14px',marginBottom:18,fontFamily:"'Cormorant Garamond',serif",fontSize:13,color:C.green}}>✓ Context copied — paste into Claude for writing help.</div>}
@@ -1739,8 +1899,9 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
                         const exists=!!nodes[targetId];
                         const alive=reachableSet.has(targetId);
                         const canCreate=!!targetId&&!exists&&isValidNodeId(targetId);
+                        const override = c.keyedOverride || { requiresKey:'', text:'', nextNodeId:'' };
                         return (
-                          <div key={c.id} style={{display:'flex',gap:7,alignItems:'center',background:(!alive&&exists)?'rgba(255,80,80,0.04)':'rgba(255,255,255,0.03)',border:`1px solid ${(!alive&&exists)?C.rose+'22':C.border}`,borderRadius:6,padding:'8px 10px'}}>
+                          <div key={c.id} style={{display:'flex',gap:7,alignItems:'center',flexWrap:'wrap',background:(!alive&&exists)?'rgba(255,80,80,0.04)':'rgba(255,255,255,0.03)',border:`1px solid ${(!alive&&exists)?C.rose+'22':C.border}`,borderRadius:6,padding:'8px 10px'}}>
                             <span style={{fontFamily:"'Cinzel',serif",fontSize:10,color:C.goldDim,minWidth:14}}>{i+1}</span>
                             <input value={c.text} onChange={e=>{const ch=[...editNode.choices];ch[i]={...c,text:e.target.value};setEditNode(n=>({...n,choices:ch}));}} placeholder="Choice text" style={{flex:2,...IST,padding:'4px 8px'}}/>
                             <span style={{fontSize:10,color:C.textFaint,flexShrink:0}}>→</span>
@@ -1754,6 +1915,37 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
                             {(!alive&&exists)&&<span title="Dead end" style={{color:C.rose,fontSize:10,flexShrink:0}}>⚠</span>}
                             <button onClick={()=>{const ch=editNode.choices.filter((_,j)=>j!==i);setEditNode(n=>({...n,choices:ch}));}}
                               style={{color:C.rose,fontSize:13,padding:'0 3px',opacity:.6,cursor:'pointer',flexShrink:0,background:'transparent'}}>✕</button>
+                              <div style={{display:'flex',flexDirection:'column',gap:6,flexBasis:'100%',marginTop:8,paddingTop:8,borderTop:`1px dashed ${C.border}`}}>
+                                <div style={{fontFamily:"'Cinzel',serif",fontSize:9,letterSpacing:'0.15em',color:C.textFaint,textTransform:'uppercase'}}>Keyed Override</div>
+                                <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+                                  <select value={override.requiresKey||''} onChange={e=>{
+                                    const ch=[...editNode.choices];
+                                    const ko={...override,requiresKey:e.target.value};
+                                    const hasAny=!!(ko.requiresKey||ko.text||ko.nextNodeId);
+                                    ch[i]={...c,keyedOverride:hasAny?ko:null};
+                                    setEditNode(n=>({...n,choices:ch}));
+                                  }} style={{...IST,flex:'0 0 200px'}}>
+                                    <option value="">Requires knowledge...</option>
+                                    {mayKnow.map(k=><option key={k} value={k}>{k}</option>)}
+                                  </select>
+                                  <input value={override.text||''} onChange={e=>{
+                                    const ch=[...editNode.choices];
+                                    const ko={...override,text:e.target.value};
+                                    const hasAny=!!(ko.requiresKey||ko.text||ko.nextNodeId);
+                                    ch[i]={...c,keyedOverride:hasAny?ko:null};
+                                    setEditNode(n=>({...n,choices:ch}));
+                                  }} placeholder="Override choice text"
+                                    style={{flex:2,...IST,padding:'4px 8px'}}/>
+                                  <input value={override.nextNodeId||''} onChange={e=>{
+                                    const ch=[...editNode.choices];
+                                    const ko={...override,nextNodeId:e.target.value};
+                                    const hasAny=!!(ko.requiresKey||ko.text||ko.nextNodeId);
+                                    ch[i]={...c,keyedOverride:hasAny?ko:null};
+                                    setEditNode(n=>({...n,choices:ch}));
+                                  }} placeholder="override_node_id"
+                                    style={{flex:1,...IST,padding:'4px 8px',fontFamily:"'JetBrains Mono',monospace",fontSize:11}}/>
+                                </div>
+                              </div>
                           </div>
                         );
                       })}
@@ -1789,6 +1981,71 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
                     </div>
                   </Field>
                 )}
+
+                <Field label="Knowledge Before This Node">
+                  <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                    <div>
+                      <div style={{fontFamily:"'Cinzel',serif",fontSize:9,letterSpacing:'0.18em',color:C.textFaint,marginBottom:6,textTransform:'uppercase'}}>Definitely Knows</div>
+                      <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                        {definitelyKnow.length===0
+                          ? <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:C.textFaint,opacity:.6}}>None</span>
+                          : definitelyKnow.map(k=>(
+                              <span key={k} style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9,padding:'3px 8px',borderRadius:100,background:'rgba(74,156,114,0.12)',color:C.green,border:`1px solid ${C.green}33`}}>{k}</span>
+                            ))
+                        }
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{fontFamily:"'Cinzel',serif",fontSize:9,letterSpacing:'0.18em',color:C.textFaint,marginBottom:6,textTransform:'uppercase'}}>May Know (includes persistent)</div>
+                      <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                        {mayKnow.length===0
+                          ? <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9,color:C.textFaint,opacity:.6}}>None</span>
+                          : mayKnow.map(k=>(
+                              <span key={k} style={{fontFamily:"'JetBrains Mono',monospace",fontSize:9,padding:'3px 8px',borderRadius:100,background:'rgba(196,144,58,0.12)',color:C.gold,border:`1px solid ${C.gold}33`}}>{k}</span>
+                            ))
+                        }
+                      </div>
+                    </div>
+                  </div>
+                </Field>
+
+                <Field label="Knowledge Gained">
+                  <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                    {(editNode.knowledgeGains || []).map((g,i)=>(
+                      <div key={`${g.key||'knowledge'}_${i}`} style={{display:'flex',gap:8,alignItems:'center',background:'rgba(255,255,255,0.03)',border:`1px solid ${C.border}`,borderRadius:6,padding:'8px 10px'}}>
+                        <select value={g.key||''} onChange={e=>{
+                          const next=[...(editNode.knowledgeGains||[])];
+                          next[i]={...g,key:e.target.value};
+                          setEditNode(n=>({...n,knowledgeGains:next}));
+                        }} style={{...IST,flex:1}}>
+                          <option value="">Select knowledge…</option>
+                          {knowledgeOptions.map(k=><option key={k} value={k}>{k}</option>)}
+                        </select>
+                        <label style={{display:'flex',alignItems:'center',gap:6,fontFamily:"'JetBrains Mono',monospace",fontSize:9.5,color:g.persistent?C.green:C.textFaint}}>
+                          <input type="checkbox" checked={!!g.persistent} onChange={e=>{
+                            const next=[...(editNode.knowledgeGains||[])];
+                            next[i]={...g,persistent:e.target.checked};
+                            setEditNode(n=>({...n,knowledgeGains:next}));
+                          }} style={{accentColor:C.green}}/>
+                          Persistent
+                        </label>
+                        <button onClick={()=>{
+                          const next=(editNode.knowledgeGains||[]).filter((_,j)=>j!==i);
+                          setEditNode(n=>({...n,knowledgeGains:next}));
+                        }} style={{fontSize:11,color:C.rose,opacity:.8,cursor:'pointer'}}>Remove</button>
+                      </div>
+                    ))}
+                    {knowledgeOptions.length===0&&(
+                      <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:13,color:C.textFaint,fontStyle:'italic'}}>Add Knowledge tags in Config to use this.</div>
+                    )}
+                    <button onClick={()=>{
+                      const next=[...(editNode.knowledgeGains||[]),{ key: knowledgeOptions[0] || '', persistent:false }];
+                      setEditNode(n=>({...n,knowledgeGains:next}));
+                    }}
+                      style={{padding:'7px',border:`1px dashed ${C.green}55`,borderRadius:5,color:C.green,fontSize:10.5,fontFamily:"'Cinzel',serif",letterSpacing:'0.08em',cursor:'pointer',background:'transparent'}}
+                      onMouseEnter={e=>{e.currentTarget.style.borderColor=C.green;e.currentTarget.style.color=C.green;}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.green+'55';e.currentTarget.style.color=C.green;}}>+ Add Knowledge</button>
+                  </div>
+                </Field>
 
                 <Field label="Tags">
                   <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
@@ -1846,6 +2103,8 @@ export default function App() {
   const [authUnlocked, setAuthUnlocked] = useState(false);
   const [copyFlash,    setCopyFlash]    = useState(null);
   const [pageIdx,      setPageIdx]      = useState(0);
+  const [knowledge,    setKnowledge]    = useState(new Set());
+  const [persistentKnowledge, setPersistentKnowledge] = useState(new Set());
   const [config,       setConfig]       = useState(normalizeConfig({}));
   const [configState,  setConfigState]  = useState({ loaded: false, dirty: false, saving: false, error: null });
   const configSaveRef = useRef(null);
@@ -1885,6 +2144,25 @@ export default function App() {
     });
     markConfigDirty();
   }, [markConfigDirty]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(KNOWLEDGE_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          setPersistentKnowledge(new Set(parsed.filter(Boolean)));
+        }
+      }
+    } catch (_) {}
+  }, []);
+
+  useEffect(() => {
+    try {
+      const arr = Array.from(persistentKnowledge || []);
+      localStorage.setItem(KNOWLEDGE_STORAGE_KEY, JSON.stringify(arr));
+    } catch (_) {}
+  }, [persistentKnowledge]);
 
   useEffect(() => {
     const unsub = onSnapshot(NODES_COL, (snap) => {
@@ -1936,7 +2214,10 @@ export default function App() {
 
   useEffect(() => {
     setPageIdx(0);
-  }, [nodeId]);
+    if (mode === 'reader') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }
+  }, [nodeId, mode]);
 
   useEffect(() => {
     if (sel && !nodes[sel]) {
@@ -2015,13 +2296,30 @@ export default function App() {
   },[nodes,sel,nodeId,persistNode,removeNodeRemote]);
 
   const go          = useCallback((id)=>{ if(!nodes[id])return; setFading(true); setTimeout(()=>{ setNodeId(id); if(nodes[id]?.isEnding){setFound(f=>new Set([...f,id]));} setFading(false); },300); },[nodes]);
-  const restart     = useCallback(()=>{ setFading(true); setTimeout(()=>{ const nextId = nodes.start ? 'start' : Object.keys(nodes)[0]; if(nextId) setNodeId(nextId); setLoopN(l=>l+1); setFading(false); },400); },[nodes]);
+  const restart     = useCallback(()=>{ setFading(true); setTimeout(()=>{ const nextId = nodes.start ? 'start' : Object.keys(nodes)[0]; if(nextId) setNodeId(nextId); setLoopN(l=>l+1);
+      setKnowledge(new Set()); setFading(false); },400); },[nodes]);
   const playtestFrom= useCallback((id)=>{ setNodeId(id); setMode('reader'); setFading(false); },[nodes]);
+  const registerKnowledge = useCallback((node)=>{
+    if(!node?.knowledgeGains||node.knowledgeGains.length===0) return;
+    const gains = node.knowledgeGains;
+    setKnowledge(prev=>{
+      let changed=false;
+      const next=new Set(prev);
+      gains.forEach(g=>{ if(!g?.key) return; if(!g.persistent && !next.has(g.key)){ next.add(g.key); changed=true; } });
+      return changed ? next : prev;
+    });
+    setPersistentKnowledge(prev=>{
+      let changed=false;
+      const next=new Set(prev);
+      gains.forEach(g=>{ if(!g?.key) return; if(g.persistent && !next.has(g.key)){ next.add(g.key); changed=true; } });
+      return changed ? next : prev;
+    });
+  },[]);
   const addNode     = useCallback(()=>{
     if (confirmDiscard && !confirmDiscard()) return;
     const isFirst = Object.keys(nodes).length === 0;
     const id = isFirst ? 'start' : `node_${Date.now()}`;
-    const nn={id,title:isFirst?'Start':'New Scene',type:isFirst?'start':'scene',isStart:isFirst,isEnding:false,createdAt:Date.now(),createdBy:curAuthor,text:'Write your scene here.',choices:[],tags:[],notes:'',position:{x:300,y:300},isMultiPage:false,pages:[]};
+    const nn={id,title:isFirst?'Start':'New Scene',type:isFirst?'start':'scene',isStart:isFirst,isEnding:false,createdAt:Date.now(),createdBy:curAuthor,text:'Write your scene here.',choices:[],tags:[],knowledgeGains:[],notes:'',position:{x:300,y:300},isMultiPage:false,pages:[]};
     setNodes(p=>({...p,[id]:nn})); persistNode(nn); setEditNode(normalizeNode(nn)); setSel(id); setATab('nodes'); setMode('author'); if(isFirst)setNodeId(id);
   },[curAuthor,nodes,confirmDiscard,persistNode]);
 
@@ -2030,7 +2328,7 @@ export default function App() {
       <style>{GLOBAL_CSS}</style>
       <Header mode={mode} setMode={setMode} authUnlocked={authUnlocked} found={found} totalEndings={totalEndings} loopN={loopN} curAuthorIdx={curAuthorIdx} setCurAuthorIdx={setCurAuthorIdx}/>
 
-      {mode==='reader'&&<ReaderView curNode={curNode} fading={fading} reachableSet={reachableSet} nodes={nodes} go={go} restart={restart} pageIdx={pageIdx} setPageIdx={setPageIdx}/>}
+      {mode==='reader'&&<ReaderView curNode={curNode} fading={fading} reachableSet={reachableSet} nodes={nodes} go={go} restart={restart} pageIdx={pageIdx} setPageIdx={setPageIdx} knowledge={knowledge} persistentKnowledge={persistentKnowledge} onChoose={registerKnowledge}/>}
 
       {mode==='author'&&!authUnlocked&&<PasswordGate onUnlock={()=>setAuthUnlocked(true)} goBack={()=>setMode('reader')}/>}
       {mode==='author'&&authUnlocked&&(
