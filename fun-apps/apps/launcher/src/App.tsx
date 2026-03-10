@@ -28,6 +28,11 @@ const getTimeLoopCyoaUrl = () => {
   return envUrl && envUrl.trim().length > 0 ? envUrl : "./time-loop-cyoa/";
 };
 
+const getMuseumMasterpiecesUrl = () => {
+  const envUrl = import.meta.env.VITE_MUSEUM_MASTERPIECES_URL as string | undefined;
+  return envUrl && envUrl.trim().length > 0 ? envUrl : "./museum-masterpieces/";
+};
+
 export default function App() {
   const bibleUrl = getBibleUrl();
   const gradeEstimatorUrl = getGradeEstimatorUrl();
@@ -35,6 +40,7 @@ export default function App() {
   const bobsBooksUrl = getBobsBooksUrl();
   const emojiBattleUrl = getEmojiBattleUrl();
   const timeLoopCyoaUrl = getTimeLoopCyoaUrl();
+  const museumMasterpiecesUrl = getMuseumMasterpiecesUrl();
 
   return (
     <div className="page">
@@ -102,6 +108,15 @@ export default function App() {
           >
             <div className="tile__title">Time Loop CYOA</div>
             <div className="tile__subtitle">Shared time-loop story editor</div>
+          </button>
+          <button
+            className="tile"
+            onClick={() => {
+              window.location.href = museumMasterpiecesUrl;
+            }}
+          >
+            <div className="tile__title">Museum Masterpieces</div>
+            <div className="tile__subtitle">Personal art tracker across museums</div>
           </button>
         </div>
       </section>

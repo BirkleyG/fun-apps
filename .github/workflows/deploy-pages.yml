@@ -89,9 +89,17 @@ jobs:
         working-directory: fun-apps/apps/time-loop-cyoa
         run: npm run build
 
+      - name: Install Museum Masterpieces deps
+        working-directory: fun-apps/apps/museum-masterpieces
+        run: npm install
+
+      - name: Build Museum Masterpieces
+        working-directory: fun-apps/apps/museum-masterpieces
+        run: npm run build
+
       - name: Assemble site
         run: |
-          mkdir -p site/bible-tracker site/grade-estimator site/coin-atlas site/bobs-books site/emoji-battle site/time-loop-cyoa
+          mkdir -p site/bible-tracker site/grade-estimator site/coin-atlas site/bobs-books site/emoji-battle site/time-loop-cyoa site/museum-masterpieces
           cp -R fun-apps/apps/launcher/dist/. site/
           cp -R fun-apps/apps/bible-tracker/dist/. site/bible-tracker/
           cp -R fun-apps/apps/grade-estimator/dist/. site/grade-estimator/
@@ -99,6 +107,7 @@ jobs:
           cp -R fun-apps/apps/bobs-books/dist/. site/bobs-books/
           cp -R fun-apps/apps/emoji-battle/dist/. site/emoji-battle/
           cp -R fun-apps/apps/time-loop-cyoa/dist/. site/time-loop-cyoa/
+          cp -R fun-apps/apps/museum-masterpieces/dist/. site/museum-masterpieces/
 
       - name: Upload pages artifact
         uses: actions/upload-pages-artifact@v3

@@ -1,0 +1,17 @@
+{
+  "name": "Museum Masterpieces",
+  "short_name": "Masterpieces",
+  "start_url": "/fun-apps/museum-masterpieces/",
+  "scope": "/fun-apps/museum-masterpieces/",
+  "display": "standalone",
+  "background_color": "#F5F0E8",
+  "theme_color": "#F5F0E8",
+  "icons": [
+    {
+      "src": "/fun-apps/museum-masterpieces/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
