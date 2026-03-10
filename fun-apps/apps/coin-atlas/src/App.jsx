@@ -1189,6 +1189,11 @@ export default function CoinAtlas() {
 
   INJECT_STYLES();
 
+  useEffect(() => {
+    if (!user) return;
+    ensureUserDoc(user).catch(() => undefined);
+  }, [user]);
+
   if (!authReady) {
     return (
       <div className="ca" style={{alignItems:"center",justifyContent:"center",gap:12}}>
@@ -1212,11 +1217,6 @@ export default function CoinAtlas() {
       </div>
     );
   }
-
-  useEffect(() => {
-    if (!user) return;
-    ensureUserDoc(user).catch(() => undefined);
-  }, [user]);
 
   const currentContributor = resolveUserLabel(user);
 
