@@ -42,6 +42,23 @@ const DEFAULT_GOAL_STATS = {
 
 const APP_DOC_ID = "bobs-books";
 const getAppDocRef = (uid) => doc(db, "users", uid, "apps", APP_DOC_ID);
+const getCacheKey = (uid) => `bobs-books-cache-${uid}`;
+
+function loadLocalCache(uid) {
+  try {
+    const raw = localStorage.getItem(getCacheKey(uid));
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function saveLocalCache(uid, payload) {
+  try {
+    localStorage.setItem(getCacheKey(uid), JSON.stringify({ ...payload, cachedAt: new Date().toISOString() }));
+  } catch {}
+}
 
 async function loadAppData(uid) {
   const snapshot = await getDoc(getAppDocRef(uid));
@@ -287,6 +304,12 @@ function BookSpine({book,sessions,genres,onClick,height=136,dimmed=false}){
   const [hov,setHov]=useState(false);
 
   const ratingStars = isFinished && book.rating ? Math.round(book.rating) : 0;
+  const badgeText =
+    isFinished && ratingStars
+      ? `★${ratingStars}`
+      : status === "reading"
+        ? `${progress.percent}%`
+        : "";
 
   return(
     <div onClick={onClick}
@@ -326,9 +349,8 @@ function BookSpine({book,sessions,genres,onClick,height=136,dimmed=false}){
         <span>{book.title}</span>
       </div>
       {/* Bottom badge */}
-      <div style={{position:"absolute",bottom:4,left:0,right:0,textAlign:"center",fontSize:8,color:textColor,opacity:.85,fontFamily:"'Crimson Pro',serif",letterSpacing:".02em"}}>
-        {isFinished&&ratingStars?"★".repeat(ratingStars):
-         status==="reading"?`${progress.percent}%`:""}
+      <div style={{position:"absolute",bottom:4,left:0,right:0,textAlign:"center",fontSize:9,color:textColor,opacity:.85,fontFamily:"'Crimson Pro',serif",letterSpacing:".04em"}}>
+        {badgeText}
       </div>
     </div>
   );
@@ -1489,8 +1511,8 @@ function GoalsPage({goals,books,sessions,settings,selectedGoal,setSelectedGoal,g
   const removeTag=tag=>onSettingsChange(p=>({...p,tags:(p.tags||DEFAULT_TAGS).filter(t=>t!==tag)}));
 
   return(
-    <div style={{display:"grid",gridTemplateColumns:"256px 1fr",gap:24}}>
-      <div>
+    <div className="bb-goals-layout">
+      <div className="bb-goals-sidebar">
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
           <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:C.text}}>Goals</h2>
           <Btn onClick={onAddGoal}>+</Btn>
@@ -1515,7 +1537,7 @@ function GoalsPage({goals,books,sessions,settings,selectedGoal,setSelectedGoal,g
           ))}</>}
       </div>
 
-      <div>
+      <div className="bb-goals-main">
         {!selectedGoal?(
           <div>
             <h3 style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:C.text,marginBottom:18}}>Settings</h3>
@@ -1691,11 +1713,29 @@ export default function App(){
       try{
         const data=await loadAppData(user.uid);
         if(cancelled)return;
-        setBooks(Array.isArray(data?.books)?data.books:[]);
-        setSessions(Array.isArray(data?.sessions)?data.sessions:[]);
-        setGoals(Array.isArray(data?.goals)?data.goals:[]);
-        if(data?.settings)setSettings(p=>({...p,...data.settings}));
+        if(data){
+          setBooks(Array.isArray(data?.books)?data.books:[]);
+          setSessions(Array.isArray(data?.sessions)?data.sessions:[]);
+          setGoals(Array.isArray(data?.goals)?data.goals:[]);
+          if(data?.settings)setSettings(p=>({...p,...data.settings}));
+          saveLocalCache(user.uid, data);
+        } else {
+          const local=loadLocalCache(user.uid);
+          if(local){
+            setBooks(Array.isArray(local?.books)?local.books:[]);
+            setSessions(Array.isArray(local?.sessions)?local.sessions:[]);
+            setGoals(Array.isArray(local?.goals)?local.goals:[]);
+            if(local?.settings)setSettings(p=>({...p,...local.settings}));
+          }
+        }
       }catch(e){
+        const local=loadLocalCache(user.uid);
+        if(local){
+          setBooks(Array.isArray(local?.books)?local.books:[]);
+          setSessions(Array.isArray(local?.sessions)?local.sessions:[]);
+          setGoals(Array.isArray(local?.goals)?local.goals:[]);
+          if(local?.settings)setSettings(p=>({...p,...local.settings}));
+        }
       }finally{
         if(!cancelled)setLoaded(true);
       }
@@ -1707,6 +1747,7 @@ export default function App(){
     if(!loaded||!user)return;
     if(saveTimerRef.current)clearTimeout(saveTimerRef.current);
     setSaveState("saving");
+    saveLocalCache(user.uid,{books,sessions,goals,settings});
     saveTimerRef.current=setTimeout(()=>{
       saveAppData(user.uid,{books,sessions,goals,settings})
         .then(()=>setSaveState("saved"))
@@ -1779,10 +1820,17 @@ export default function App(){
         .bb-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
         .bb-search{flex:1 1 220px;min-width:160px;}
         .bb-tabs{flex-wrap:wrap;}
+        .bb-goals-layout{display:grid;grid-template-columns:256px 1fr;gap:24;}
+        .bb-goals-sidebar,.bb-goals-main{min-width:0;}
         @media (max-width:820px){
           .bb-topbar{flex-direction:column;align-items:stretch;}
           .bb-actions{width:100%;justify-content:space-between;}
           .bb-search{width:100%;}
+        }
+        @media (max-width:900px){
+          .bb-goals-layout{grid-template-columns:1fr;gap:16px;}
+          .bb-goals-sidebar{order:2;}
+          .bb-goals-main{order:1;}
         }
         @media (max-width:520px){
           .bb-actions{gap:6px;}

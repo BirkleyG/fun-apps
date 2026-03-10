@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { browserLocalPersistence, getAuth, GoogleAuthProvider, setPersistence } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { enableIndexedDbPersistence, getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -16,5 +16,6 @@ const auth = getAuth(app);
 setPersistence(auth, browserLocalPersistence).catch(() => undefined);
 const provider = new GoogleAuthProvider();
 const db = getFirestore(app);
+enableIndexedDbPersistence(db).catch(() => undefined);
 
 export { auth, db, provider };
