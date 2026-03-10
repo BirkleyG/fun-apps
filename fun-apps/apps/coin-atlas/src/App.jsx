@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import * as d3 from "d3";
 import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
-import { addDoc, collection, getDocs, query } from "firebase/firestore";
-import { auth, db, provider } from "./firebase";
+import { collection, doc, onSnapshot, query, serverTimestamp, setDoc } from "firebase/firestore";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { auth, db, provider, storage } from "./firebase";
 
 /* ===================== DATA ===================== */
 
@@ -99,14 +100,14 @@ const INJECT_STYLES = () => {
   el.id = "ca-styles";
   el.textContent = `
     @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Crimson+Pro:wght@300;400;500&display=swap');
-    .ca{--bg:#08121c;--sur:#0f1e2c;--sur2:#162637;--sur3:#1d3045;--gold:#c9a84c;--goldl:#e8d5a3;--goldd:rgba(201,168,76,.13);--goldb:rgba(201,168,76,.22);--txt:#f0ead6;--muted:#7a8fa0;--dim:#3a5060;--red:#d9534f;--grn:#5ab090;--r:12px;--fd:'Playfair Display',Georgia,serif;--fb:'Crimson Pro',Georgia,serif}
+    .ca{--bg:#08121c;--sur:#0f1e2c;--sur2:#162637;--sur3:#1d3045;--gold:#c9a84c;--goldl:#e8d5a3;--goldd:rgba(201,168,76,.13);--goldb:rgba(201,168,76,.22);--txt:#f0ead6;--muted:#7a8fa0;--dim:#3a5060;--red:#d9534f;--grn:#5ab090;--r:12px;--fd:'Playfair Display',Georgia,serif;--fb:'Crimson Pro',Georgia,serif;--safe-top:env(safe-area-inset-top,0px);--safe-bottom:env(safe-area-inset-bottom,0px)}
     .ca,*{box-sizing:border-box}
     .ca{background:var(--bg);color:var(--txt);font-family:var(--fb);font-size:16px;height:100dvh;min-height:100dvh;display:flex;flex-direction:column;overflow:hidden;user-select:none}
-    .ca-hdr{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;background:linear-gradient(180deg,rgba(8,18,28,.96) 0%,rgba(8,18,28,0) 100%);z-index:10;pointer-events:none}
+    .ca-hdr{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:calc(14px + var(--safe-top)) 16px 10px;background:linear-gradient(180deg,rgba(8,18,28,.96) 0%,rgba(8,18,28,0) 100%);z-index:10;pointer-events:none}
     .ca-ttl{font-family:var(--fd);font-size:21px;font-weight:700;color:var(--gold);letter-spacing:.3px}
     .ca-sub{font-size:12px;color:var(--muted);margin-top:1px}
     .ca-pbadge{background:var(--goldd);border:1px solid var(--goldb);border-radius:20px;padding:5px 13px;font-family:var(--fd);font-size:13px;color:var(--goldl);pointer-events:all;cursor:pointer}
-    .ca-map{flex:1;min-height:0;overflow:hidden;background:#05101a;position:relative}
+    .ca-map{flex:1;min-height:0;overflow:hidden;background:#05101a;position:relative;overscroll-behavior:contain}
     .ca-map svg{width:100%;height:100%}
     .ca-map path{cursor:pointer;transition:opacity .12s}
     .ca-map path:hover{opacity:.8}
@@ -114,7 +115,7 @@ const INJECT_STYLES = () => {
     .ca-filters::-webkit-scrollbar{display:none}
     .ca-chip{padding:5px 12px;border-radius:20px;border:1px solid var(--sur3);background:transparent;color:var(--muted);font-family:var(--fb);font-size:13px;cursor:pointer;white-space:nowrap;transition:all .13s}
     .ca-chip.on{border-color:var(--goldb);background:var(--goldd);color:var(--goldl)}
-    .ca-bnav{display:flex;background:var(--sur);border-top:1px solid var(--goldb)}
+    .ca-bnav{display:flex;background:var(--sur);border-top:1px solid var(--goldb);padding-bottom:calc(2px + var(--safe-bottom))}
     .ca-nbtn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 0;background:none;border:none;color:var(--muted);font-family:var(--fb);font-size:11px;cursor:pointer;transition:color .13s}
     .ca-nbtn.on{color:var(--gold)}
     .ca-nicon{font-size:19px;line-height:1}
@@ -123,7 +124,7 @@ const INJECT_STYLES = () => {
     .ca-fab:active{transform:scale(.94)}
     .ca-tip{position:fixed;background:var(--sur);border:1px solid var(--goldb);border-radius:8px;padding:6px 11px;font-size:13px;color:var(--txt);pointer-events:none;z-index:30;white-space:nowrap;font-family:var(--fd)}
     .ca-modal{position:absolute;inset:0;background:rgba(5,14,22,.8);backdrop-filter:blur(5px);z-index:50;display:flex;flex-direction:column;justify-content:flex-end}
-    .ca-sheet{background:var(--sur);border-radius:20px 20px 0 0;border-top:1px solid var(--goldb);max-height:93vh;overflow-y:auto}
+    .ca-sheet{background:var(--sur);border-radius:20px 20px 0 0;border-top:1px solid var(--goldb);max-height:93vh;overflow-y:auto;overscroll-behavior:contain}
     .ca-handle{width:38px;height:4px;background:var(--sur3);border-radius:2px;margin:12px auto 6px}
     .ca-mhdr{display:flex;align-items:center;justify-content:space-between;padding:6px 20px 14px;border-bottom:1px solid var(--goldb)}
     .ca-mttl{font-family:var(--fd);font-size:20px;font-weight:700;color:var(--gold)}
@@ -137,6 +138,11 @@ const INJECT_STYLES = () => {
     .ca-tgl{flex:1;padding:9px 6px;border-radius:var(--r);background:var(--sur2);border:1px solid var(--sur3);color:var(--muted);font-family:var(--fb);font-size:14px;cursor:pointer;text-align:center;transition:all .13s}
     .ca-tgl.on{background:var(--goldd);border-color:var(--goldb);color:var(--goldl)}
     .ca-irow{background:var(--sur2);border-radius:var(--r);padding:10px 12px;margin-bottom:8px;border:1px solid var(--sur3)}
+    .ca-file{display:block;width:100%;padding:9px 10px;border-radius:var(--r);background:var(--sur2);border:1px dashed var(--sur3);color:var(--muted);font-family:var(--fb);font-size:14px;cursor:pointer}
+    .ca-photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;margin-top:8px}
+    .ca-photo{position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--sur3);background:var(--sur)}
+    .ca-photo img{width:100%;height:80px;object-fit:cover;display:block}
+    .ca-photo-del{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;border:none;background:rgba(8,18,28,.75);color:var(--goldl);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center}
     .ca-addbtn{width:100%;padding:10px;border-radius:var(--r);background:none;border:1px dashed var(--goldb);color:var(--gold);font-family:var(--fb);font-size:15px;cursor:pointer;transition:background .13s}
     .ca-addbtn:hover{background:var(--goldd)}
     .ca-btn{width:100%;padding:12px;border-radius:var(--r);background:var(--gold);border:none;color:var(--bg);font-family:var(--fd);font-size:16px;font-weight:600;cursor:pointer;transition:opacity .13s;letter-spacing:.2px}
@@ -180,36 +186,113 @@ const INJECT_STYLES = () => {
     .ca-msi{display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;font-size:15px}
     .ca-sel-pill{margin-top:9px;padding:8px 12px;background:var(--goldd);border:1px solid var(--goldb);border-radius:8px;font-size:14px;color:var(--goldl)}
     .ca-bkbtn{display:flex;align-items:center;gap:5px;background:none;border:none;color:var(--gold);font-family:var(--fb);font-size:15px;cursor:pointer;padding:0;flex-shrink:0}
+    @media (max-width:720px){
+      .ca-ttl{font-size:18px}
+      .ca-sub{font-size:11px}
+      .ca-fab{width:48px;height:48px;font-size:24px;bottom:64px;right:14px}
+    }
   `;
   document.head.appendChild(el);
 };
 
 /* ===================== STORAGE ===================== */
 const entriesCollectionRef = collection(db, "sharedApps", "coin-atlas", "entries");
+const usersCollectionRef = collection(db, "sharedApps", "coin-atlas", "users");
 
-async function loadData() {
-  try {
-    const snapshot = await getDocs(query(entriesCollectionRef));
-    return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
-  } catch {
-    return [];
+async function ensureUserDoc(user) {
+  if (!user) return;
+  const name = resolveUserLabel(user);
+  const userRef = doc(usersCollectionRef, user.uid);
+  await setDoc(
+    userRef,
+    {
+      uid: user.uid,
+      name,
+      email: user.email || null,
+      photoURL: user.photoURL || null,
+      updatedAt: serverTimestamp()
+    },
+    { merge: true }
+  );
+}
+
+async function uploadEntryPhotos(entryId, items) {
+  const nextItems = [];
+  for (const item of items) {
+    const photos = [];
+    for (const photo of item.photos || []) {
+      if (photo?.file instanceof File) {
+        const safeName = photo.file.name ? photo.file.name.replace(/[^\w.-]+/g, "_") : "photo";
+        const path = `coin-atlas/${entryId}/${item.id}/${photo.id || uid()}-${safeName}`;
+        const fileRef = ref(storage, path);
+        await uploadBytes(fileRef, photo.file, { contentType: photo.file.type || undefined });
+        const url = await getDownloadURL(fileRef);
+        photos.push({
+          url,
+          name: photo.file.name || "photo",
+          size: photo.file.size || null,
+          type: photo.file.type || null
+        });
+      } else if (photo?.url) {
+        photos.push({
+          url: photo.url,
+          name: photo.name || "photo",
+          size: photo.size || null,
+          type: photo.type || null
+        });
+      }
+    }
+    const { photos: _discard, ...rest } = item;
+    nextItems.push({ ...rest, photos });
   }
+  return nextItems;
 }
 
 async function saveEntry(entry) {
-  const docRef = await addDoc(entriesCollectionRef, entry);
-  return docRef.id;
+  const entryRef = doc(entriesCollectionRef);
+  const entryId = entryRef.id;
+  const nextItems = await uploadEntryPhotos(entryId, entry.items || []);
+  const payload = {
+    ...entry,
+    id: entryId,
+    items: nextItems,
+    updatedAt: serverTimestamp()
+  };
+  await setDoc(entryRef, payload);
+  return entryId;
 }
 
 /* ===================== UTILS ===================== */
+const LEGACY_PREFIX = "legacy:";
 function uid() { return Math.random().toString(36).slice(2,10) + Date.now().toString(36); }
+function resolveUserLabel(user) {
+  if (!user) return "Collector";
+  if (user.displayName && user.displayName.trim()) return user.displayName.trim();
+  if (user.email) return user.email.split("@")[0];
+  return "Collector";
+}
 function getCountries(entry) {
   if (entry.isHistorical) return entry.appliesTo || [];
   return entry.countryId ? [entry.countryId] : [];
 }
+function getEntryContributorLabel(entry, contributorMap) {
+  if (entry.contributorId && contributorMap?.[entry.contributorId]) {
+    return contributorMap[entry.contributorId];
+  }
+  return entry.contributorName || entry.contributor || "Collector";
+}
+function entryMatchesContributor(entry, filterId, contributorMap) {
+  if (!filterId || filterId === "all") return true;
+  if (entry.contributorId && entry.contributorId === filterId) return true;
+  const label =
+    contributorMap?.[filterId] ||
+    (filterId.startsWith(LEGACY_PREFIX) ? filterId.slice(LEGACY_PREFIX.length) : filterId);
+  const entryLabel = entry.contributorName || entry.contributor || "";
+  return !!label && label === entryLabel;
+}
 
 /* ===================== WORLD MAP ===================== */
-function WorldMap({ entries, onCountryClick, filterType, filterContributor }) {
+function WorldMap({ entries, onCountryClick, filterType, filterContributor, contributorMap }) {
   const svgRef = useRef(null);
   const containerRef = useRef(null);
   const [geoData, setGeoData] = useState(null);
@@ -220,7 +303,7 @@ function WorldMap({ entries, onCountryClick, filterType, filterContributor }) {
   const collectedSet = useMemo(() => {
     const s = new Map();
     entries.forEach(e => {
-      if (filterContributor !== "all" && e.contributor !== filterContributor) return;
+      if (!entryMatchesContributor(e, filterContributor, contributorMap)) return;
       getCountries(e).forEach(cid => {
         if (!s.has(cid)) s.set(cid, { coins: 0, bills: 0 });
         const inf = s.get(cid);
@@ -235,7 +318,7 @@ function WorldMap({ entries, onCountryClick, filterType, filterContributor }) {
     const r = new Set();
     s.forEach((inf, cid) => { if (inf.coins + inf.bills > 0) r.add(cid); });
     return r;
-  }, [entries, filterType, filterContributor]);
+  }, [entries, filterType, filterContributor, contributorMap]);
 
   useEffect(() => {
     if (window.topojson) { setReady(true); return; }
@@ -337,15 +420,39 @@ function WorldMap({ entries, onCountryClick, filterType, filterContributor }) {
 }
 
 /* ===================== ADD MODAL ===================== */
-function AddModal({ onClose, onSave, preCountryId, contributorOptions, currentContributor }) {
+function AddModal({
+  onClose,
+  onSave,
+  preCountryId,
+  contributorOptions,
+  currentContributor,
+  currentContributorId
+}) {
   const [step, setStep] = useState(preCountryId ? 1 : 0);
   const [etype, setEtype] = useState("modern");
   const [countryId, setCountryId] = useState(preCountryId ? String(preCountryId) : "");
   const [histId, setHistId] = useState("");
-  const [contributor, setContributor] = useState(currentContributor);
-  const [items, setItems] = useState([{id:uid(),type:"coin",denomination:"",year:"",notes:""}]);
+  const [contributorId, setContributorId] = useState(currentContributorId || "");
+  const [items, setItems] = useState([
+    { id: uid(), type: "coin", denomination: "", year: "", notes: "", photos: [] }
+  ]);
   const [appliesTo, setAppliesTo] = useState([]);
   const [search, setSearch] = useState("");
+  const itemsRef = useRef(items);
+
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
+
+  useEffect(() => {
+    return () => {
+      itemsRef.current.forEach((item) => {
+        (item.photos || []).forEach((photo) => {
+          if (photo.previewUrl) URL.revokeObjectURL(photo.previewUrl);
+        });
+      });
+    };
+  }, []);
 
   const selHist = HIST.find(h => h.id === histId);
 
@@ -366,6 +473,19 @@ function AddModal({ onClose, onSave, preCountryId, contributorOptions, currentCo
     ? ["Entity","Who","Items","Maps To"]
     : ["Entity","Who","Items"];
 
+  const contributorChoices = contributorOptions.length
+    ? contributorOptions
+    : [{ id: currentContributorId || "me", label: currentContributor || "Collector" }];
+
+  useEffect(() => {
+    if (!contributorId && contributorChoices[0]?.id) {
+      setContributorId(contributorChoices[0].id);
+    }
+  }, [contributorChoices, contributorId]);
+
+  const contributorLabel =
+    contributorChoices.find((c) => c.id === contributorId)?.label || currentContributor || "Collector";
+
   const canNext = () => {
     if (step === 0) return etype === "modern" ? !!countryId : !!histId;
     if (step === 1) return true;
@@ -384,23 +504,64 @@ function AddModal({ onClose, onSave, preCountryId, contributorOptions, currentCo
 
   const doSave = () => {
     onSave({
-      id: uid(),
       date: new Date().toISOString(),
-      contributor,
+      contributorId: contributorId || null,
+      contributorName: contributorLabel,
+      contributor: contributorLabel,
       isHistorical: etype === "historical",
       countryId: etype === "modern" ? +countryId : null,
       entityId: etype === "historical" ? histId : null,
       entityName: etype === "modern" ? CD[+countryId]?.n : selHist?.name,
       appliesTo: etype === "historical" ? appliesTo : [],
-      items: items.filter(i => i.denomination.trim()).map(i => ({...i, id:uid()}))
+      items: items.filter(i => i.denomination.trim()).map(i => ({
+        ...i,
+        photos: i.photos || []
+      }))
     });
     onClose();
   };
 
-  const addItem = () => setItems(p => [...p, {id:uid(),type:"coin",denomination:"",year:"",notes:""}]);
-  const rmItem = id => setItems(p => p.filter(i => i.id !== id));
+  const addItem = () => setItems(p => [
+    ...p,
+    { id: uid(), type: "coin", denomination: "", year: "", notes: "", photos: [] }
+  ]);
+  const rmItem = (id) => setItems(p => {
+    const target = p.find(i => i.id === id);
+    (target?.photos || []).forEach(photo => {
+      if (photo.previewUrl) URL.revokeObjectURL(photo.previewUrl);
+    });
+    return p.filter(i => i.id !== id);
+  });
   const upItem = (id, f, v) => setItems(p => p.map(i => i.id===id ? {...i,[f]:v} : i));
   const toggleAT = id => setAppliesTo(p => p.includes(id) ? p.filter(x => x!==id) : [...p,id]);
+  const addPhotos = (id, fileList) => {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    setItems(p => p.map(i => {
+      if (i.id !== id) return i;
+      const nextPhotos = files.map(file => ({
+        id: uid(),
+        file,
+        previewUrl: URL.createObjectURL(file),
+        name: file.name,
+        size: file.size,
+        type: file.type
+      }));
+      return { ...i, photos: [...(i.photos || []), ...nextPhotos] };
+    }));
+  };
+  const removePhoto = (itemId, photoId) => {
+    setItems(p => p.map(i => {
+      if (i.id !== itemId) return i;
+      const nextPhotos = (i.photos || []).filter(photo => {
+        if (photo.id === photoId && photo.previewUrl) {
+          URL.revokeObjectURL(photo.previewUrl);
+        }
+        return photo.id !== photoId;
+      });
+      return { ...i, photos: nextPhotos };
+    }));
+  };
 
   const displayName = etype === "modern" ? CD[+countryId]?.n : selHist?.name;
 
@@ -468,11 +629,11 @@ function AddModal({ onClose, onSave, preCountryId, contributorOptions, currentCo
             <div className="ca-lbl">Who added this?</div>
             <select
               className="ca-sel"
-              value={contributor}
-              onChange={(e) => setContributor(e.target.value)}
+              value={contributorId}
+              onChange={(e) => setContributorId(e.target.value)}
             >
-              {contributorOptions.map((c) => (
-                <option key={c} value={c}>{c}</option>
+              {contributorChoices.map((c) => (
+                <option key={c.id} value={c.id}>{c.label}</option>
               ))}
             </select>
             {displayName && (
@@ -504,6 +665,30 @@ function AddModal({ onClose, onSave, preCountryId, contributorOptions, currentCo
                     style={{width:82,flexShrink:0}} type="number" min="1" max="2099"/>
                   {items.length>1 && (
                     <button className="ca-dbtn" onClick={()=>rmItem(item.id)}>🗑</button>
+                  )}
+                </div>
+                <div style={{marginTop:8}}>
+                  <div className="ca-lbl" style={{marginBottom:6}}>Photos (optional)</div>
+                  <input
+                    className="ca-file"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    multiple
+                    onChange={(e) => {
+                      addPhotos(item.id, e.target.files);
+                      e.target.value = "";
+                    }}
+                  />
+                  {(item.photos || []).length > 0 && (
+                    <div className="ca-photo-grid">
+                      {item.photos.map((photo) => (
+                        <div key={photo.id} className="ca-photo">
+                          <img src={photo.previewUrl || photo.url} alt={photo.name || "photo"} />
+                          <button className="ca-photo-del" onClick={() => removePhoto(item.id, photo.id)}>x</button>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>
@@ -547,7 +732,7 @@ function AddModal({ onClose, onSave, preCountryId, contributorOptions, currentCo
 }
 
 /* ===================== COUNTRY DETAIL ===================== */
-function CountryDetail({ countryId, entries, onClose, onAdd, contributorOptions }) {
+function CountryDetail({ countryId, entries, onClose, onAdd, contributorOptions, contributorMap }) {
   const [ft, setFt] = useState("all");
   const [fc, setFc] = useState("all");
   const cinfo = CD[countryId];
@@ -555,17 +740,17 @@ function CountryDetail({ countryId, entries, onClose, onAdd, contributorOptions 
 
   const relevant = useMemo(() => entries.filter(e => {
     if (!getCountries(e).includes(countryId)) return false;
-    if (fc!=="all" && e.contributor!==fc) return false;
+    if (!entryMatchesContributor(e, fc, contributorMap)) return false;
     return true;
-  }), [entries, countryId, fc]);
+  }), [entries, countryId, fc, contributorMap]);
 
   const totals = useMemo(() => {
     const all = entries.filter(e => getCountries(e).includes(countryId));
     const coins = all.flatMap(e=>e.items).filter(i=>i.type==="coin").length;
     const bills = all.flatMap(e=>e.items).filter(i=>i.type==="bill").length;
-    const contribs = [...new Set(all.map(e=>e.contributor))];
+    const contribs = [...new Set(all.map(e=>getEntryContributorLabel(e, contributorMap)))];
     return {coins,bills,contribs};
-  }, [entries, countryId]);
+  }, [entries, countryId, contributorMap]);
 
   return (
     <div className="ca" style={{position:"absolute",inset:0,zIndex:40}}>
@@ -596,9 +781,9 @@ function CountryDetail({ countryId, entries, onClose, onAdd, contributorOptions 
             {f==="all"?"All":f==="coin"?"🪙 Coins":"💵 Bills"}
           </button>
         ))}
-        {["all", ...contributorOptions].map(c=>(
-          <button key={c} className={`ca-chip ${fc===c?"on":""}`} onClick={()=>setFc(c)}>
-            {c==="all"?"Everyone":c}
+        {[{ id: "all", label: "Everyone" }, ...contributorOptions].map(c=>(
+          <button key={c.id} className={`ca-chip ${fc===c.id?"on":""}`} onClick={()=>setFc(c.id)}>
+            {c.label}
           </button>
         ))}
       </div>
@@ -618,7 +803,7 @@ function CountryDetail({ countryId, entries, onClose, onAdd, contributorOptions 
             return (
               <div key={entry.id} style={{marginBottom:16}}>
                 <div style={{fontSize:11,color:"var(--muted)",marginBottom:6,textTransform:"uppercase",letterSpacing:".8px"}}>
-                  {new Date(entry.date).toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})} · {entry.contributor}
+                  {new Date(entry.date).toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})} · {getEntryContributorLabel(entry, contributorMap)}
                   {entry.isHistorical && <span style={{marginLeft:6,color:"var(--gold)",fontSize:10}}>via {entry.entityName}</span>}
                 </div>
                 {eis.map(item=>(
@@ -631,6 +816,15 @@ function CountryDetail({ countryId, entries, onClose, onAdd, contributorOptions 
                     </div>
                     {item.year && <div className="ca-imt">{item.year}</div>}
                     {item.notes && <div className="ca-imt" style={{fontStyle:"italic"}}>{item.notes}</div>}
+                    {(item.photos || []).length > 0 && (
+                      <div className="ca-photo-grid" style={{gridTemplateColumns:"repeat(auto-fill,minmax(70px,1fr))",marginTop:8}}>
+                        {item.photos.map((photo, idx) => (
+                          <a key={`${item.id}-${idx}`} href={photo.url} target="_blank" rel="noreferrer" className="ca-photo">
+                            <img src={photo.url} alt={photo.name || "photo"} />
+                          </a>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -643,7 +837,7 @@ function CountryDetail({ countryId, entries, onClose, onAdd, contributorOptions 
 }
 
 /* ===================== STATS PAGE ===================== */
-function StatsPage({ entries, contributorOptions }) {
+function StatsPage({ entries, contributorOptions, contributorMap }) {
   const s = useMemo(() => {
     const byC = new Map();
     entries.forEach(e => {
@@ -663,9 +857,18 @@ function StatsPage({ entries, contributorOptions }) {
     const coins=allItems.filter(i=>i.type==="coin").length;
     const bills=allItems.filter(i=>i.type==="bill").length;
     const byCon={};
-    contributorOptions.forEach(c=>{byCon[c]={countries:new Set(),items:0,coins:0,bills:0};});
+    const labelToId = new Map();
+    contributorOptions.forEach(c=>{
+      byCon[c.id]={label:c.label,countries:new Set(),items:0,coins:0,bills:0};
+      labelToId.set(c.label, c.id);
+    });
     entries.forEach(e=>{
-      const cv=byCon[e.contributor]; if(!cv)return;
+      const label = getEntryContributorLabel(e, contributorMap);
+      const id = e.contributorId || labelToId.get(label) || `${LEGACY_PREFIX}${label}`;
+      if (!byCon[id]) {
+        byCon[id]={label,countries:new Set(),items:0,coins:0,bills:0};
+      }
+      const cv=byCon[id];
       getCountries(e).forEach(cid=>cv.countries.add(cid));
       e.items.forEach(it=>{cv.items++;if(it.type==="coin")cv.coins++;else cv.bills++;});
     });
@@ -675,7 +878,7 @@ function StatsPage({ entries, contributorOptions }) {
       .map(([id,inf])=>({name:CD[id]?.n||"?",coins:inf.coins,bills:inf.bills}));
     const hist = entries.filter(e=>e.isHistorical).length;
     return {total,collected,pct:Math.round((collected/total)*100),byCont,coins,bills,byCon,top,hist};
-  }, [entries]);
+  }, [entries, contributorOptions, contributorMap]);
 
   const Box = ({n,l})=>(
     <div className="ca-scard">
@@ -714,11 +917,11 @@ function StatsPage({ entries, contributorOptions }) {
       <div style={{background:"var(--sur)",border:"1px solid var(--goldb)",borderRadius:"var(--r)",padding:"14px 16px",marginBottom:12}}>
         <div style={{fontFamily:"var(--fd)",fontSize:16,fontWeight:600,color:"var(--gold)",marginBottom:12}}>Collectors</div>
         {contributorOptions.map(c=>{
-          const inf=s.byCon[c];
+          const inf=s.byCon[c.id];
           return (
-            <div key={c} style={{marginBottom:12,paddingBottom:12,borderBottom:"1px solid var(--sur2)"}}>
+            <div key={c.id} style={{marginBottom:12,paddingBottom:12,borderBottom:"1px solid var(--sur2)"}}>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-                <span style={{fontFamily:"var(--fd)",fontSize:16}}>{c}</span>
+                <span style={{fontFamily:"var(--fd)",fontSize:16}}>{c.label}</span>
                 <span style={{color:"var(--gold)",fontSize:14}}>{inf?.countries.size||0} countries</span>
               </div>
               <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
@@ -756,8 +959,9 @@ function StatsPage({ entries, contributorOptions }) {
 }
 
 /* ===================== MAIN ===================== */
-function CoinAtlasApp({ currentContributor }) {
+function CoinAtlasApp({ currentContributor, currentContributorId }) {
   const [entries, setEntries] = useState([]);
+  const [contributors, setContributors] = useState([]);
   const [page, setPage] = useState("map");
   const [showAdd, setShowAdd] = useState(false);
   const [selCountry, setSelCountry] = useState(null);
@@ -769,27 +973,78 @@ function CoinAtlasApp({ currentContributor }) {
 
   useEffect(() => {
     INJECT_STYLES();
-    loadData().then(e => { setEntries(e); setLoaded(true); });
+    const entriesQuery = query(entriesCollectionRef);
+    const unsubscribeEntries = onSnapshot(
+      entriesQuery,
+      (snapshot) => {
+        const next = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+        setEntries(next);
+        setLoaded(true);
+      },
+      () => setLoaded(true)
+    );
+    const unsubscribeUsers = onSnapshot(
+      usersCollectionRef,
+      (snapshot) => {
+        const next = snapshot.docs.map((docSnap) => {
+          const data = docSnap.data() || {};
+          return {
+            id: docSnap.id,
+            label: data.name || data.email || "Collector"
+          };
+        });
+        setContributors(next);
+      },
+      () => setContributors([])
+    );
+    return () => {
+      unsubscribeEntries();
+      unsubscribeUsers();
+    };
   }, []);
 
   const contributorOptions = useMemo(() => {
-    const options = new Set([currentContributor]);
-    entries.forEach((entry) => {
-      if (entry.contributor) options.add(entry.contributor);
+    const byId = new Map();
+    contributors.forEach((c) => {
+      if (c?.id) byId.set(c.id, { id: c.id, label: c.label });
     });
-    return Array.from(options);
-  }, [entries, currentContributor]);
+    if (currentContributorId && !byId.has(currentContributorId)) {
+      byId.set(currentContributorId, { id: currentContributorId, label: currentContributor || "Collector" });
+    }
+    const labels = new Set(Array.from(byId.values()).map((c) => c.label));
+    entries.forEach((entry) => {
+      const label = entry.contributorName || entry.contributor;
+      if (label && !labels.has(label)) {
+        const id = `${LEGACY_PREFIX}${label}`;
+        byId.set(id, { id, label });
+        labels.add(label);
+      }
+    });
+    return Array.from(byId.values()).sort((a, b) => a.label.localeCompare(b.label));
+  }, [contributors, entries, currentContributor, currentContributorId]);
+
+  const contributorMap = useMemo(() => {
+    const next = {};
+    contributorOptions.forEach((c) => {
+      next[c.id] = c.label;
+    });
+    return next;
+  }, [contributorOptions]);
+
+  useEffect(() => {
+    if (filterCon === "all") return;
+    if (!contributorOptions.find((c) => c.id === filterCon)) {
+      setFilterCon("all");
+    }
+  }, [filterCon, contributorOptions]);
 
   const handleSave = useCallback(async (entry) => {
-    const tempId = `temp-${Date.now()}`;
-    setEntries((prev) => [...prev, { ...entry, id: tempId }]);
     setSaveState("saving");
     try {
-      const savedId = await saveEntry(entry);
-      setEntries((prev) => prev.map((e) => (e.id === tempId ? { ...e, id: savedId } : e)));
+      await saveEntry(entry);
       setSaveState("saved");
+      setTimeout(() => setSaveState("idle"), 1500);
     } catch {
-      setEntries((prev) => prev.filter((e) => e.id !== tempId));
       setSaveState("error");
     }
   }, []);
@@ -841,15 +1096,16 @@ function CoinAtlasApp({ currentContributor }) {
               onCountryClick={id=>setSelCountry(id)}
               filterType={filterType}
               filterContributor={filterCon}
+              contributorMap={contributorMap}
             />
             <div className="ca-filters">
               {[["all","🌍 All"],["coin","🪙 Coins"],["bill","💵 Bills"]].map(([v,l])=>(
                 <button key={v} className={`ca-chip ${filterType===v?"on":""}`} onClick={()=>setFilterType(v)}>{l}</button>
               ))}
               <div style={{width:1,background:"var(--sur3)",margin:"3px 2px",flexShrink:0}}/>
-              {["all", ...contributorOptions].map(c=>(
-                <button key={c} className={`ca-chip ${filterCon===c?"on":""}`} onClick={()=>setFilterCon(c)}>
-                  {c==="all"?"Everyone":c}
+              {[{ id: "all", label: "Everyone" }, ...contributorOptions].map(c=>(
+                <button key={c.id} className={`ca-chip ${filterCon===c.id?"on":""}`} onClick={()=>setFilterCon(c.id)}>
+                  {c.label}
                 </button>
               ))}
             </div>
@@ -863,7 +1119,7 @@ function CoinAtlasApp({ currentContributor }) {
           <div style={{padding:"14px 16px 0",borderBottom:"1px solid var(--goldb)"}}>
             <div className="ca-ttl" style={{fontSize:22,marginBottom:8}}>Stats</div>
           </div>
-          <StatsPage entries={entries} contributorOptions={contributorOptions}/>
+          <StatsPage entries={entries} contributorOptions={contributorOptions} contributorMap={contributorMap}/>
         </div>
       )}
 
@@ -875,6 +1131,7 @@ function CoinAtlasApp({ currentContributor }) {
           onClose={()=>setSelCountry(null)}
           onAdd={handleAddForCountry}
           contributorOptions={contributorOptions}
+          contributorMap={contributorMap}
         />
       )}
 
@@ -891,6 +1148,7 @@ function CoinAtlasApp({ currentContributor }) {
           preCountryId={preCountry}
           contributorOptions={contributorOptions}
           currentContributor={currentContributor}
+          currentContributorId={currentContributorId}
         />
       )}
 
@@ -955,9 +1213,14 @@ export default function CoinAtlas() {
     );
   }
 
-  const currentContributor =
-    (user.displayName && user.displayName.trim()) ||
-    (user.email ? user.email.split("@")[0] : "Collector");
+  useEffect(() => {
+    if (!user) return;
+    ensureUserDoc(user).catch(() => undefined);
+  }, [user]);
 
-  return <CoinAtlasApp currentContributor={currentContributor} />;
+  const currentContributor = resolveUserLabel(user);
+
+  return (
+    <CoinAtlasApp currentContributor={currentContributor} currentContributorId={user.uid} />
+  );
 }

@@ -9,6 +9,15 @@ service cloud.firestore {
       allow read, write: if signedIn() && request.auth.uid == userId;
     }
 
+    match /sharedApps/coin-atlas/entries/{entryId} {
+      allow read, write: if signedIn();
+    }
+
+    match /sharedApps/coin-atlas/users/{userId} {
+      allow read: if signedIn();
+      allow write: if signedIn() && request.auth.uid == userId;
+    }
+
     match /time-loop-cyoa/{docId} {
       allow read, write: if docId == "story";
     }

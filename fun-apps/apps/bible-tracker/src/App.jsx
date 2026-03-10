@@ -22,9 +22,9 @@ async function saveAppData(uid, payload) {
     { merge: true }
   );
 }
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
 // ICONS
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
 const Icon = ({ type, size = 18, color = "currentColor", strokeWidth = 1.75 }) => {
   const p = { fill:"none", stroke:color, strokeWidth, strokeLinecap:"round", strokeLinejoin:"round", viewBox:"0 0 24 24", width:size, height:size, display:"inline-block", verticalAlign:"middle", flexShrink:0 };
   switch(type) {
@@ -59,9 +59,9 @@ const Icon = ({ type, size = 18, color = "currentColor", strokeWidth = 1.75 }) =
   }
 };
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
 // BIBLE DATA
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
 const BIBLE_BOOKS = [
   {name:"Genesis",chapters:50,testament:"OT",category:"pentateuch"},
   {name:"Exodus",chapters:40,testament:"OT",category:"pentateuch"},
@@ -152,15 +152,15 @@ function catFilter(b, cat) {
   return b.category===cat;
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// CHRONOLOGICAL PLAN â€” exact interleaved order from the provided document
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
+// CHRONOLOGICAL PLAN — exact interleaved order from the provided document
+// ─────────────────────────────────────────────────────────────────────────────
 function buildChronPlan() {
-  // ch(book, ...nums) â†’ specific chapters
+  // ch(book, ...nums) → specific chapters
   const ch = (book, ...nums) => nums.map(n => `${book} ${n}`);
-  // all(name) â†’ every chapter of a book
+  // all(name) → every chapter of a book
   const all = name => { const b=BIBLE_BOOKS.find(x=>x.name===name); return b?Array.from({length:b.chapters},(_,i)=>`${name} ${i+1}`):[];};
-  // ps(n) â†’ "Psalms N" (matches BIBLE_BOOKS name "Psalms")
+  // ps(n) → "Psalms N" (matches BIBLE_BOOKS name "Psalms")
   const ps = (...nums) => nums.map(n=>`Psalms ${n}`);
 
   return [
@@ -284,7 +284,7 @@ function buildChronPlan() {
     ...ch("Ezra",7,8,9,10),
     ...ch("Nehemiah",1,2,3,4,5,6,7,8,9,10,11,12,13), ...ps(126),
     ...all("Malachi"),
-    // New Testament â€” interleaved Gospels
+    // New Testament — interleaved Gospels
     "Luke 1","John 1",
     "Matthew 1","Luke 2",
     "Matthew 2",
@@ -331,7 +331,7 @@ function buildChronPlan() {
     "Luke 23","John 18","John 19",
     "Matthew 28","Mark 16",
     "Luke 24","John 20","John 21",
-    // Acts â€” interspersed with epistles
+    // Acts — interspersed with epistles
     ...ch("Acts",1,2,3,4,5,6,7,8,9,10,11,12,13,14),
     ...all("James"),
     ...ch("Acts",15,16),
@@ -375,7 +375,7 @@ function buildChapters(bookNames) {
   return out;
 }
 
-// Central chapter list builder â€” handles chronological specially
+// Central chapter list builder — handles chronological specially
 function getChapterList(type, customBooks=[]) {
   if (type==="chronological") return buildChronPlan();
   if (type==="custom") return buildChapters(customBooks.filter(b=>b.selected).map(b=>b.name));
@@ -386,9 +386,9 @@ function todayStr() { return new Date().toISOString().slice(0,10); }
 function fmtDate(d) { try { return new Date(d+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}); } catch(e){return d;} }
 function getBook(ch) { const p=ch.split(" "); return p.slice(0,-1).join(" "); }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// CHOIR SOUND â€” "Ahh-AHHH!"
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
+// CHOIR SOUND — "Ahh-AHHH!"
+// ─────────────────────────────────────────────────────────────────────────────
 function playChoir() {
   try {
     const ctx = new (window.AudioContext||window.webkitAudioContext)();
@@ -434,20 +434,20 @@ function playChoir() {
       vib.stop(ctx.currentTime + endT + 0.05);
     };
 
-    // "Ahh" â€” soft chord on G4 (4 voices, slightly detuned for warmth)
+    // "Ahh" — soft chord on G4 (4 voices, slightly detuned for warmth)
     const G4 = 392;
     [[-18,-6,0,14]].flat().forEach(d => makeVoice(G4, d, 0, 0.42, 0.11));
 
-    // "AHHH!" â€” triumphant chord on C5 (5 voices, louder)
+    // "AHHH!" — triumphant chord on C5 (5 voices, louder)
     const C5 = 523;
     [[-20,-7,0,8,20]].flat().forEach(d => makeVoice(C5, d, 0.52, 1.45, 0.19));
 
   } catch(e) {}
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// CONFETTI â€” burst from click origin
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
+// CONFETTI — burst from click origin
+// ─────────────────────────────────────────────────────────────────────────────
 const CC = ["#8B2635","#C4734A","#D4AF37","#4A7C59","#2E5A9C","#B87333","#9B4DCA","#C84B31","#3A8A5C"];
 
 function Confetti({ origin }) {
@@ -468,16 +468,17 @@ function Confetti({ origin }) {
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
 // THEMES
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
 const L={bg:"#F5EDD8",bgCard:"#FFFCF3",bgEl:"#FFFEF9",border:"#DFD0B4",borderS:"#C4AA80",text:"#2A1A0E",textM:"#7A6040",textL:"#A8895F",acc:"#8B2635",accL:"#B84040",accBg:"#FBF0EF",gold:"#A8762A",goldL:"#F5E8C8",done:"#B0A090",doneBg:"#EDE5D8",sh:"rgba(42,26,14,0.08)",shS:"rgba(42,26,14,0.18)",nav:"#FFFCF3"};
 const D={bg:"#140E06",bgCard:"#1E1508",bgEl:"#271B09",border:"#3A2C14",borderS:"#503F20",text:"#EAD5A5",textM:"#907550",textL:"#5F4A28",acc:"#C4734A",accL:"#E09070",accBg:"#2A1A0E",gold:"#D4A843",goldL:"#2E2210",done:"#4A3820",doneBg:"#1C1408",sh:"rgba(0,0,0,0.35)",shS:"rgba(0,0,0,0.6)",nav:"#1A1106"};
 
 const GS=`
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Crimson+Text:ital,wght@0,400;0,600;1,400;1,600&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Crimson Text',Georgia,serif;-webkit-font-smoothing:antialiased;}
+:root{--safe-top:env(safe-area-inset-top,0px);--safe-bottom:env(safe-area-inset-bottom,0px);}
+body{font-family:'Crimson Text',Georgia,serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;}
 @keyframes burstC{0%{transform:translate(0,0) rotate(0deg);opacity:1;}80%{opacity:0.85;}100%{transform:translate(var(--tx),var(--ty)) rotate(740deg);opacity:0;}}
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
 @keyframes glow{0%,100%{box-shadow:0 0 0 0 rgba(139,38,53,0.3);}50%{box-shadow:0 0 0 8px rgba(139,38,53,0);}}
@@ -485,11 +486,16 @@ body{font-family:'Crimson Text',Georgia,serif;-webkit-font-smoothing:antialiased
 select,input{font-family:'Crimson Text',Georgia,serif;}
 .chbtn{transition:transform 0.12s,background 0.12s,border-color 0.12s;}.chbtn:hover{transform:translateX(2px);}
 .donebtn{transition:opacity 0.15s,background 0.15s;}.donebtn:hover{opacity:0.9;}
+.bt-top-row{padding-top:calc(12px + var(--safe-top));}
+.bt-actions{flex-wrap:wrap;gap:6px;justify-content:flex-end;}
+@media (max-width:760px){
+  .bt-actions{width:100%;justify-content:flex-start;}
+}
 `;
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
 // CUSTOM BOOK PICKER
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
 function CustomBookPicker({ t, initialBooks, onConfirm, onBack }) {
   const [books, setBooks] = useState(initialBooks);
   const [cat, setCat] = useState("all");
@@ -518,7 +524,7 @@ function CustomBookPicker({ t, initialBooks, onConfirm, onBack }) {
 
   return (
     <div style={{position:"fixed",inset:0,background:t.bg,zIndex:300,display:"flex",flexDirection:"column",animation:"fadeUp 0.2s ease"}}>
-      <div style={{padding:"12px 16px",borderBottom:`1px solid ${t.border}`,background:t.bgCard,flexShrink:0,display:"flex",alignItems:"center",gap:"10px"}}>
+      <div className="bt-top-row" style={{padding:"12px 16px",borderBottom:`1px solid ${t.border}`,background:t.bgCard,flexShrink:0,display:"flex",alignItems:"center",gap:"10px"}}>
         <button onClick={onBack} style={{background:"none",border:`1px solid ${t.border}`,color:t.textM,cursor:"pointer",padding:"6px 10px",borderRadius:"8px",display:"flex",alignItems:"center",gap:"5px"}}>
           <Icon type="chevron-right" size={14} color={t.textM} style={{transform:"rotate(180deg)"}}/>
           <span style={{fontSize:"13px"}}>Back</span>
@@ -592,9 +598,9 @@ function CustomBookPicker({ t, initialBooks, onConfirm, onBack }) {
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
 // NEW GOAL MODAL
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
 function NewGoalModal({ t, onClose, onCreate }) {
   const [step, setStep] = useState(1);
   const [type, setType] = useState(null);
@@ -604,7 +610,7 @@ function NewGoalModal({ t, onClose, onCreate }) {
   const [startChapter, setStartChapter] = useState("");
   const [name, setName] = useState("");
 
-  const TYPES=[{id:"canonical",label:"Canonical",desc:"All 66 books in biblical order"},{id:"chronological",label:"Chronological",desc:"Interleaved historically â€” as events occurred"},{id:"nt",label:"New Testament",desc:"Matthew through Revelation"},{id:"ot",label:"Old Testament",desc:"Genesis through Malachi"},{id:"gospels",label:"Gospels",desc:"Matthew, Mark, Luke & John"},{id:"custom",label:"Custom",desc:"Choose your own books & order"}];
+  const TYPES=[{id:"canonical",label:"Canonical",desc:"All 66 books in biblical order"},{id:"chronological",label:"Chronological",desc:"Interleaved historically — as events occurred"},{id:"nt",label:"New Testament",desc:"Matthew through Revelation"},{id:"ot",label:"Old Testament",desc:"Genesis through Malachi"},{id:"gospels",label:"Gospels",desc:"Matthew, Mark, Luke & John"},{id:"custom",label:"Custom",desc:"Choose your own books & order"}];
 
   const chs = type ? getChapterList(type, customBooks) : [];
 
@@ -638,11 +644,11 @@ function NewGoalModal({ t, onClose, onCreate }) {
             {["fresh","mid"].map(m=>(
               <button key={m} onClick={()=>setStartMode(m)} style={{padding:"14px 16px",borderRadius:"10px",cursor:"pointer",border:`1.5px solid ${startMode===m?t.acc:t.border}`,background:startMode===m?t.accBg:t.bgCard,textAlign:"left"}}>
                 <p style={{fontSize:"15px",fontWeight:600,color:t.text,fontFamily:"'Playfair Display',serif"}}>{m==="fresh"?"Start Fresh":"Start In Progress"}</p>
-                <p style={{fontSize:"13px",color:t.textM,marginTop:"3px"}}>{m==="fresh"?"Begin from the very first chapter":"Choose where you are â€” earlier chapters auto-complete"}</p>
+                <p style={{fontSize:"13px",color:t.textM,marginTop:"3px"}}>{m==="fresh"?"Begin from the very first chapter":"Choose where you are — earlier chapters auto-complete"}</p>
               </button>
             ))}
             {startMode==="mid"&&<select value={startChapter} onChange={e=>setStartChapter(e.target.value)} style={{padding:"9px 10px",borderRadius:"8px",border:`1px solid ${t.border}`,background:t.bgCard,color:t.text,fontSize:"14px"}}>
-              <option value="">â€” Choose starting chapter â€”</option>
+              <option value="">— Choose starting chapter —</option>
               {chs.map(c=><option key={c} value={c}>{c}</option>)}
             </select>}
           </div>}
@@ -653,7 +659,7 @@ function NewGoalModal({ t, onClose, onCreate }) {
               style={{width:"100%",padding:"10px 12px",borderRadius:"8px",border:`1.5px solid ${t.borderS}`,background:t.bgCard,color:t.text,fontSize:"16px",fontFamily:"'Playfair Display',serif"}}/>
             <div style={{marginTop:"14px",padding:"12px 14px",borderRadius:"10px",background:t.goldL,border:`1px solid ${t.gold}30`}}>
               <p style={{fontSize:"11px",color:t.gold,fontWeight:600,letterSpacing:"0.06em"}}>SUMMARY</p>
-              <p style={{fontSize:"14px",color:t.textM,marginTop:"4px"}}>{chs.length} chapters Â· {TYPES.find(tp=>tp.id===type)?.label} Â· {startMode==="mid"&&startChapter?`Starting at ${startChapter}`:"From the beginning"}</p>
+              <p style={{fontSize:"14px",color:t.textM,marginTop:"4px"}}>{chs.length} chapters · {TYPES.find(tp=>tp.id===type)?.label} · {startMode==="mid"&&startChapter?`Starting at ${startChapter}`:"From the beginning"}</p>
             </div>
           </div>}
         </div>
@@ -672,9 +678,9 @@ function NewGoalModal({ t, onClose, onCreate }) {
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
 // RANDOM READING MODAL
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
 function RandomModal({ t, onClose, onLog }) {
   const [book, setBook] = useState(""); const [ch, setCh] = useState("");
   const bd = BIBLE_BOOKS.find(b=>b.name===book);
@@ -688,12 +694,12 @@ function RandomModal({ t, onClose, onLog }) {
         </div>
         <div style={{display:"flex",flexDirection:"column",gap:"9px"}}>
           <select value={book} onChange={e=>{setBook(e.target.value);setCh("");}} style={sel}>
-            <option value="">Select bookâ€¦</option>
+            <option value="">Select book…</option>
             <optgroup label="Old Testament">{BIBLE_BOOKS.filter(b=>b.testament==="OT").map(b=><option key={b.name} value={b.name}>{b.name}</option>)}</optgroup>
             <optgroup label="New Testament">{BIBLE_BOOKS.filter(b=>b.testament==="NT").map(b=><option key={b.name} value={b.name}>{b.name}</option>)}</optgroup>
           </select>
           {bd&&<select value={ch} onChange={e=>setCh(e.target.value)} style={sel}>
-            <option value="">Select chapterâ€¦</option>
+            <option value="">Select chapter…</option>
             {Array.from({length:bd.chapters},(_,i)=><option key={i+1} value={String(i+1)}>{book} {i+1}</option>)}
           </select>}
         </div>
@@ -706,9 +712,9 @@ function RandomModal({ t, onClose, onLog }) {
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
 // LINE CHART
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
 function LineChart({ data, t }) {
   const W=320, H=72;
   const maxV=Math.max(...data.map(d=>d.count),1);
@@ -725,9 +731,9 @@ function LineChart({ data, t }) {
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
 // ANALYTICS PAGE
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
 function AnalyticsPage({ t, goals, activeGoalId, randomReadings }) {
   const [viewMode, setViewMode] = useState("overall");
   const allReadings=[];
@@ -814,11 +820,11 @@ function AnalyticsPage({ t, goals, activeGoalId, randomReadings }) {
         <div style={{background:t.bgCard,border:`1px solid ${t.border}`,borderRadius:"13px",padding:"14px 16px"}}>
           <p style={{fontFamily:"'Playfair Display',serif",fontSize:"14px",color:t.text,fontWeight:600,marginBottom:"12px"}}>Top Readings</p>
           {[
-            {label:"Most Read Chapter",icon:"book",val:topCh?`${topCh[0]} (Ã—${topCh[1]})`:"â€”"},
-            {label:"Most Read Book",icon:"bookmark",val:topBk?`${topBk[0]} (Ã—${topBk[1]})`:"â€”"},
-            {label:"Most Active Day",icon:"calendar",val:topDay?`${fmtDate(topDay[0])} Â· ${topDay[1]} ch.`:"â€”"},
-            {label:"Most Active Month",icon:"chart",val:topMo?(()=>{const [y,m]=topMo[0].split("-");return `${new Date(y,m-1).toLocaleString("en-US",{month:"long",year:"numeric"})} Â· ${topMo[1]} ch.`;})():"â€”"},
-            {label:"Most Active Week",icon:"trending",val:topWk?`${topWk[0]} Â· ${topWk[1]} ch.`:"â€”"},
+            {label:"Most Read Chapter",icon:"book",val:topCh?`${topCh[0]} (Ã—${topCh[1]})`:"—"},
+            {label:"Most Read Book",icon:"bookmark",val:topBk?`${topBk[0]} (Ã—${topBk[1]})`:"—"},
+            {label:"Most Active Day",icon:"calendar",val:topDay?`${fmtDate(topDay[0])} · ${topDay[1]} ch.`:"—"},
+            {label:"Most Active Month",icon:"chart",val:topMo?(()=>{const [y,m]=topMo[0].split("-");return `${new Date(y,m-1).toLocaleString("en-US",{month:"long",year:"numeric"})} · ${topMo[1]} ch.`;})():"—"},
+            {label:"Most Active Week",icon:"trending",val:topWk?`${topWk[0]} · ${topWk[1]} ch.`:"—"},
           ].map(({label,icon,val})=>(
             <div key={label} style={{display:"flex",alignItems:"flex-start",gap:"10px",marginBottom:"10px"}}>
               <Icon type={icon} size={14} color={t.gold}/>
@@ -827,7 +833,7 @@ function AnalyticsPage({ t, goals, activeGoalId, randomReadings }) {
           ))}
         </div>
         <div style={{background:t.bgCard,border:`1px solid ${t.border}`,borderRadius:"13px",padding:"14px 16px"}}>
-          <p style={{fontFamily:"'Playfair Display',serif",fontSize:"14px",color:t.text,fontWeight:600,marginBottom:"4px"}}>Reading Sessions Â· Last 60 Days</p>
+          <p style={{fontFamily:"'Playfair Display',serif",fontSize:"14px",color:t.text,fontWeight:600,marginBottom:"4px"}}>Reading Sessions · Last 60 Days</p>
           <p style={{fontSize:"12px",color:t.textM,marginBottom:"10px"}}>Chapters read per day</p>
           <LineChart data={lineData} t={t}/>
         </div>
@@ -848,7 +854,7 @@ function AnalyticsPage({ t, goals, activeGoalId, randomReadings }) {
           {stuckBooks.map((sb,i)=>(
             <div key={i} style={{padding:"9px 12px",borderRadius:"8px",background:t.bg,border:`1px solid ${t.border}`,marginBottom:"6px"}}>
               <div style={{display:"flex",justifyContent:"space-between"}}><p style={{fontSize:"14px",color:t.text,fontWeight:600}}>{sb.book}</p><p style={{fontSize:"12px",color:t.gold}}>{sb.done}/{sb.total} ch.</p></div>
-              <p style={{fontSize:"12px",color:t.textM}}>Last read {fmtDate(sb.lastRead)} Â· {sb.goal}</p>
+              <p style={{fontSize:"12px",color:t.textM}}>Last read {fmtDate(sb.lastRead)} · {sb.goal}</p>
             </div>
           ))}
         </div>}
@@ -860,7 +866,7 @@ function AnalyticsPage({ t, goals, activeGoalId, randomReadings }) {
               <div style={{display:"flex",flexWrap:"wrap",gap:"12px"}}>
                 <span style={{fontSize:"12px",color:t.textM}}>Chapters: <b style={{color:t.text}}>{d.totalChs}</b></span>
                 <span style={{fontSize:"12px",color:t.textM}}>Active days: <b style={{color:t.text}}>{d.activeDays}</b></span>
-                <span style={{fontSize:"12px",color:t.textM}}>Avg ch/day: <b style={{color:t.text}}>{d.activeDays>0?(d.totalChs/d.activeDays).toFixed(1):"â€”"}</b></span>
+                <span style={{fontSize:"12px",color:t.textM}}>Avg ch/day: <b style={{color:t.text}}>{d.activeDays>0?(d.totalChs/d.activeDays).toFixed(1):"—"}</b></span>
                 {d.completions>0&&<span style={{fontSize:"12px",color:t.textM}}>Completions: <b style={{color:t.gold}}>{d.completions}</b></span>}
               </div>
             </div>
@@ -907,9 +913,9 @@ function AnalyticsPage({ t, goals, activeGoalId, randomReadings }) {
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// SHARE â€” Book Opening with Rich Heatmap Tooltip
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
+// SHARE — Book Opening with Rich Heatmap Tooltip
+// ─────────────────────────────────────────────────────────────────────────────
 function SharePage({ t, goals, randomReadings, onClose }) {
   const [open, setOpen] = useState(false);
   const [tooltip, setTooltip] = useState(null); // {name,total,readNums,totalReads,rect}
@@ -965,7 +971,7 @@ function SharePage({ t, goals, randomReadings, onClose }) {
           <p style={{fontFamily:"'Playfair Display',serif",fontSize:"14px",fontWeight:600,color:t.text,marginBottom:"4px"}}>{tooltip.name}</p>
           <p style={{fontSize:"12px",color:t.textM,marginBottom:"8px"}}>
             {tooltip.readNums.filter(r=>r.count>0).length} of {tooltip.total} chapters read
-            {tooltip.totalReads>0&&` Â· ${tooltip.totalReads} total readings`}
+            {tooltip.totalReads>0&&` · ${tooltip.totalReads} total readings`}
           </p>
           {/* Mini chapter grid */}
           <div style={{display:"flex",flexWrap:"wrap",gap:"2px",marginBottom:"6px"}}>
@@ -999,11 +1005,11 @@ function SharePage({ t, goals, randomReadings, onClose }) {
         </div>
 
         {/*
-          â”€â”€ THE BOOK â”€â”€
-          Layers (bottom â†’ top):
+          ── THE BOOK ──
+          Layers (bottom → top):
             1. Right page: heatmap (always visible, right half)
             2. Inside-left page: title/stats (fades in as cover opens)
-            3. Cover: perspective wrapper â†’ rotating leather cover
+            3. Cover: perspective wrapper → rotating leather cover
             4. Spine: always on top at center
           CRITICAL: NO overflow:hidden anywhere above a 3D-transformed element.
           Perspective must be the DIRECT parent of the rotating element.
@@ -1014,10 +1020,10 @@ function SharePage({ t, goals, randomReadings, onClose }) {
           borderRadius:"8px",
           boxShadow:`0 24px 64px rgba(0,0,0,0.75)`,
           flexShrink:0,
-          // NO overflow:hidden here â€” that would kill 3D transforms
+          // NO overflow:hidden here — that would kill 3D transforms
         }}>
 
-          {/* LAYER 1 â€” Right page: heatmap (always visible) */}
+          {/* LAYER 1 — Right page: heatmap (always visible) */}
           <div style={{
             position:"absolute", right:0, top:0, bottom:0, width:"50%",
             background:`linear-gradient(160deg,${t.bgCard} 0%,${t.goldL} 100%)`,
@@ -1025,7 +1031,7 @@ function SharePage({ t, goals, randomReadings, onClose }) {
             overflow:"auto", zIndex:1,
           }}>
             <div style={{padding:"14px 12px"}}>
-              <p style={{fontFamily:"'Playfair Display',serif",fontSize:"10px",color:t.gold,letterSpacing:"0.12em",marginBottom:"10px",textAlign:"center"}}>âœ¦ HEATMAP âœ¦</p>
+              <p style={{fontFamily:"'Playfair Display',serif",fontSize:"10px",color:t.gold,letterSpacing:"0.12em",marginBottom:"10px",textAlign:"center"}}>✦ HEATMAP ✦</p>
               <p style={{fontSize:"10px",color:t.textM,marginBottom:"8px",textAlign:"center"}}>Hover a book for details</p>
               <div style={{display:"flex",flexWrap:"wrap",gap:"2px",marginBottom:"10px"}}>
                 {books.map(book=>{
@@ -1046,7 +1052,7 @@ function SharePage({ t, goals, randomReadings, onClose }) {
                         </div>
                       )}
                       {pxW>22&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"flex-end",padding:"1px 2px"}}>
-                        <span style={{fontSize:"6px",color:t.text,opacity:0.55,lineHeight:1,overflow:"hidden",whiteSpace:"nowrap"}}>{book.name.length>6?book.name.slice(0,5)+"â€¦":book.name}</span>
+                        <span style={{fontSize:"6px",color:t.text,opacity:0.55,lineHeight:1,overflow:"hidden",whiteSpace:"nowrap"}}>{book.name.length>6?book.name.slice(0,5)+"…":book.name}</span>
                       </div>}
                     </div>
                   );
@@ -1068,7 +1074,7 @@ function SharePage({ t, goals, randomReadings, onClose }) {
             </div>
           </div>
 
-          {/* LAYER 2 â€” Inside-left page: revealed as cover opens */}
+          {/* LAYER 2 — Inside-left page: revealed as cover opens */}
           <div style={{
             position:"absolute", left:0, top:0, bottom:0, width:"50%",
             background:`linear-gradient(135deg, ${t.bgCard} 0%, ${t.goldL} 100%)`,
@@ -1089,8 +1095,8 @@ function SharePage({ t, goals, randomReadings, onClose }) {
             </div>
           </div>
 
-          {/* LAYER 3 â€” Cover: perspective is the DIRECT parent of the rotating div */}
-          {/* overflow:visible is CRITICAL â€” never hidden on or above a 3D element */}
+          {/* LAYER 3 — Cover: perspective is the DIRECT parent of the rotating div */}
+          {/* overflow:visible is CRITICAL — never hidden on or above a 3D element */}
           <div style={{
             position:"absolute", left:0, top:0, bottom:0, width:"50%",
             perspective:"1000px",
@@ -1118,7 +1124,7 @@ function SharePage({ t, goals, randomReadings, onClose }) {
             </div>
           </div>
 
-          {/* LAYER 4 â€” Spine (always on top) */}
+          {/* LAYER 4 — Spine (always on top) */}
           <div style={{
             position:"absolute",
             left:"calc(50% - 5px)", top:0, bottom:0, width:"10px",
@@ -1132,9 +1138,9 @@ function SharePage({ t, goals, randomReadings, onClose }) {
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
 // SETTINGS PAGE
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
 function SettingsPage({ t, settings, onUpdateSettings, goals, randomReadings }) {
   const [showShare, setShowShare] = useState(false);
   const tog = k => onUpdateSettings({...settings,[k]:!settings[k]});
@@ -1165,15 +1171,15 @@ function SettingsPage({ t, settings, onUpdateSettings, goals, randomReadings }) 
       <div style={{background:t.bgCard,border:`1px solid ${t.border}`,borderRadius:"14px",padding:"16px"}}>
         <p style={{fontFamily:"'Playfair Display',serif",fontSize:"15px",color:t.text,fontWeight:600,marginBottom:"8px"}}>About Scripture</p>
         <p style={{fontSize:"13px",color:t.textM,lineHeight:1.7}}>A personal Bible reading tracker. All data is stored locally in your browser.</p>
-        <p style={{fontSize:"12px",color:t.textL,marginTop:"8px"}}>1,189 chapters Â· 66 books Â· 2 testaments</p>
+        <p style={{fontSize:"12px",color:t.textL,marginTop:"8px"}}>1,189 chapters · 66 books · 2 testaments</p>
       </div>
     </div>
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// CHAPTER LIST â€” with uncomplete on click
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
+// CHAPTER LIST — with uncomplete on click
+// ─────────────────────────────────────────────────────────────────────────────
 function ChapterList({ t, goal, onComplete, onUncomplete, autoScroll }) {
   const nextRef = useRef(null);
   const [showFull, setShowFull] = useState(false);
@@ -1203,7 +1209,7 @@ function ChapterList({ t, goal, onComplete, onUncomplete, autoScroll }) {
 
   return (
     <div style={{flex:1,overflowY:"auto",padding:"12px 16px"}}>
-      {/* History â€” clickable to uncomplete */}
+      {/* History — clickable to uncomplete */}
       {doneInOrder.length>0&&<div style={{marginBottom:"8px"}}>
         {doneInOrder.length>3&&<button onClick={()=>setShowFull(v=>!v)} style={{display:"flex",alignItems:"center",gap:"6px",width:"100%",padding:"7px 10px",background:"none",border:`1px dashed ${t.border}`,borderRadius:"8px",color:t.textM,cursor:"pointer",fontSize:"13px",marginBottom:"5px",justifyContent:"center"}}>
           <Icon type="chevron-down" size={13} color={t.textM} style={{transform:showFull?"rotate(180deg)":"none",transition:"transform 0.2s"}}/>
@@ -1279,9 +1285,9 @@ function ChapterList({ t, goal, onComplete, onUncomplete, autoScroll }) {
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
 // MAIN APP
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
 export default function App() {
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
@@ -1354,7 +1360,7 @@ export default function App() {
 
   const handleCreate = ng => { setGoals(p=>[...p,ng]); setActiveGoalId(ng.id); setShowNewGoal(false); };
 
-  // Complete a chapter (with fanfare) â€” only fires if not already done
+  // Complete a chapter (with fanfare) — only fires if not already done
   const handleComplete = (ch, origin) => {
     const alreadyDone = (activeGoal?.readings||[]).some(r=>r.chapter===ch);
     if (alreadyDone) return; // prevent double-complete on "next" button if already done
@@ -1371,7 +1377,7 @@ export default function App() {
     }));
   };
 
-  // Uncomplete a chapter â€” removes it from the active goal only
+  // Uncomplete a chapter — removes it from the active goal only
   const handleUncomplete = ch => {
     setGoals(p=>p.map(g=>{
       if(g.id!==activeGoalId) return g;
@@ -1389,13 +1395,13 @@ export default function App() {
   const compGoals  = goals.filter(g=>g.chapters.length>0&&new Set((g.readings||[]).map(r=>r.chapter)).size>=g.chapters.length);
 
   if(!authReady) return (
-    <div style={{width:"100%",height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:L.bg}}>
-      <div style={{textAlign:"center"}}><Icon type="book" size={32} color={L.accL}/><p style={{fontFamily:"'Playfair Display',serif",color:L.textM,fontSize:"15px",marginTop:"12px"}}>Checking sign-inâ€¦</p></div>
+    <div style={{width:"100%",minHeight:"100dvh",height:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",background:L.bg}}>
+      <div style={{textAlign:"center"}}><Icon type="book" size={32} color={L.accL}/><p style={{fontFamily:"'Playfair Display',serif",color:L.textM,fontSize:"15px",marginTop:"12px"}}>Checking sign-in…</p></div>
     </div>
   );
 
   if(!user) return (
-    <div style={{width:"100%",height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:L.bg,padding:"24px"}}>
+    <div style={{width:"100%",minHeight:"100dvh",height:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",background:L.bg,padding:"24px"}}>
       <div style={{textAlign:"center",maxWidth:"360px"}}>
         <Icon type="book" size={36} color={L.accL}/>
         <p style={{fontFamily:"'Playfair Display',serif",color:L.text,fontSize:"20px",marginTop:"12px"}}>Scripture</p>
@@ -1406,27 +1412,27 @@ export default function App() {
   );
 
   if(!loaded) return (
-    <div style={{width:"100%",height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:L.bg}}>
-      <div style={{textAlign:"center"}}><Icon type="book" size={32} color={L.accL}/><p style={{fontFamily:"'Playfair Display',serif",color:L.textM,fontSize:"15px",marginTop:"12px"}}>Loadingâ€¦</p></div>
+    <div style={{width:"100%",minHeight:"100dvh",height:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",background:L.bg}}>
+      <div style={{textAlign:"center"}}><Icon type="book" size={32} color={L.accL}/><p style={{fontFamily:"'Playfair Display',serif",color:L.textM,fontSize:"15px",marginTop:"12px"}}>Loading…</p></div>
     </div>
   );
 
   return (
     <>
       <style dangerouslySetInnerHTML={{__html:GS}}/>
-      <div style={{width:"100%",height:"100vh",display:"flex",flexDirection:"column",background:t.bg,color:t.text,fontFamily:"'Crimson Text',Georgia,serif",transition:"background 0.3s"}}>
+      <div style={{width:"100%",minHeight:"100dvh",height:"100dvh",display:"flex",flexDirection:"column",background:t.bg,color:t.text,fontFamily:"'Crimson Text',Georgia,serif",transition:"background 0.3s",overflowX:"hidden"}}>
         {confettiOrigin&&<Confetti origin={confettiOrigin}/>}
         {showNewGoal&&<NewGoalModal t={t} onClose={()=>setShowNewGoal(false)} onCreate={handleCreate}/>}
         {showRandom&&<RandomModal t={t} onClose={()=>setShowRandom(false)} onLog={handleLogRandom}/>}
 
         {/* TOP BAR */}
-        <div style={{padding:"12px 16px 10px",borderBottom:`1px solid ${t.border}`,background:t.nav,flexShrink:0}}>
+        <div className="bt-top-row" style={{padding:"12px 16px 10px",borderBottom:`1px solid ${t.border}`,background:t.nav,flexShrink:0}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"8px"}}>
             <div style={{display:"flex",alignItems:"center",gap:"9px"}}>
               <Icon type="book" size={22} color={t.acc}/>
               <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:"21px",color:t.text,fontWeight:700,letterSpacing:"-0.02em"}}>Scripture</h1>
             </div>
-            <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
+            <div className="bt-actions" style={{display:"flex",gap:"6px",alignItems:"center"}}>
               <span style={{fontSize:"11px",color:t.textM,marginRight:"4px"}}>
                 {saveState==="saving"?"Saving...":saveState==="saved"?"Saved":saveState==="error"?"Save error":""}
               </span>
@@ -1450,7 +1456,7 @@ export default function App() {
                 <Icon type="target" size={14} color={t.acc}/>
                 <div style={{flex:1,textAlign:"left",overflow:"hidden"}}>
                   <p style={{fontSize:"13px",color:t.acc,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{activeGoal?.name||"Select a plan"}</p>
-                  {activeGoal&&<p style={{fontSize:"11px",color:t.textM}}>{doneCount}/{totCount} Â· {Math.round(prog*100)}%</p>}
+                  {activeGoal&&<p style={{fontSize:"11px",color:t.textM}}>{doneCount}/{totCount} · {Math.round(prog*100)}%</p>}
                 </div>
                 <Icon type="chevron-down" size={13} color={t.textM}/>
               </button>
@@ -1459,7 +1465,7 @@ export default function App() {
                 {activeGoals.map(g=>{const gc=new Set((g.readings||[]).map(r=>r.chapter)).size;return(
                   <button key={g.id} onClick={()=>{setActiveGoalId(g.id);setShowPicker(false);}} style={{display:"flex",alignItems:"center",gap:"10px",width:"100%",padding:"10px 14px",textAlign:"left",background:g.id===activeGoalId?t.accBg:"none",border:"none",borderBottom:`1px solid ${t.border}`,cursor:"pointer"}}>
                     <Icon type="target" size={13} color={g.id===activeGoalId?t.acc:t.textL}/>
-                    <div style={{flex:1}}><p style={{fontSize:"14px",color:g.id===activeGoalId?t.acc:t.text,fontWeight:g.id===activeGoalId?600:400}}>{g.name}</p><p style={{fontSize:"12px",color:t.textM}}>{gc}/{g.chapters.length} Â· {g.chapters.length>0?Math.round((gc/g.chapters.length)*100):0}%</p></div>
+                    <div style={{flex:1}}><p style={{fontSize:"14px",color:g.id===activeGoalId?t.acc:t.text,fontWeight:g.id===activeGoalId?600:400}}>{g.name}</p><p style={{fontSize:"12px",color:t.textM}}>{gc}/{g.chapters.length} · {g.chapters.length>0?Math.round((gc/g.chapters.length)*100):0}%</p></div>
                   </button>
                 );})}
                 {compGoals.length>0&&<>
@@ -1467,13 +1473,13 @@ export default function App() {
                   {compGoals.map(g=>(
                     <button key={g.id} onClick={()=>{setActiveGoalId(g.id);setShowPicker(false);}} style={{display:"flex",alignItems:"center",gap:"10px",width:"100%",padding:"9px 14px",textAlign:"left",background:g.id===activeGoalId?t.goldL:"none",border:"none",borderBottom:`1px solid ${t.border}`,cursor:"pointer",opacity:0.8}}>
                       <Icon type="trophy" size={13} color={t.gold}/>
-                      <div><p style={{fontSize:"14px",color:t.textM}}>{g.name}</p><p style={{fontSize:"11px",color:t.textL}}>Complete Â· {g.chapters.length} chapters</p></div>
+                      <div><p style={{fontSize:"14px",color:t.textM}}>{g.name}</p><p style={{fontSize:"11px",color:t.textL}}>Complete · {g.chapters.length} chapters</p></div>
                     </button>
                   ))}
                 </>}
               </div>}
             </div>
-          ):<p style={{fontSize:"13px",color:t.textM}}>Create a plan to begin tracking your reading â†’</p>}
+          ):<p style={{fontSize:"13px",color:t.textM}}>Create a plan to begin tracking your reading →</p>}
 
           {activeGoal&&<div style={{height:"3px",background:t.doneBg,borderRadius:"2px",marginTop:"8px",overflow:"hidden"}}>
             <div style={{height:"100%",width:`${prog*100}%`,background:`linear-gradient(90deg,${t.acc},${t.gold})`,borderRadius:"2px",transition:"width 0.4s ease"}}/>
@@ -1511,5 +1517,3 @@ export default function App() {
     </>
   );
 }
-
-

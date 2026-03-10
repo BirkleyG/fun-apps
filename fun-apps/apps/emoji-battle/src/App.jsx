@@ -34,6 +34,9 @@ const RARITY_LIMITS = {
   epic: { count:1, dup:1 }
 };
 const RARITY_COLORS = { common:"#94a3b8", rare:"#60a5fa", epic:"#f472b6" };
+const SAFE_TOP = "calc(env(safe-area-inset-top, 0px) + 14px)";
+const SAFE_TOP_SM = "calc(env(safe-area-inset-top, 0px) + 10px)";
+const SAFE_BOTTOM = "calc(env(safe-area-inset-bottom, 0px) + 10px)";
 
 const makeLobbyCode = () => {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -860,7 +863,7 @@ function HoverTooltip({ eid }) {
 =========================================================== */
 function MenuScreen({ onPlay, onRulebook, onSettings, onMultiplayer, onDecks }) {
   return (
-    <div style={{ minHeight:"100vh", background:C.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"Nunito, sans-serif" }}>
+    <div style={{ minHeight:"100dvh", background:C.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"Nunito, sans-serif" }}>
       <div style={{ marginBottom:8, fontSize:72 }}>⚔️</div>
       <h1 style={{ fontFamily:"Fredoka One", fontSize:52, color:C.accent, margin:0, letterSpacing:2, textShadow:`0 0 40px ${C.accent}60` }}>EMOJI BATTLE!</h1>
       <p style={{ color:C.muted, fontSize:14, margin:"8px 0 40px", letterSpacing:1, textTransform:"uppercase" }}>Fast 1v1 • 5 Rounds • Strategy</p>
@@ -925,7 +928,7 @@ function SetupScreen({ onBack, onStart, decks, defaultDeckId }) {
     </select>
   );
   return (
-    <div style={{ minHeight:"100vh", background:C.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"Nunito, sans-serif" }}>
+    <div style={{ minHeight:"100dvh", background:C.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"Nunito, sans-serif" }}>
       <div style={{ maxWidth:380, width:"100%" }}>
         <button onClick={onBack} style={{ background:"none", border:"none", color:C.muted, fontSize:14, cursor:"pointer", marginBottom:20, fontFamily:"Nunito", fontWeight:700 }}>← Back</button>
         <h2 style={{ fontFamily:"Fredoka One", fontSize:34, color:C.accent, margin:"0 0 6px" }}>New Match</h2>
@@ -977,7 +980,7 @@ function SetupScreen({ onBack, onStart, decks, defaultDeckId }) {
 =========================================================== */
 function PassScreen({ name, onReady }) {
   return (
-    <div style={{ minHeight:"100vh", background:C.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"Nunito, sans-serif", textAlign:"center" }}>
+    <div style={{ minHeight:"100dvh", background:C.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"Nunito, sans-serif", textAlign:"center" }}>
       <div style={{ fontSize:60, marginBottom:16 }}>🫴</div>
       <h2 style={{ fontFamily:"Fredoka One", fontSize:32, color:C.text, margin:"0 0 8px" }}>Pass the device</h2>
       <p style={{ color:C.accent, fontSize:22, fontWeight:800, margin:"0 0 12px" }}>{name}</p>
@@ -1082,9 +1085,9 @@ function GameScreen({ gs, onMove, onSick, onEndGame, onPass, onLock, readOnly, w
   const turnLabel = readOnly && waitingFor ? `Waiting for ${waitingFor}` : `${activeName}'s Turn`;
 
   return (
-    <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"Nunito, sans-serif", color:C.text, display:"flex", flexDirection:"column", maxWidth:520, margin:"0 auto" }}>
+    <div style={{ minHeight:"100dvh", background:C.bg, fontFamily:"Nunito, sans-serif", color:C.text, display:"flex", flexDirection:"column", maxWidth:520, margin:"0 auto" }}>
       {/* TOP BAR */}
-      <div style={{ background:C.surf, borderBottom:`1px solid ${C.border}`, padding:"10px 16px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+      <div style={{ background:C.surf, borderBottom:`1px solid ${C.border}`, padding:"10px 16px", paddingTop:SAFE_TOP_SM, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
         <span style={{ fontFamily:"Fredoka One", fontSize:18, color:C.accent }}>⚔️ EB!</span>
         <span style={{ fontSize:13, fontWeight:700, color:C.muted }}>Round <strong style={{color:C.text}}>{round}</strong> / {ROUND_LIMIT}</span>
         <span style={{ fontSize:12, fontWeight:800, color:readOnly?C.muted:C.accent2, background:readOnly?"#242443":"#ff704320", padding:"4px 10px", borderRadius:20 }}>
@@ -1213,7 +1216,7 @@ const titleText  = w===-1?"🤝 DRAW!":("🏆 "+gs.players[w].name+" Wins!");
     <button onClick={()=>setTab(id)} style={{ flex:1, padding:"10px 0", background:tab===id?C.hi:"transparent", border:"none", borderBottom:tab===id?`2px solid ${C.accent}`:"2px solid transparent", color:tab===id?C.text:C.muted, fontFamily:"Nunito", fontWeight:700, fontSize:13, cursor:"pointer" }}>{label}</button>
   );
   return (
-    <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"Nunito, sans-serif", color:C.text, maxWidth:520, margin:"0 auto" }}>
+    <div style={{ minHeight:"100dvh", background:C.bg, fontFamily:"Nunito, sans-serif", color:C.text, maxWidth:520, margin:"0 auto" }}>
       {/* HEADER */}
       <div style={{ padding:"32px 20px 20px", textAlign:"center", borderBottom:`1px solid ${C.border}` }}>
         <div style={{ fontFamily:"Fredoka One", fontSize:38, color:titleColor, marginBottom:8, textShadow:`0 0 30px ${titleColor}60` }}>{titleText}</div>
@@ -1289,7 +1292,7 @@ const titleText  = w===-1?"🤝 DRAW!":("🏆 "+gs.players[w].name+" Wins!");
       </div>
 
       {/* ACTION BUTTONS */}
-      <div style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:520, background:C.bg, borderTop:`1px solid ${C.border}`, padding:16, display:"flex", gap:10 }}>
+      <div style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:520, background:C.bg, borderTop:`1px solid ${C.border}`, padding:16, paddingBottom:SAFE_BOTTOM, display:"flex", gap:10 }}>
         <Btn onClick={onRematch} style={{ flex:1 }}>🔁 Rematch</Btn>
         <Btn onClick={onMenu} outline style={{ flex:1 }}>🏠 Menu</Btn>
       </div>
@@ -1306,8 +1309,8 @@ function RulebookScreen({ onBack }) {
   const tabBtn=(id,label)=>(<button onClick={()=>setTab(id)} style={{flex:1,padding:"10px 0",background:tab===id?C.hi:"transparent",border:"none",borderBottom:tab===id?`2px solid ${C.accent}`:"2px solid transparent",color:tab===id?C.text:C.muted,fontFamily:"Nunito",fontWeight:700,fontSize:13,cursor:"pointer"}}>{label}</button>);
   const rule=(title,body)=>(<div style={{marginBottom:14}}><strong style={{color:C.accent,fontSize:13}}>{title}</strong><div style={{fontSize:13,color:C.muted,marginTop:4,lineHeight:1.6}}>{body}</div></div>);
   return (
-    <div style={{minHeight:"100vh",background:C.bg,fontFamily:"Nunito, sans-serif",color:C.text,maxWidth:520,margin:"0 auto"}}>
-      <div style={{background:C.surf,borderBottom:`1px solid ${C.border}`,padding:"14px 16px",display:"flex",alignItems:"center",gap:14}}>
+    <div style={{minHeight:"100dvh",background:C.bg,fontFamily:"Nunito, sans-serif",color:C.text,maxWidth:520,margin:"0 auto"}}>
+      <div style={{background:C.surf,borderBottom:`1px solid ${C.border}`,padding:"14px 16px", paddingTop:SAFE_TOP,display:"flex",alignItems:"center",gap:14}}>
         <button onClick={onBack} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontFamily:"Nunito",fontWeight:700,fontSize:14}}>← Back</button>
         <span style={{fontFamily:"Fredoka One",fontSize:22,color:C.accent}}>📖 Rulebook</span>
       </div>
@@ -1377,8 +1380,8 @@ function RulebookScreen({ onBack }) {
 =========================================================== */
 function SettingsScreen({ onBack, onSignOut, onSignIn, user }) {
   return (
-    <div style={{minHeight:"100vh",background:C.bg,fontFamily:"Nunito, sans-serif",color:C.text,maxWidth:520,margin:"0 auto"}}>
-      <div style={{background:C.surf,borderBottom:`1px solid ${C.border}`,padding:"14px 16px",display:"flex",alignItems:"center",gap:14}}>
+    <div style={{minHeight:"100dvh",background:C.bg,fontFamily:"Nunito, sans-serif",color:C.text,maxWidth:520,margin:"0 auto"}}>
+      <div style={{background:C.surf,borderBottom:`1px solid ${C.border}`,padding:"14px 16px", paddingTop:SAFE_TOP,display:"flex",alignItems:"center",gap:14}}>
         <button onClick={onBack} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontFamily:"Nunito",fontWeight:700,fontSize:14}}>← Back</button>
         <span style={{fontFamily:"Fredoka One",fontSize:22,color:C.accent}}>⚙️ Settings</span>
       </div>
@@ -1416,7 +1419,7 @@ function SettingsScreen({ onBack, onSignOut, onSignIn, user }) {
 
 function SignInPrompt({ onBack, onSignIn, title, description }) {
   return (
-    <div style={{ minHeight:"100vh", background:C.bg, display:"flex", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"Nunito, sans-serif" }}>
+    <div style={{ minHeight:"100dvh", background:C.bg, display:"flex", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"Nunito, sans-serif" }}>
       <div style={{ maxWidth:360, width:"100%", textAlign:"center" }}>
         <div style={{ fontSize:52, marginBottom:10 }}>🌐</div>
         <div style={{ fontFamily:"Fredoka One", fontSize:28, color:C.accent, marginBottom:6 }}>{title}</div>
@@ -1435,8 +1438,8 @@ function SignInPrompt({ onBack, onSignIn, title, description }) {
 =========================================================== */
 function DecksScreen({ decks, onBack, onEdit }) {
   return (
-    <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"Nunito, sans-serif", color:C.text, maxWidth:520, margin:"0 auto" }}>
-      <div style={{ background:C.surf, borderBottom:`1px solid ${C.border}`, padding:"14px 16px", display:"flex", alignItems:"center", gap:14 }}>
+    <div style={{ minHeight:"100dvh", background:C.bg, fontFamily:"Nunito, sans-serif", color:C.text, maxWidth:520, margin:"0 auto" }}>
+      <div style={{ background:C.surf, borderBottom:`1px solid ${C.border}`, padding:"14px 16px", paddingTop:SAFE_TOP, display:"flex", alignItems:"center", gap:14 }}>
         <button onClick={onBack} style={{ background:"none", border:"none", color:C.muted, cursor:"pointer", fontFamily:"Nunito", fontWeight:700, fontSize:14 }}>← Back</button>
         <span style={{ fontFamily:"Fredoka One", fontSize:22, color:C.accent }}>🧰 Decks</span>
       </div>
@@ -1507,8 +1510,8 @@ function DeckEditorScreen({ deck, onBack, onSave }) {
   const iconChoices = useMemo(() => ["grin","skull",...PIDS].filter((v,i,arr)=>arr.indexOf(v)===i), []);
 
   return (
-    <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"Nunito, sans-serif", color:C.text, maxWidth:600, margin:"0 auto" }}>
-      <div style={{ background:C.surf, borderBottom:`1px solid ${C.border}`, padding:"14px 16px", display:"flex", alignItems:"center", gap:14 }}>
+    <div style={{ minHeight:"100dvh", background:C.bg, fontFamily:"Nunito, sans-serif", color:C.text, maxWidth:600, margin:"0 auto" }}>
+      <div style={{ background:C.surf, borderBottom:`1px solid ${C.border}`, padding:"14px 16px", paddingTop:SAFE_TOP, display:"flex", alignItems:"center", gap:14 }}>
         <button onClick={onBack} style={{ background:"none", border:"none", color:C.muted, cursor:"pointer", fontFamily:"Nunito", fontWeight:700, fontSize:14 }}>← Back</button>
         <span style={{ fontFamily:"Fredoka One", fontSize:22, color:C.accent }}>Edit Deck</span>
       </div>
@@ -1610,8 +1613,8 @@ function DeckEditorScreen({ deck, onBack, onSave }) {
 ═══════════════════════════════════════════════════════════════════════ */
 function MultiplayerHub({ onBack, onCreate, onJoin, code, onCodeChange, error, lobbies, onOpenLobby, decks, selectedDeckId, onSelectDeckId }) {
   return (
-    <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"Nunito, sans-serif", color:C.text, maxWidth:520, margin:"0 auto" }}>
-      <div style={{ background:C.surf, borderBottom:`1px solid ${C.border}`, padding:"14px 16px", display:"flex", alignItems:"center", gap:14 }}>
+    <div style={{ minHeight:"100dvh", background:C.bg, fontFamily:"Nunito, sans-serif", color:C.text, maxWidth:520, margin:"0 auto" }}>
+      <div style={{ background:C.surf, borderBottom:`1px solid ${C.border}`, padding:"14px 16px", paddingTop:SAFE_TOP, display:"flex", alignItems:"center", gap:14 }}>
         <button onClick={onBack} style={{ background:"none", border:"none", color:C.muted, cursor:"pointer", fontFamily:"Nunito", fontWeight:700, fontSize:14 }}>← Back</button>
         <span style={{ fontFamily:"Fredoka One", fontSize:22, color:C.accent }}>🌐 Multiplayer</span>
       </div>
@@ -2172,7 +2175,7 @@ export default function App() {
 
   if (!authReady) {
     return (
-      <div style={{ minHeight:"100vh", background:C.bg, display:"flex", alignItems:"center", justifyContent:"center", color:C.text, fontFamily:"Nunito, sans-serif" }}>
+      <div style={{ minHeight:"100dvh", background:C.bg, display:"flex", alignItems:"center", justifyContent:"center", color:C.text, fontFamily:"Nunito, sans-serif" }}>
         Loading…
       </div>
     );
@@ -2185,7 +2188,7 @@ export default function App() {
   return (
     <>
       <style>{FONTS}</style>
-      <div style={{ background:C.bg, minHeight:"100vh" }}>
+      <div style={{ background:C.bg, minHeight:"100dvh" }}>
         {screen === "menu" && (
           <MenuScreen
             onPlay={() => setScreen("setup")}
@@ -2265,8 +2268,8 @@ export default function App() {
         )}
         {screen === "mp-lobby" && (
           user ? (
-            <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"Nunito, sans-serif", color:C.text, maxWidth:520, margin:"0 auto" }}>
-              <div style={{ background:C.surf, borderBottom:`1px solid ${C.border}`, padding:"14px 16px", display:"flex", alignItems:"center", gap:14, justifyContent:"space-between" }}>
+            <div style={{ minHeight:"100dvh", background:C.bg, fontFamily:"Nunito, sans-serif", color:C.text, maxWidth:520, margin:"0 auto" }}>
+              <div style={{ background:C.surf, borderBottom:`1px solid ${C.border}`, padding:"14px 16px", paddingTop:SAFE_TOP, display:"flex", alignItems:"center", gap:14, justifyContent:"space-between" }}>
                 <button onClick={handleLeaveLobby} style={{ background:"none", border:"none", color:C.muted, cursor:"pointer", fontFamily:"Nunito", fontWeight:700, fontSize:14 }}>← Back</button>
                 <span style={{ fontFamily:"Fredoka One", fontSize:20, color:C.accent }}>🌐 Lobby</span>
                 <span style={{ fontSize:11, color:isSpectating?C.accent2:C.muted, textTransform:"uppercase", letterSpacing:1 }}>
@@ -2412,7 +2415,4 @@ export default function App() {
     </>
   );
 }
-
-
-
 

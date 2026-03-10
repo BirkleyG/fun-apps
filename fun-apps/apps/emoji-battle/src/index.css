@@ -4,4 +4,11 @@
 
 body {
   margin: 0;
+  overflow-x: hidden;
+}
+
+html,
+body,
+#root {
+  min-height: 100dvh;
 }

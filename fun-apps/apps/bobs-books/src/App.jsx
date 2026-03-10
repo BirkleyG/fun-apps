@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
 import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db, provider } from "./firebase";
@@ -470,7 +470,7 @@ function FinishedShelfModal({books,sessions,genres,onClose,onBookClick}){
   });
   return(
     <Modal onClose={onClose} full>
-      <div style={{height:"100vh",display:"flex",flexDirection:"column",background:C.bg}}>
+      <div style={{height:"100dvh",display:"flex",flexDirection:"column",background:C.bg}}>
         <div style={{background:C.surface,borderBottom:`1px solid ${C.border}`,padding:"16px 24px",display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
           <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:C.accent}}>✅ Finished Books ({finished.length})</h2>
           <div style={{display:"flex",gap:8,marginLeft:"auto",alignItems:"center",flexWrap:"wrap"}}>
@@ -1742,14 +1742,14 @@ export default function App(){
   useEffect(()=>{if(selectedGoal){const u=goals.find(g=>g.id===selectedGoal.id);if(u)setSelectedGoal(u);}},[goals]);
 
   if(!authReady)return(
-    <div style={{background:C.bg,height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12}}>
+    <div style={{background:C.bg,height:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12}}>
       <div style={{fontFamily:"'Playfair Display',Georgia,serif",fontSize:32,color:C.accent,letterSpacing:".04em"}}>Bob's Books</div>
       <div style={{fontSize:14,color:C.muted}}>Checking sign-in...</div>
     </div>
   );
 
   if(!user)return(
-    <div style={{background:C.bg,height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+    <div style={{background:C.bg,height:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
       <div style={{maxWidth:520,width:"100%",background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:28}}>
         <div style={{fontFamily:"'Playfair Display',Georgia,serif",fontSize:32,color:C.accent,letterSpacing:".04em",marginBottom:8}}>Bob's Books</div>
         <div style={{fontSize:14,color:C.muted,marginBottom:20}}>Sign in with Google to sync your library with Firebase.</div>
@@ -1759,25 +1759,41 @@ export default function App(){
   );
 
   if(!loaded)return(
-    <div style={{background:C.bg,height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12}}>
+    <div style={{background:C.bg,height:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12}}>
       <div style={{fontFamily:"'Playfair Display',Georgia,serif",fontSize:32,color:C.accent,letterSpacing:".04em"}}>📚 Bob's Books</div>
       <div style={{fontSize:14,color:C.muted}}>Opening your library...</div>
     </div>
   );
 
   return(
-    <div style={{background:C.bg,minHeight:"100vh",fontFamily:"'Crimson Pro',Georgia,serif",color:C.text,display:"flex",flexDirection:"column"}}>
+    <div style={{background:C.bg,minHeight:"100dvh",fontFamily:"'Crimson Pro',Georgia,serif",color:C.text,display:"flex",flexDirection:"column",overflowX:"hidden"}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Crimson+Pro:wght@300;400;500;600&family=Cinzel:wght@400;600&family=Orbitron:wght@400;700&family=Creepster&family=Special+Elite&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Lora:wght@400;600&family=Josefin+Sans:wght@400;600&family=Nunito:wght@400;700&family=Patrick+Hand&family=Bangers&family=Oswald:wght@400;600&display=swap');
         *{box-sizing:border-box;margin:0;padding:0;}
+        :root{--safe-top:env(safe-area-inset-top,0px);--safe-bottom:env(safe-area-inset-bottom,0px);}
+        body{overflow-x:hidden;}
         ::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-track{background:${C.bg};}::-webkit-scrollbar-thumb{background:${C.border};border-radius:3px;}
         button{cursor:pointer;}input,textarea,select{font-family:inherit;color:${C.text};}input[type=range]{cursor:pointer;}input[type=color]{cursor:pointer;}
+        .bb-header{padding-top:var(--safe-top);}
+        .bb-topbar{flex-wrap:wrap;gap:12px;align-items:center;}
+        .bb-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+        .bb-search{flex:1 1 220px;min-width:160px;}
+        .bb-tabs{flex-wrap:wrap;}
+        @media (max-width:820px){
+          .bb-topbar{flex-direction:column;align-items:stretch;}
+          .bb-actions{width:100%;justify-content:space-between;}
+          .bb-search{width:100%;}
+        }
+        @media (max-width:520px){
+          .bb-actions{gap:6px;}
+          .bb-tabs button{padding:8px 12px;font-size:12px;}
+        }
       `}</style>
 
       {/* Header */}
-      <header style={{background:C.surface,borderBottom:`1px solid ${C.border}`,padding:"0 20px",position:"sticky",top:0,zIndex:50}}>
+      <header className="bb-header" style={{background:C.surface,borderBottom:`1px solid ${C.border}`,padding:"0 20px",position:"sticky",top:0,zIndex:50}}>
         <div style={{maxWidth:1120,margin:"0 auto"}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",paddingTop:10,gap:12}}>
+          <div className="bb-topbar" style={{display:"flex",alignItems:"center",justifyContent:"space-between",paddingTop:10,gap:12}}>
             <div style={{display:"flex",alignItems:"center",gap:10}}>
               <span style={{fontSize:26}}>📚</span>
               <div>
@@ -1785,8 +1801,8 @@ export default function App(){
                 <div style={{fontSize:9,color:C.muted,letterSpacing:".12em",textTransform:"uppercase"}}>Personal Library</div>
               </div>
             </div>
-            <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Search books, authors, genres..."
+            <div className="bb-actions" style={{display:"flex",alignItems:"center",gap:8}}>
+              <input className="bb-search" value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Search books, authors, genres..."
                 style={{background:C.bg,border:`1px solid ${C.border}`,color:C.text,padding:"7px 14px",borderRadius:20,fontSize:13,outline:"none",width:240}}/>
               <span style={{fontSize:11,color:C.muted,minWidth:68,textAlign:"right"}}>
                 {saveState==="saving"?"Saving...":saveState==="saved"?"Saved":saveState==="error"?"Save error":""}
@@ -1794,7 +1810,7 @@ export default function App(){
               <Btn variant="small" onClick={()=>signOut(auth)}>Sign out</Btn>
             </div>
           </div>
-          <div style={{display:"flex",gap:2,marginTop:4}}>
+          <div className="bb-tabs" style={{display:"flex",gap:2,marginTop:4}}>
             {[["bookshelf","Bookshelf"],["main","Dashboard"],["goals","Goals"]].map(([t,l])=>(
               <button key={t} onClick={()=>setTab(t)} style={{padding:"9px 18px",fontSize:13,color:tab===t?C.accent:C.muted,borderTop:"none",borderLeft:"none",borderRight:"none",borderBottom:tab===t?`2px solid ${C.accent}`:"2px solid transparent",background:"none",textTransform:"uppercase",letterSpacing:".06em",fontFamily:"'Crimson Pro',serif",fontWeight:500,transition:"color .2s",cursor:"pointer"}}>{l}</button>
             ))}
@@ -1802,7 +1818,7 @@ export default function App(){
         </div>
       </header>
 
-      <main style={{flex:1,padding:"24px 20px",maxWidth:1120,margin:"0 auto",width:"100%"}}>
+      <main className="bb-main" style={{flex:1,padding:"24px 20px",maxWidth:1120,margin:"0 auto",width:"100%"}}>
         {tab==="bookshelf"&&(
           <BookshelfPage books={books} sessions={sessions} genres={genres} searchQuery={searchQuery}
             getProgress={getProgress}

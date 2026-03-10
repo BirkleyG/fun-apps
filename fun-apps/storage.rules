@@ -1,0 +1,12 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    match /coin-atlas/{entryId}/{itemId}/{fileName} {
+      allow read, write: if signedIn();
+    }
+  }
+}

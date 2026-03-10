@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
+﻿import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { collection, deleteDoc, doc, onSnapshot, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
 import { APP_VERSION, BUILD_DATE } from "./version";
@@ -7,6 +7,8 @@ import { APP_VERSION, BUILD_DATE } from "./version";
 const GLOBAL_CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=Cinzel:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
+:root{--safe-top:env(safe-area-inset-top,0px);--safe-bottom:env(safe-area-inset-bottom,0px);}
+body{overflow-x:hidden;}
 ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:#c4903a44;border-radius:2px}
 ::selection{background:#c4903a33;color:#f5e6c8}
@@ -17,6 +19,12 @@ button{cursor:pointer;font-family:inherit;border:none;background:none}
 @keyframes modalIn{from{opacity:0;transform:scale(.96) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
 @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-7px)}40%,80%{transform:translateX(7px)}}
 @keyframes strikeIn{from{width:0}to{width:100%}}
+.cyoa-shell{width:100%}
+@media (max-width: 980px){
+  .cyoa-shell{flex-direction:column!important;height:auto!important;min-height:calc(100dvh - 54px - var(--safe-top))!important}
+  .cyoa-sidebar{width:100%!important;border-right:none;border-bottom:1px solid rgba(255,255,255,0.07)}
+  .cyoa-main{width:100%}
+}
 `;
 
 /* ═══ CONSTANTS ══════════════════════════════════════════════════════════ */
@@ -359,7 +367,7 @@ function PasswordGate({ onUnlock, goBack }) {
   const [pw,setPw]=useState(''), [err,setErr]=useState(false), [shake,setShake]=useState(false);
   const attempt=()=>{ if(pw===PASSWORD){onUnlock();}else{setErr(true);setShake(true);setTimeout(()=>setShake(false),550);} };
   return (
-    <div style={{minHeight:'100vh',paddingTop:54,display:'flex',alignItems:'center',justifyContent:'center',background:C.bg}}>
+    <div style={{minHeight:'100dvh',paddingTop:'calc(54px + var(--safe-top))',display:'flex',alignItems:'center',justifyContent:'center',background:C.bg}}>
       <div style={{width:'min(400px,90vw)',animation:'fadeUp .4s ease both'}}>
         <div style={{textAlign:'center',marginBottom:34}}>
           <div style={{fontSize:42,marginBottom:12,opacity:.2,lineHeight:1}}>⌁</div>
@@ -418,7 +426,7 @@ function TutModal({ onClose }) {
 /* ═══ HEADER ═════════════════════════════════════════════════════════════ */
 function Header({ mode, setMode, authUnlocked, found, totalEndings, loopN, curAuthorIdx, setCurAuthorIdx }) {
   return (
-    <header style={{position:'fixed',top:0,left:0,right:0,zIndex:200,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 24px',height:54,background:`linear-gradient(180deg,${C.bg} 70%,transparent)`,borderBottom:`1px solid ${C.border}`}}>
+    <header style={{position:'fixed',top:0,left:0,right:0,zIndex:200,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 24px',paddingTop:'var(--safe-top)',height:'calc(54px + var(--safe-top))',background:`linear-gradient(180deg,${C.bg} 70%,transparent)`,borderBottom:`1px solid ${C.border}`}}>
       <span style={{fontFamily:"'Cinzel',serif",fontSize:13,letterSpacing:'0.22em',color:C.gold,textTransform:'uppercase',animation:'glow 4s ease infinite'}}>The Loop</span>
       <nav style={{display:'flex',gap:3,background:'rgba(0,0,0,0.3)',borderRadius:8,padding:4,border:`1px solid ${C.border}`}}>
         {[['reader','Read'],['author','Write ✎'],['gallery','Endings']].map(([m,lbl])=>(
@@ -445,7 +453,7 @@ function Header({ mode, setMode, authUnlocked, found, totalEndings, loopN, curAu
 function ReaderView({ curNode, fading, reachableSet, nodes, go, restart, pageIdx, setPageIdx, knowledge, persistentKnowledge, onChoose }) {
   if (!curNode) {
     return (
-      <div style={{minHeight:'100vh',paddingTop:80,paddingBottom:80,display:'flex',justifyContent:'center',alignItems:'center',background:C.bg}}>
+      <div style={{minHeight:'100dvh',paddingTop:'calc(80px + var(--safe-top))',paddingBottom:'calc(80px + var(--safe-bottom))',display:'flex',justifyContent:'center',alignItems:'center',background:C.bg}}>
         <div style={{width:'100%',maxWidth:520,padding:'0 24px',textAlign:'center',color:C.textFaint,fontFamily:"'Cormorant Garamond',serif",fontStyle:'italic'}}>
           No story nodes yet. Switch to Author mode to create the first node.
         </div>
@@ -478,7 +486,7 @@ function ReaderView({ curNode, fading, reachableSet, nodes, go, restart, pageIdx
   });
 
   return (
-    <div style={{minHeight:'100vh',paddingTop:80,paddingBottom:80,display:'flex',justifyContent:'center',background:C.bg}}>
+    <div style={{minHeight:'100dvh',paddingTop:'calc(80px + var(--safe-top))',paddingBottom:'calc(80px + var(--safe-bottom))',display:'flex',justifyContent:'center',background:C.bg}}>
       <div style={{width:'100%',maxWidth:620,padding:'0 24px',opacity:fading?0:1,transform:fading?'translateY(12px)':'translateY(0)',transition:'opacity .28s,transform .28s',animation:'fadeUp .35s ease both'}}>
         {!isEnding&&(
           <div style={{marginBottom:10}}><span style={{fontFamily:"'Cinzel',serif",fontSize:9.5,letterSpacing:'0.25em',color:TYPE_META[curNode?.type]?.color||C.textDim,textTransform:'uppercase'}}>{TYPE_META[curNode?.type]?.label}</span></div>
@@ -536,7 +544,7 @@ function ReaderView({ curNode, fading, reachableSet, nodes, go, restart, pageIdx
 function EndingView({ curNode, fading, restart, setMode, loopLabelMap = {} }) {
   const ed=curNode?.endingData;
   return (
-    <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:C.bg,padding:'80px 24px 60px',opacity:fading?0:1,transition:'opacity .3s'}}>
+    <div style={{minHeight:'100dvh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',background:C.bg,padding:'calc(80px + var(--safe-top)) 24px calc(60px + var(--safe-bottom))',opacity:fading?0:1,transition:'opacity .3s'}}>
       <div style={{maxWidth:560,width:'100%',textAlign:'center'}}>
         <div style={{fontFamily:"'Cinzel',serif",fontSize:10,letterSpacing:'0.4em',color:C.rose,textTransform:'uppercase',marginBottom:22,animation:'glow 3s ease infinite',filter:'hue-rotate(280deg)'}}>Ending {ed?.endingNumber?toRoman(ed.endingNumber):'—'}</div>
         <div style={{width:48,height:1,background:`linear-gradient(90deg,transparent,${C.rose},transparent)`,margin:'0 auto 24px'}}/>
@@ -564,7 +572,7 @@ function EndingView({ curNode, fading, restart, setMode, loopLabelMap = {} }) {
 /* ═══ GALLERY ════════════════════════════════════════════════════════════ */
 function GalleryView({ nodes, found, totalEndings, loopN, loopLabelMap }) {
   return (
-    <div style={{minHeight:'100vh',background:C.bg,padding:'92px 28px 60px'}}>
+    <div style={{minHeight:'100dvh',background:C.bg,padding:'calc(92px + var(--safe-top)) 28px calc(60px + var(--safe-bottom))'}}>
       <div style={{maxWidth:880,margin:'0 auto'}}>
         <h1 style={{fontFamily:"'Cinzel',serif",fontSize:22,color:C.text,letterSpacing:'0.15em',marginBottom:7,textAlign:'center'}}>Endings</h1>
         <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,color:C.textDim,textAlign:'center',marginBottom:40,fontStyle:'italic'}}>{found.size} of {totalEndings} discovered · Loop {toRoman(loopN)}</p>
@@ -1563,10 +1571,10 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
   const TABS = [['nodes','Nodes'],['map','Map ⬡'],['endings','End'],['config','Config'],['notes','Notes ✎'],['analytics','Stats'],['validate',`Issues${issues.length?` (${issues.length})`:''}`]];
 
   return (
-    <div style={{display:'flex',height:'calc(100vh - 54px)',marginTop:54,background:C.bg,overflow:'hidden'}}>
+    <div className="cyoa-shell" style={{display:'flex',height:'calc(100dvh - 54px - var(--safe-top))',marginTop:'calc(54px + var(--safe-top))',background:C.bg,overflow:'hidden'}}>
 
       {/* ─── Sidebar ─── */}
-      <div style={{width:240,flexShrink:0,borderRight:`1px solid ${C.border}`,display:'flex',flexDirection:'column',background:C.bg2,overflow:'hidden'}}>
+      <div className="cyoa-sidebar" style={{width:240,flexShrink:0,borderRight:`1px solid ${C.border}`,display:'flex',flexDirection:'column',background:C.bg2,overflow:'hidden'}}>
         {aTab!=='notes'&&aTab!=='analytics'&&aTab!=='config'&&(
           <div style={{padding:'10px 10px 8px',borderBottom:`1px solid ${C.border}`}}>
             <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search nodes…"
@@ -1698,7 +1706,7 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
       </div>
 
       {/* ─── Main panel ─── */}
-      <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      <div className="cyoa-main" style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
         {/* Toolbar */}
         <div style={{display:'flex',alignItems:'center',gap:7,padding:'8px 14px',borderBottom:`1px solid ${C.border}`,background:C.bg2,flexShrink:0}}>
           <span style={{fontFamily:"'Cinzel',serif",fontSize:9,letterSpacing:'0.15em',color:C.textFaint,textTransform:'uppercase'}}>
@@ -2256,7 +2264,7 @@ export default function App() {
     const pathToTarget=getShortestPathFrom('start', id=>id===targetId);
     const pathToEnd=getShortestPathFrom(targetId, id=>nodes[id]?.isEnding);
     const path=pathToTarget ? (pathToEnd ? [...pathToTarget, ...pathToEnd.slice(1)] : pathToTarget) : null;
-    let out=`=== AI WRITING CONTEXT: "${target.title}" ===\nStory: The Loop � Type: ${target.type}\n`;
+    let out=`=== AI WRITING CONTEXT: "${target.title}" ===\nStory: The Loop · Type: ${target.type}\n`;
     if(path){
       out+=`Shortest path (start -> ending): ${path.length} steps\n\n${'-'.repeat(50)}\n\n`;
       path.forEach((step,i)=>{ const n=nodes[step.nodeId];if(!n)return; const isTgt=step.nodeId===targetId; const nodeText=getNodeText(n); out+=`[${i+1}] ${n.title.toUpperCase()} (${n.type})${isTgt?' <- WRITE HERE':''}\n${nodeText}\n`; if(path[i+1])out+=`\n-> CHOICE: "${path[i+1].choiceTaken}"\n`; out+='\n'; });
@@ -2324,7 +2332,7 @@ export default function App() {
   },[curAuthor,nodes,confirmDiscard,persistNode]);
 
   return (
-    <div style={{background:C.bg,minHeight:'100vh',color:C.text,fontFamily:"'Cormorant Garamond',serif"}}>
+    <div style={{background:C.bg,minHeight:'100dvh',color:C.text,fontFamily:"'Cormorant Garamond',serif"}}>
       <style>{GLOBAL_CSS}</style>
       <Header mode={mode} setMode={setMode} authUnlocked={authUnlocked} found={found} totalEndings={totalEndings} loopN={loopN} curAuthorIdx={curAuthorIdx} setCurAuthorIdx={setCurAuthorIdx}/>
 
@@ -2341,18 +2349,6 @@ export default function App() {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

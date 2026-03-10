@@ -94,10 +94,11 @@ const G = {
 const css = `
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0f0f13; color: #e8e6f0; font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; line-height: 1.5; min-height: 100vh; }
-  .app { display: flex; flex-direction: column; min-height: 100vh; }
+  :root { --safe-top: env(safe-area-inset-top, 0px); --safe-bottom: env(safe-area-inset-bottom, 0px); }
+  body { background: #0f0f13; color: #e8e6f0; font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; line-height: 1.5; min-height: 100dvh; overflow-x: hidden; }
+  .app { display: flex; flex-direction: column; min-height: 100dvh; }
 
-  .nav { display: flex; align-items: center; background: #16161d; border-bottom: 1px solid #2a2a38; padding: 0 24px; position: sticky; top: 0; z-index: 100; }
+  .nav { display: flex; align-items: center; background: #16161d; border-bottom: 1px solid #2a2a38; padding: 0 24px; padding-top: calc(6px + var(--safe-top)); position: sticky; top: 0; z-index: 100; }
   .nav-logo { font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; color: #f5a623; letter-spacing: 0.08em; padding: 16px 24px 16px 0; border-right: 1px solid #2a2a38; margin-right: 8px; white-space: nowrap; }
   .nav-tab { padding: 18px 16px; font-size: 12px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #7a7890; cursor: pointer; border: none; background: transparent; border-bottom: 2px solid transparent; transition: all 0.15s; white-space: nowrap; }
   .nav-tab:hover { color: #e8e6f0; }
@@ -275,7 +276,7 @@ const css = `
 
   .sandbox-float-bar {
     position: fixed;
-    top: 57px;
+    top: calc(57px + var(--safe-top));
     left: 50%;
     transform: translateX(-50%);
     z-index: 90;
@@ -296,6 +297,18 @@ const css = `
     align-items: center;
     gap: 3px;
     border-right: 1px solid #2a2a38;
+  }
+  .nav-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+  @media (max-width: 860px) {
+    .nav { flex-wrap: wrap; }
+    .nav-logo { border-right: none; margin-right: 0; padding-bottom: 8px; }
+    .nav-tab { padding: 12px 12px; }
+    .nav-actions { width: 100%; justify-content: flex-start; margin-left: 0; padding-bottom: 10px; }
+  }
+  @media (max-width: 640px) {
+    .sandbox-float-bar { left: 12px; right: 12px; transform: none; border-radius: 16px; }
+    .float-bar-cell { padding: 8px 12px; }
   }
   .float-bar-cell:last-child { border-right: none; }
   .float-bar-label {
@@ -1261,7 +1274,7 @@ export default function App() {
               {t.label}
             </button>
           ))}
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+          <div className="nav-actions" style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
             <span className="page-subtitle" style={{ marginTop: 0 }}>
               {saveState === "saving" ? "Saving..." : saveState === "saved" ? "Saved" : saveState === "error" ? "Save error" : ""}
             </span>
