@@ -33,6 +33,11 @@ const getMuseumMasterpiecesUrl = () => {
   return envUrl && envUrl.trim().length > 0 ? envUrl : "./museum-masterpieces/";
 };
 
+const getWorldOfFacesUrl = () => {
+  const envUrl = import.meta.env.VITE_WORLD_OF_FACES_URL as string | undefined;
+  return envUrl && envUrl.trim().length > 0 ? envUrl : "./world-of-faces/";
+};
+
 export default function App() {
   const bibleUrl = getBibleUrl();
   const gradeEstimatorUrl = getGradeEstimatorUrl();
@@ -41,6 +46,7 @@ export default function App() {
   const emojiBattleUrl = getEmojiBattleUrl();
   const timeLoopCyoaUrl = getTimeLoopCyoaUrl();
   const museumMasterpiecesUrl = getMuseumMasterpiecesUrl();
+  const worldOfFacesUrl = getWorldOfFacesUrl();
 
   return (
     <div className="page">
@@ -117,6 +123,15 @@ export default function App() {
           >
             <div className="tile__title">Museum Masterpieces</div>
             <div className="tile__subtitle">Personal art tracker across museums</div>
+          </button>
+          <button
+            className="tile"
+            onClick={() => {
+              window.location.href = worldOfFacesUrl;
+            }}
+          >
+            <div className="tile__title">World of Faces</div>
+            <div className="tile__subtitle">Offline interview recorder & story archive</div>
           </button>
         </div>
       </section>

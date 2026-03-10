@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="World of Faces">
+  <title>World of Faces</title>
+  <link rel="manifest" href="/fun-apps/world-of-faces/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/fun-apps/world-of-faces/icon-192.png">
+  <meta name="theme-color" content="#0D0D0D">
+
+  <style>
+    /* ===== TOKENS ===== */
+    :root {
+      --paper: #F7F3EC;
+      --white: #FFFFFF;
+      --ink: #0D0D0D;
+      --ink-soft: #3A3530;
+      --muted: #8C8278;
+      --border: #DDD8CF;
+      --border-light: #EEE9E0;
+      --rec: #C62828;
+      --rec-bg: #FFF0F0;
+      --ok: #2E7D32;
+      --ok-bg: #F0FFF1;
+      --radius: 14px;
+      --safe-t: env(safe-area-inset-top, 20px);
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --serif: Georgia, 'Times New Roman', serif;
+      --sans: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+    }
+
+    body.dark {
+      --paper: #0A0A0A;
+      --white: #111111;
+      --ink: #F0EBE2;
+      --ink-soft: #C8C0B5;
+      --muted: #706860;
+      --border: #2A2520;
+      --border-light: #1E1A16;
+      --rec-bg: #2A0A0A;
+      --ok-bg: #0A1A0A;
+    }
+
+    /* ===== RESET ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    * { -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      font-family: var(--sans);
+      background: var(--paper);
+      color: var(--ink);
+    }
+
+    button { cursor: pointer; font-family: var(--sans); }
+    input  { font-family: var(--sans); }
+
+    /* ===== SCREEN SHELL ===== */
+    .screen {
+      position: fixed;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      background: var(--white);
+      overflow: hidden;
+    }
+    .screen.active { display: flex; }
+
+    /* ===== SHARED HEADER ===== */
+    .nav-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: calc(var(--safe-t) + 12px) 20px 12px;
+      border-bottom: 1px solid var(--border-light);
+      background: var(--white);
+      min-height: calc(var(--safe-t) + 56px);
+      flex-shrink: 0;
+    }
+    .nav-title {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.2px;
+    }
+    .nav-back {
+      width: 44px; height: 44px;
+      border: none; background: none;
+      font-size: 26px; color: var(--ink);
+      display: flex; align-items: center; justify-content: flex-start;
+      padding: 0;
+    }
+    .nav-action {
+      width: 44px; height: 44px;
+      border: none; background: none;
+      font-size: 20px; color: var(--muted);
+      display: flex; align-items: center; justify-content: flex-end;
+    }
+
+    /* ===== SCROLL WRAP ===== */
+    .scroll {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 20px 20px calc(var(--safe-b) + 32px);
+    }
+
+    /* ===== BUTTONS ===== */
+    .btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 100%; padding: 17px 20px;
+      border: none; border-radius: var(--radius);
+      font-size: 17px; font-weight: 600;
+      transition: opacity .12s, transform .1s;
+    }
+    .btn:active { opacity: .75; transform: scale(.98); }
+    .btn-ink   { background: var(--ink); color: var(--white); }
+    .btn-ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--border); }
+    .btn-danger{ background: transparent; color: var(--rec); border: 1.5px solid var(--rec); }
+    .btn + .btn { margin-top: 10px; }
+
+    /* ===== ==================== ===== */
+    /* ===== SCREEN: HOME         ===== */
+    /* ===== ==================== ===== */
+    #s-home {
+      background: var(--paper);
+      padding-top: var(--safe-t);
+    }
+
+    .home-masthead {
+      padding: 40px 28px 28px;
+      border-bottom: 2px solid var(--ink);
+    }
+    .home-edition {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+    .home-title {
+      font-family: var(--serif);
+      font-size: clamp(42px, 12vw, 58px);
+      font-weight: 700;
+      line-height: .95;
+      letter-spacing: -2px;
+      color: var(--ink);
+    }
+    .home-tagline {
+      font-size: 14px;
+      color: var(--muted);
+      margin-top: 10px;
+      font-style: italic;
+    }
+
+    .home-actions {
+      padding: 28px 20px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+
+    .home-footer {
+      padding: 0 20px calc(var(--safe-b) + 20px);
+      margin-top: auto;
+      display: flex; gap: 10px;
+    }
+    .home-footer .btn { font-size: 14px; padding: 13px 12px; }
+
+    /* ===== ==================== ===== */
+    /* ===== SCREEN: LANGUAGE     ===== */
+    /* ===== ==================== ===== */
+    .lang-list {
+      display: flex; flex-direction: column; gap: 10px;
+      padding: 20px 20px calc(var(--safe-b) + 20px);
+    }
+
+    .lang-card {
+      display: flex; align-items: center;
+      padding: 20px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--white);
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+      gap: 14px;
+    }
+    .lang-card:active { background: var(--paper); }
+    .lang-card.selected {
+      border-color: var(--ink);
+      background: var(--ink);
+    }
+    .lang-card-name  { font-size: 18px; font-weight: 700; }
+    .lang-card-native { font-size: 16px; color: var(--muted); }
+    .lang-card.selected .lang-card-name { color: var(--white); }
+    .lang-card.selected .lang-card-native { color: #AAA; }
+
+    .lang-continue-wrap { padding: 0 20px calc(var(--safe-b) + 20px); }
+
+    /* ===== ==================== ===== */
+    /* ===== SCREEN: CONSENT      ===== */
+    /* ===== ==================== ===== */
+    #s-consent {
+      background: var(--white);
+    }
+    #s-consent .nav-header { border-bottom: none; background: transparent; }
+
+    .consent-body {
+      flex: 1;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 24px 32px;
+      text-align: center;
+    }
+    .consent-label {
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 2.5px; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 24px;
+    }
+    .consent-text {
+      font-family: var(--serif);
+      font-size: clamp(22px, 6vw, 36px);
+      font-weight: 400;
+      line-height: 1.35;
+      color: var(--ink);
+      max-width: 480px;
+    }
+    .consent-text.rtl { direction: rtl; }
+
+    .consent-actions {
+      padding: 24px 20px calc(var(--safe-b) + 24px);
+      display: flex; flex-direction: column; gap: 10px;
+    }
+
+    /* ===== ==================== ===== */
+    /* ===== SCREEN: INFO FORM    ===== */
+    /* ===== ==================== ===== */
+    .form-section-title {
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 2px; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 20px;
+    }
+    .form-group { margin-bottom: 20px; }
+    .form-label {
+      display: block; font-size: 13px;
+      font-weight: 600; color: var(--muted);
+      margin-bottom: 8px;
+      text-transform: uppercase; letter-spacing: .5px;
+    }
+    .form-input {
+      display: block; width: 100%;
+      padding: 15px 16px;
+      font-size: 19px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--white);
+      color: var(--ink);
+      outline: none;
+      -webkit-appearance: none;
+    }
+    .form-input:focus { border-color: var(--ink); }
+
+    /* ===== ==================== ===== */
+    /* ===== SCREEN: QUESTION     ===== */
+    /* ===== ==================== ===== */
+    #s-question {
+      background: var(--white);
+    }
+
+    .q-topbar {
+      padding: calc(var(--safe-t) + 10px) 20px 10px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .q-counter {
+      font-size: 13px; font-weight: 700;
+      letter-spacing: 1px; text-transform: uppercase;
+      color: var(--muted);
+    }
+    .q-lang-tag {
+      font-size: 12px; font-weight: 600;
+      color: var(--muted);
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      border-radius: 100px;
+    }
+
+    .q-dots-row {
+      display: flex; align-items: center; justify-content: center;
+      gap: 6px; padding: 0 20px 12px;
+      flex-shrink: 0;
+    }
+    .q-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%; background: var(--border);
+      transition: background .2s, transform .2s;
+    }
+    .q-dot.active   { background: var(--ink); transform: scale(1.3); }
+    .q-dot.recorded { background: var(--ok); }
+
+    .q-stage {
+      flex: 1;
+      display: flex; align-items: center; justify-content: center;
+      padding: 12px 28px;
+      overflow: hidden;
+    }
+    .q-text {
+      font-family: var(--serif);
+      font-weight: 700;
+      line-height: 1.15;
+      text-align: center;
+      color: var(--ink);
+      width: 100%;
+    }
+    .q-text.rtl { direction: rtl; text-align: right; }
+
+    .q-controls {
+      flex-shrink: 0;
+      border-top: 1px solid var(--border-light);
+      background: var(--white);
+      padding: 14px 16px calc(var(--safe-b) + 16px);
+    }
+
+    .q-status-bar {
+      height: 30px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 10px;
+    }
+    .rec-badge {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 14px;
+      background: var(--rec-bg);
+      border-radius: 100px;
+      color: var(--rec);
+      font-size: 14px; font-weight: 700;
+    }
+    .rec-dot {
+      width: 9px; height: 9px;
+      border-radius: 50%; background: var(--rec);
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.2; }
+    }
+    .ok-badge {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 14px; font-weight: 600;
+      color: var(--ok);
+    }
+
+    .q-main-btns {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 8px; margin-bottom: 8px;
+    }
+    .q-nav-btns {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .ctrl-btn {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 3px; padding: 14px 8px;
+      border-radius: 12px;
+      border: 1.5px solid var(--border);
+      background: var(--white);
+      color: var(--ink);
+      font-size: 12px; font-weight: 700;
+      letter-spacing: .3px;
+      transition: background .1s, transform .1s, opacity .1s;
+    }
+    .ctrl-btn:active { background: var(--paper); transform: scale(.97); }
+    .ctrl-btn.primary { background: var(--ink); color: var(--white); border-color: var(--ink); }
+    .ctrl-btn.recording { background: var(--rec); color: white; border-color: var(--rec); }
+    .ctrl-btn.disabled { opacity: .28; pointer-events: none; }
+    .ctrl-btn .c-icon { font-size: 22px; line-height: 1; }
+
+    /* ===== ==================== ===== */
+    /* ===== SCREEN: REVIEW       ===== */
+    /* ===== ==================== ===== */
+    .review-item {
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px; margin-bottom: 10px;
+    }
+    .review-item-top {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .review-qnum {
+      font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 1px;
+      color: var(--muted);
+    }
+    .review-status-rec { font-size: 13px; font-weight: 700; color: var(--ok); }
+    .review-status-none { font-size: 13px; font-weight: 600; color: var(--muted); }
+    .review-qtext { font-size: 15px; font-weight: 500; color: var(--ink); }
+
+    /* ===== ==================== ===== */
+    /* ===== SCREEN: SAVED LIST   ===== */
+    /* ===== ==================== ===== */
+    .card {
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px; margin-bottom: 10px;
+      cursor: pointer;
+      transition: background .1s;
+    }
+    .card:active { background: var(--paper); }
+    .card-name { font-size: 18px; font-weight: 700; margin-bottom: 5px; }
+    .card-meta {
+      font-size: 13px; color: var(--muted);
+      display: flex; gap: 12px; flex-wrap: wrap;
+    }
+    .chip {
+      font-size: 11px; font-weight: 700;
+      padding: 3px 8px; border-radius: 6px;
+      background: var(--paper);
+      color: var(--muted);
+      letter-spacing: .3px;
+    }
+
+    /* ===== DETAIL SCREEN ===== */
+    .meta-block {
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden; margin-bottom: 20px;
+    }
+    .meta-row {
+      display: flex; justify-content: space-between;
+      align-items: center;
+      padding: 13px 16px;
+      border-bottom: 1px solid var(--border-light);
+      font-size: 15px;
+    }
+    .meta-row:last-child { border-bottom: none; }
+    .meta-key   { font-weight: 600; color: var(--muted); }
+    .meta-val   { font-weight: 600; }
+
+    .rec-row {
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 14px;
+      margin-bottom: 8px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .rec-row-info { flex: 1; min-width: 0; }
+    .rec-row-name {
+      font-size: 13px; font-weight: 700;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .rec-row-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .rec-row-btns { display: flex; gap: 6px; flex-shrink: 0; }
+
+    .icon-btn {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      border: 1.5px solid var(--border);
+      background: var(--white);
+      font-size: 16px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .icon-btn:active { background: var(--paper); }
+    .icon-btn.share { color: #007AFF; border-color: #007AFF; }
+    .icon-btn.del   { color: var(--rec); border-color: var(--rec); }
+
+    /* ===== AUDIO FILES ===== */
+    .af-row {
+      display: flex; align-items: center;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border-light);
+      gap: 10px;
+    }
+    .af-info { flex: 1; min-width: 0; }
+    .af-name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .af-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .af-btns { display: flex; gap: 6px; flex-shrink: 0; }
+
+    /* ===== EMPTY STATE ===== */
+    .empty {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; color: var(--muted); gap: 10px;
+      padding: 40px;
+    }
+    .empty-icon { font-size: 44px; }
+    .empty-title { font-size: 18px; font-weight: 700; color: var(--ink-soft); }
+    .empty-sub { font-size: 14px; }
+
+    /* ===== SETTINGS ===== */
+    .settings-group { margin-bottom: 32px; }
+    .settings-group-label {
+      font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 2px;
+      color: var(--muted); margin-bottom: 10px;
+    }
+    .settings-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 15px 0;
+      border-bottom: 1px solid var(--border-light);
+      font-size: 16px; font-weight: 500;
+    }
+    .settings-val { font-size: 15px; color: var(--muted); }
+
+    .toggle {
+      width: 51px; height: 31px;
+      border-radius: 16px; background: var(--border);
+      border: none; position: relative;
+      transition: background .2s;
+    }
+    .toggle.on { background: var(--ink); }
+    .toggle::after {
+      content: ''; position: absolute;
+      width: 27px; height: 27px;
+      border-radius: 50%; background: white;
+      top: 2px; left: 2px;
+      transition: transform .2s;
+      box-shadow: 0 1px 4px rgba(0,0,0,.25);
+    }
+    .toggle.on::after { transform: translateX(20px); }
+
+    /* ===== TOAST ===== */
+    #toast {
+      position: fixed;
+      left: 50%; transform: translateX(-50%) translateY(12px);
+      bottom: calc(var(--safe-b) + 90px);
+      background: var(--ink); color: var(--white);
+      padding: 11px 22px; border-radius: 100px;
+      font-size: 14px; font-weight: 600;
+      opacity: 0; pointer-events: none;
+      transition: opacity .2s, transform .2s;
+      white-space: nowrap; z-index: 1000;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ===== SHEET ===== */
+    #overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.45);
+      display: none; align-items: flex-end;
+      z-index: 500;
+    }
+    #overlay.show { display: flex; }
+    .sheet {
+      background: var(--white);
+      border-radius: 20px 20px 0 0;
+      padding: 20px 0 0;
+      padding-bottom: calc(var(--safe-b) + 20px);
+      width: 100%;
+    }
+    .sheet-title {
+      font-size: 15px; font-weight: 700;
+      text-align: center; padding: 0 20px 14px;
+      border-bottom: 1px solid var(--border-light);
+      color: var(--muted);
+    }
+    .sheet-btn {
+      display: block; width: 100%;
+      padding: 17px 20px;
+      border: none; background: none;
+      font-size: 17px; font-weight: 500;
+      color: var(--ink);
+      border-bottom: 1px solid var(--border-light);
+    }
+    .sheet-btn:last-child { border-bottom: none; }
+    .sheet-btn.bold { font-weight: 700; }
+    .sheet-btn.danger { color: var(--rec); }
+    .sheet-btn.cancel { color: var(--muted); }
+
+    /* ===== UTILS ===== */
+    .divider { height: 1px; background: var(--border-light); margin: 20px 0; }
+    .spacer-sm { height: 12px; }
+    .spacer-md { height: 24px; }
+  </style>
+</head>
+<body>
+
+<!-- ─────────────────────────── HOME ─────────────────────────── -->
+<div class="screen active" id="s-home">
+  <div class="home-masthead">
+    <div class="home-edition">Field Interview Tool</div>
+    <div class="home-title">World<br>of Stories</div>
+    <div class="home-tagline">Capture every voice, everywhere.</div>
+  </div>
+  <div class="home-actions">
+    <button class="btn btn-ink" onclick="App.startNew()">＋ New Interview</button>
+    <button class="btn btn-ghost" onclick="App.go('saved-list')">Saved Interviews</button>
+  </div>
+  <div class="home-footer" style="margin-top:auto">
+    <button class="btn btn-ghost" style="flex:1" onclick="App.go('audio-files')">🎙 Audio Files</button>
+    <button class="btn btn-ghost" style="flex:1" onclick="App.go('settings')">⚙ Settings</button>
+  </div>
+</div>
+
+<!-- ─────────────────────────── LANGUAGE ─────────────────────── -->
+<div class="screen" id="s-language">
+  <div class="nav-header">
+    <button class="nav-back" onclick="App.go('home')">‹</button>
+    <span class="nav-title">Choose Language</span>
+    <div style="width:44px"></div>
+  </div>
+  <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch">
+    <div class="lang-list" id="lang-list"></div>
+  </div>
+  <div class="lang-continue-wrap">
+    <button class="btn btn-ink" id="lang-continue-btn" onclick="App.goConsent()" style="display:none">Continue →</button>
+  </div>
+  <div style="height:calc(var(--safe-b) + 16px)"></div>
+</div>
+
+<!-- ─────────────────────────── CONSENT ─────────────────────── -->
+<div class="screen" id="s-consent">
+  <div class="nav-header" style="border-bottom:none;background:transparent">
+    <button class="nav-back" onclick="App.go('language')">‹</button>
+    <div style="width:44px"></div>
+  </div>
+  <div class="consent-body">
+    <div class="consent-label">Interview Consent</div>
+    <div class="consent-text" id="consent-text"></div>
+  </div>
+  <div class="consent-actions">
+    <button class="btn btn-ink"   id="consent-btn-yes" onclick="App.consentYes()">✓  Yes, I agree</button>
+    <button class="btn btn-ghost" id="consent-btn-no"  onclick="App.go('home')">✗  No thanks</button>
+  </div>
+</div>
+
+<!-- ─────────────────────────── INFO FORM ────────────────────── -->
+<div class="screen" id="s-info">
+  <div class="nav-header">
+    <button class="nav-back" onclick="App.go('consent')">‹</button>
+    <span class="nav-title" id="info-header">About You</span>
+    <div style="width:44px"></div>
+  </div>
+  <div class="scroll">
+    <div id="info-form"></div>
+    <div class="spacer-sm"></div>
+    <button class="btn btn-ink" onclick="App.beginInterview()">Start Interview →</button>
+  </div>
+</div>
+
+<!-- ─────────────────────────── QUESTION ─────────────────────── -->
+<div class="screen" id="s-question">
+  <div class="q-topbar">
+    <span class="q-counter" id="q-counter">Q 1 / 5</span>
+    <span class="q-lang-tag" id="q-lang-tag">English</span>
+  </div>
+  <div class="q-dots-row" id="q-dots"></div>
+  <div class="q-stage" id="q-stage">
+    <div class="q-text" id="q-text">Who are you?</div>
+  </div>
+  <div class="q-controls">
+    <div class="q-status-bar" id="q-status"></div>
+    <div class="q-main-btns">
+      <button class="ctrl-btn primary" id="btn-record" onclick="App.toggleRecord()">
+        <span class="c-icon" id="rec-icon">⏺</span>
+        <span id="rec-label">Record</span>
+      </button>
+      <button class="ctrl-btn disabled" id="btn-play" onclick="App.playCurrentRec()">
+        <span class="c-icon">▶</span>
+        <span>Play</span>
+      </button>
+    </div>
+    <div class="q-nav-btns">
+      <button class="ctrl-btn" onclick="App.prevQ()">
+        <span class="c-icon">‹</span>
+        <span>Back</span>
+      </button>
+      <button class="ctrl-btn primary" id="btn-next" onclick="App.nextQ()">
+        <span class="c-icon">›</span>
+        <span id="next-label">Next</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ─────────────────────────── REVIEW ──────────────────────── -->
+<div class="screen" id="s-review">
+  <div class="nav-header">
+    <div style="width:44px"></div>
+    <span class="nav-title">Review & Save</span>
+    <div style="width:44px"></div>
+  </div>
+  <div class="scroll">
+    <div id="review-list"></div>
+    <div class="spacer-sm"></div>
+    <button class="btn btn-ink" onclick="App.saveInterview()">Save Interview</button>
+    <button class="btn btn-ghost" style="margin-top:10px" onclick="App.backToQuestions()">← Continue Recording</button>
+  </div>
+</div>
+
+<!-- ─────────────────────────── SHARING CONSENT ──────────────── -->
+<div class="screen" id="s-share-consent">
+  <div class="nav-header" style="border-bottom:none;background:transparent">
+    <button class="nav-back" onclick="App.backFromShareConsent()">‹</button>
+    <div style="width:44px"></div>
+  </div>
+  <div class="consent-body">
+    <div class="consent-label">One last question</div>
+    <div class="consent-text" id="sc-question"></div>
+  </div>
+  <div class="consent-actions">
+    <button class="btn btn-ink"   id="sc-yes"  onclick="App.setShareConsent('yes')"></button>
+    <button class="btn btn-ghost" id="sc-anon" onclick="App.setShareConsent('anonymous')"></button>
+    <button class="btn btn-ghost" id="sc-no"   onclick="App.setShareConsent('no')"></button>
+  </div>
+</div>
+
+<!-- ─────────────────────────── SAVED LIST ──────────────────── -->
+<div class="screen" id="s-saved-list">
+  <div class="nav-header">
+    <button class="nav-back" onclick="App.go('home')">‹</button>
+    <span class="nav-title">Saved Interviews</span>
+    <div style="width:44px"></div>
+  </div>
+  <div class="scroll" id="saved-list-content"></div>
+</div>
+
+<!-- ─────────────────────────── DETAIL ──────────────────────── -->
+<div class="screen" id="s-detail">
+  <div class="nav-header">
+    <button class="nav-back" onclick="App.go('saved-list')">‹</button>
+    <span class="nav-title" id="detail-nav-title">Interview</span>
+    <button class="nav-action" onclick="App.promptDeleteInterview()">🗑</button>
+  </div>
+  <div class="scroll">
+    <div class="meta-block" id="detail-meta"></div>
+    <div id="detail-recs"></div>
+    <div id="detail-share-all"></div>
+  </div>
+</div>
+
+<!-- ─────────────────────────── AUDIO FILES ─────────────────── -->
+<div class="screen" id="s-audio-files">
+  <div class="nav-header">
+    <button class="nav-back" onclick="App.go('home')">‹</button>
+    <span class="nav-title">Audio Files</span>
+    <div style="width:44px"></div>
+  </div>
+  <div class="scroll" id="af-content"></div>
+</div>
+
+<!-- ─────────────────────────── SETTINGS ────────────────────── -->
+<div class="screen" id="s-settings">
+  <div class="nav-header">
+    <button class="nav-back" onclick="App.go('home')">‹</button>
+    <span class="nav-title">Settings</span>
+    <div style="width:44px"></div>
+  </div>
+  <div class="scroll">
+    <div class="settings-group">
+      <div class="settings-group-label">Display</div>
+      <div class="settings-row">
+        <span>Dark Mode</span>
+        <button class="toggle" id="dark-toggle" onclick="App.toggleDark()"></button>
+      </div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-group-label">Storage</div>
+      <div class="settings-row">
+        <span>Saved Interviews</span>
+        <span class="settings-val" id="stat-iv">—</span>
+      </div>
+      <div class="settings-row">
+        <span>Audio Recordings</span>
+        <span class="settings-val" id="stat-rec">—</span>
+      </div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-group-label">Languages</div>
+      <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:4px">
+        <span>Balinese translations</span>
+        <span class="settings-val" style="font-size:12px;line-height:1.4">Balinese (Basa Bali) translations are approximate. Please have a native speaker review the <code>languages.json</code> file.</span>
+      </div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-group-label">Danger Zone</div>
+      <button class="btn btn-danger" onclick="App.promptClearAll()">Clear All Data</button>
+    </div>
+    <div style="height:20px;text-align:center;color:var(--muted);font-size:12px;margin-top:8px">
+      World of Faces · Field Interview Tool
+    </div>
+  </div>
+</div>
+
+<!-- ─────────────────────────── TOAST ───────────────────────── -->
+<div id="toast"></div>
+
+<!-- ─────────────────────────── SHEET ───────────────────────── -->
+<div id="overlay" onclick="App.hideSheet()">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sheet-title" id="sheet-title"></div>
+    <div id="sheet-btns"></div>
+  </div>
+</div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

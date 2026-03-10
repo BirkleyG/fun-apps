@@ -1,0 +1,161 @@
+{
+  "languages": {
+    "en": {
+      "label": "English",
+      "nativeLabel": "English",
+      "dir": "ltr",
+      "intro": "May I record an interview with you for a project about people and their stories?",
+      "consent_yes": "✓  Yes, I agree",
+      "consent_no": "✗  No thanks",
+      "sharing_question": "Can I share this interview?",
+      "sharing_yes": "Yes",
+      "sharing_anonymous": "Yes, but keep me anonymous",
+      "sharing_no": "No",
+      "fields": {
+        "sectionTitle": "About You",
+        "name": "Name",
+        "age": "Age",
+        "religion": "Religion",
+        "location": "Location"
+      },
+      "questions": [
+        "Who are you?",
+        "What is your story?",
+        "What is the best part of your life?",
+        "What is the hardest part of your life?",
+        "What do you hope for?"
+      ]
+    },
+    "es": {
+      "label": "Spanish",
+      "nativeLabel": "Español",
+      "dir": "ltr",
+      "intro": "¿Puedo grabarte una entrevista para un proyecto sobre personas y sus historias?",
+      "consent_yes": "✓  Sí, acepto",
+      "consent_no": "✗  No, gracias",
+      "sharing_question": "¿Puedo compartir esta entrevista?",
+      "sharing_yes": "Sí",
+      "sharing_anonymous": "Sí, pero de forma anónima",
+      "sharing_no": "No",
+      "fields": {
+        "sectionTitle": "Sobre Ti",
+        "name": "Nombre",
+        "age": "Edad",
+        "religion": "Religión",
+        "location": "Lugar"
+      },
+      "questions": [
+        "¿Quién eres?",
+        "¿Cuál es tu historia?",
+        "¿Cuál es la mejor parte de tu vida?",
+        "¿Cuál es la parte más difícil de tu vida?",
+        "¿Qué esperas para el futuro?"
+      ]
+    },
+    "ar": {
+      "label": "Arabic",
+      "nativeLabel": "العربية",
+      "dir": "rtl",
+      "intro": "هل يمكنني تسجيل مقابلة معك لمشروع عن الناس وقصصهم؟",
+      "consent_yes": "✓  نعم، أوافق",
+      "consent_no": "✗  لا، شكراً",
+      "sharing_question": "هل يمكنني مشاركة هذه المقابلة؟",
+      "sharing_yes": "نعم",
+      "sharing_anonymous": "نعم، لكن بشكل مجهول",
+      "sharing_no": "لا",
+      "fields": {
+        "sectionTitle": "عنك",
+        "name": "الاسم",
+        "age": "العمر",
+        "religion": "الدين",
+        "location": "المكان"
+      },
+      "questions": [
+        "من أنت؟",
+        "ما هي قصتك؟",
+        "ما هو أفضل جزء في حياتك؟",
+        "ما هو أصعب جزء في حياتك؟",
+        "بماذا تأمل في المستقبل؟"
+      ]
+    },
+    "fr": {
+      "label": "French",
+      "nativeLabel": "Français",
+      "dir": "ltr",
+      "intro": "Puis-je enregistrer un entretien avec vous pour un projet sur les gens et leurs histoires?",
+      "consent_yes": "✓  Oui, j'accepte",
+      "consent_no": "✗  Non, merci",
+      "sharing_question": "Puis-je partager cette interview?",
+      "sharing_yes": "Oui",
+      "sharing_anonymous": "Oui, mais de façon anonyme",
+      "sharing_no": "Non",
+      "fields": {
+        "sectionTitle": "À Votre Sujet",
+        "name": "Nom",
+        "age": "Âge",
+        "religion": "Religion",
+        "location": "Lieu"
+      },
+      "questions": [
+        "Qui êtes-vous?",
+        "Quelle est votre histoire?",
+        "Quelle est la meilleure partie de votre vie?",
+        "Quelle est la partie la plus difficile de votre vie?",
+        "Qu'espérez-vous pour l'avenir?"
+      ]
+    },
+    "id": {
+      "label": "Indonesian",
+      "nativeLabel": "Bahasa Indonesia",
+      "dir": "ltr",
+      "intro": "Bolehkah saya merekam wawancara dengan Anda untuk proyek tentang orang-orang dan kisah mereka?",
+      "consent_yes": "✓  Ya, saya setuju",
+      "consent_no": "✗  Tidak, terima kasih",
+      "sharing_question": "Bolehkah saya membagikan wawancara ini?",
+      "sharing_yes": "Ya",
+      "sharing_anonymous": "Ya, tapi anonim saja",
+      "sharing_no": "Tidak",
+      "fields": {
+        "sectionTitle": "Tentang Anda",
+        "name": "Nama",
+        "age": "Usia",
+        "religion": "Agama",
+        "location": "Lokasi"
+      },
+      "questions": [
+        "Siapa Anda?",
+        "Apa kisah Anda?",
+        "Apa bagian terbaik dari hidup Anda?",
+        "Apa bagian terberat dari hidup Anda?",
+        "Apa harapan Anda?"
+      ]
+    },
+    "ban": {
+      "label": "Balinese",
+      "nativeLabel": "Basa Bali",
+      "dir": "ltr",
+      "note": "Translations are approximate — please have a native speaker review before use.",
+      "intro": "Dados titiang ngrekam wawancara sareng ragane, antuk proyek indik jadma lan satua-satuannyane?",
+      "consent_yes": "✓  Inggih, titiang setuju",
+      "consent_no": "✗  Nenten, suksma",
+      "sharing_question": "Dados titiang ngwedar wawancara puniki?",
+      "sharing_yes": "Inggih",
+      "sharing_anonymous": "Inggih, nanging tanpa adan",
+      "sharing_no": "Nenten",
+      "fields": {
+        "sectionTitle": "Indik Ragane",
+        "name": "Adan ragane",
+        "age": "Umur ragane",
+        "religion": "Agama ragane",
+        "location": "Genah ragane"
+      },
+      "questions": [
+        "Sira ragane?",
+        "Napi satua urip ragane?",
+        "Napi sane becik pisan ring urip ragane?",
+        "Napi sane paling berat ring urip ragane?",
+        "Napi pangaptin ragane?"
+      ]
+    }
+  }
+}

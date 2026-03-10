@@ -1,0 +1,25 @@
+{
+  "name": "World of Faces",
+  "short_name": "Faces",
+  "description": "Field interview tool for offline stories",
+  "start_url": "/fun-apps/world-of-faces/",
+  "scope": "/fun-apps/world-of-faces/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f0e8",
+  "theme_color": "#0D0D0D",
+  "icons": [
+    {
+      "src": "/fun-apps/world-of-faces/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/fun-apps/world-of-faces/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
