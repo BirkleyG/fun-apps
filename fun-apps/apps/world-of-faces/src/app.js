@@ -74,10 +74,6 @@ const App = (() => {
     state.db = await openDB();
     await loadLanguages();
 
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js').catch(() => {});
-    }
-
     checkDraft();
   }
 

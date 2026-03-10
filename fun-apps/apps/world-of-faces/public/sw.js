@@ -1,4 +1,4 @@
-const CACHE_NAME = "world-of-faces-v1";
+const CACHE_NAME = "world-of-faces-v2";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
