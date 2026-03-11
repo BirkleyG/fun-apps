@@ -216,49 +216,52 @@ async function ensureUserDoc(user) {
   );
 }
 
-async function uploadEntryPhotos(entryId, items) {
-  const nextItems = [];
-  for (const item of items) {
-    const photos = [];
-    for (const photo of item.photos || []) {
-      if (photo?.file instanceof File) {
-        const safeName = photo.file.name ? photo.file.name.replace(/[^\w.-]+/g, "_") : "photo";
-        const path = `coin-atlas/${entryId}/${item.id}/${photo.id || uid()}-${safeName}`;
-        const fileRef = ref(storage, path);
-        await uploadBytes(fileRef, photo.file, { contentType: photo.file.type || undefined });
-        const url = await getDownloadURL(fileRef);
-        photos.push({
-          url,
-          name: photo.file.name || "photo",
-          size: photo.file.size || null,
-          type: photo.file.type || null
-        });
-      } else if (photo?.url) {
-        photos.push({
-          url: photo.url,
-          name: photo.name || "photo",
-          size: photo.size || null,
-          type: photo.type || null
-        });
-      }
+async function uploadEntryPhotos(entryId, photos) {
+  const nextPhotos = [];
+  for (const photo of photos || []) {
+    if (photo?.file instanceof File) {
+      const safeName = photo.file.name ? photo.file.name.replace(/[^\w.-]+/g, "_") : "photo";
+      const path = `coin-atlas/${entryId}/entry/${photo.id || uid()}-${safeName}`;
+      const fileRef = ref(storage, path);
+      await uploadBytes(fileRef, photo.file, { contentType: photo.file.type || undefined });
+      const url = await getDownloadURL(fileRef);
+      nextPhotos.push({
+        url,
+        name: photo.file.name || "photo",
+        size: photo.file.size || null,
+        type: photo.file.type || null
+      });
+    } else if (photo?.url) {
+      nextPhotos.push({
+        url: photo.url,
+        name: photo.name || "photo",
+        size: photo.size || null,
+        type: photo.type || null
+      });
     }
-    const { photos: _discard, ...rest } = item;
-    nextItems.push({ ...rest, photos });
   }
-  return nextItems;
+  return nextPhotos;
+}
+
+function sanitizeItems(items) {
+  return (items || []).map((item) => {
+    const nextPhotos = (item.photos || []).filter((photo) => photo?.url);
+    return { ...item, photos: nextPhotos };
+  });
 }
 
 async function saveEntry(entry) {
-  const entryRef = doc(entriesCollectionRef);
+  const entryRef = entry.id ? doc(entriesCollectionRef, entry.id) : doc(entriesCollectionRef);
   const entryId = entryRef.id;
-  const nextItems = await uploadEntryPhotos(entryId, entry.items || []);
+  const nextPhotos = await uploadEntryPhotos(entryId, entry.photos || []);
   const payload = {
     ...entry,
     id: entryId,
-    items: nextItems,
+    photos: nextPhotos,
+    items: sanitizeItems(entry.items),
     updatedAt: serverTimestamp()
   };
-  await setDoc(entryRef, payload);
+  await setDoc(entryRef, payload, { merge: true });
   return entryId;
 }
 
@@ -426,7 +429,8 @@ function AddModal({
   preCountryId,
   contributorOptions,
   currentContributor,
-  currentContributorId
+  currentContributorId,
+  initialEntry
 }) {
   const [step, setStep] = useState(preCountryId ? 1 : 0);
   const [etype, setEtype] = useState("modern");
@@ -436,13 +440,42 @@ function AddModal({
   const [items, setItems] = useState([
     { id: uid(), type: "coin", denomination: "", year: "", notes: "", photos: [] }
   ]);
+  const [entryPhotos, setEntryPhotos] = useState([]);
   const [appliesTo, setAppliesTo] = useState([]);
   const [search, setSearch] = useState("");
   const itemsRef = useRef(items);
+  const photosRef = useRef(entryPhotos);
 
   useEffect(() => {
     itemsRef.current = items;
   }, [items]);
+
+  useEffect(() => {
+    photosRef.current = entryPhotos;
+  }, [entryPhotos]);
+
+  useEffect(() => {
+    if (!initialEntry) return;
+    setEtype(initialEntry.isHistorical ? "historical" : "modern");
+    setCountryId(initialEntry.countryId ? String(initialEntry.countryId) : "");
+    setHistId(initialEntry.entityId || "");
+    setAppliesTo(Array.isArray(initialEntry.appliesTo) ? initialEntry.appliesTo : []);
+    setContributorId(initialEntry.contributorId || currentContributorId || "");
+    setItems(
+      Array.isArray(initialEntry.items) && initialEntry.items.length
+        ? initialEntry.items.map((item) => ({
+            id: item.id || uid(),
+            type: item.type || "coin",
+            denomination: item.denomination || "",
+            year: item.year || "",
+            notes: item.notes || "",
+            photos: item.photos || []
+          }))
+        : [{ id: uid(), type: "coin", denomination: "", year: "", notes: "", photos: [] }]
+    );
+    setEntryPhotos(Array.isArray(initialEntry.photos) ? initialEntry.photos : []);
+    setStep(2);
+  }, [initialEntry, currentContributorId]);
 
   useEffect(() => {
     return () => {
@@ -450,6 +483,9 @@ function AddModal({
         (item.photos || []).forEach((photo) => {
           if (photo.previewUrl) URL.revokeObjectURL(photo.previewUrl);
         });
+      });
+      photosRef.current.forEach((photo) => {
+        if (photo.previewUrl) URL.revokeObjectURL(photo.previewUrl);
       });
     };
   }, []);
@@ -503,8 +539,10 @@ function AddModal({
   };
 
   const doSave = () => {
+    const entryId = initialEntry?.id || null;
     onSave({
-      date: new Date().toISOString(),
+      id: entryId,
+      date: initialEntry?.date || new Date().toISOString(),
       contributorId: contributorId || null,
       contributorName: contributorLabel,
       contributor: contributorLabel,
@@ -513,6 +551,7 @@ function AddModal({
       entityId: etype === "historical" ? histId : null,
       entityName: etype === "modern" ? CD[+countryId]?.n : selHist?.name,
       appliesTo: etype === "historical" ? appliesTo : [],
+      photos: entryPhotos || [],
       items: items.filter(i => i.denomination.trim()).map(i => ({
         ...i,
         photos: i.photos || []
@@ -534,33 +573,28 @@ function AddModal({
   });
   const upItem = (id, f, v) => setItems(p => p.map(i => i.id===id ? {...i,[f]:v} : i));
   const toggleAT = id => setAppliesTo(p => p.includes(id) ? p.filter(x => x!==id) : [...p,id]);
-  const addPhotos = (id, fileList) => {
+  const addEntryPhotos = (fileList) => {
     const files = Array.from(fileList || []);
     if (!files.length) return;
-    setItems(p => p.map(i => {
-      if (i.id !== id) return i;
-      const nextPhotos = files.map(file => ({
-        id: uid(),
-        file,
-        previewUrl: URL.createObjectURL(file),
-        name: file.name,
-        size: file.size,
-        type: file.type
-      }));
-      return { ...i, photos: [...(i.photos || []), ...nextPhotos] };
+    const nextPhotos = files.map(file => ({
+      id: uid(),
+      file,
+      previewUrl: URL.createObjectURL(file),
+      name: file.name,
+      size: file.size,
+      type: file.type
     }));
+    setEntryPhotos((p) => [...p, ...nextPhotos]);
   };
-  const removePhoto = (itemId, photoId) => {
-    setItems(p => p.map(i => {
-      if (i.id !== itemId) return i;
-      const nextPhotos = (i.photos || []).filter(photo => {
+  const removeEntryPhoto = (photoId) => {
+    setEntryPhotos((p) =>
+      p.filter((photo) => {
         if (photo.id === photoId && photo.previewUrl) {
           URL.revokeObjectURL(photo.previewUrl);
         }
         return photo.id !== photoId;
-      });
-      return { ...i, photos: nextPhotos };
-    }));
+      })
+    );
   };
 
   const displayName = etype === "modern" ? CD[+countryId]?.n : selHist?.name;
@@ -571,7 +605,7 @@ function AddModal({
         <div className="ca-handle"/>
         <div className="ca-mhdr">
           <div>
-            <div className="ca-mttl">Add to Collection</div>
+            <div className="ca-mttl">{initialEntry ? "Edit Entry" : "Add to Collection"}</div>
             <div style={{fontSize:12,color:"var(--muted)",marginTop:2}}>
               {steps[step]} — Step {step+1} of {steps.length}
             </div>
@@ -647,7 +681,29 @@ function AddModal({
         {/* STEP 2 */}
         {step===2 && (
           <div className="ca-sec">
-            <div className="ca-lbl">Items for {displayName}</div>
+            <div className="ca-lbl">Entry photo (optional)</div>
+            <input
+              className="ca-file"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              multiple
+              onChange={(e) => {
+                addEntryPhotos(e.target.files);
+                e.target.value = "";
+              }}
+            />
+            {(entryPhotos || []).length > 0 && (
+              <div className="ca-photo-grid" style={{marginTop:10}}>
+                {entryPhotos.map((photo) => (
+                  <div key={photo.id} className="ca-photo">
+                    <img src={photo.previewUrl || photo.url} alt={photo.name || "photo"} />
+                    <button className="ca-photo-del" onClick={() => removeEntryPhoto(photo.id)}>x</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="ca-lbl" style={{marginTop:14}}>Items for {displayName}</div>
             {items.map((item,idx)=>(
               <div key={item.id} className="ca-irow">
                 <div style={{display:"flex",gap:7,marginBottom:7}}>
@@ -665,30 +721,6 @@ function AddModal({
                     style={{width:82,flexShrink:0}} type="number" min="1" max="2099"/>
                   {items.length>1 && (
                     <button className="ca-dbtn" onClick={()=>rmItem(item.id)}>🗑</button>
-                  )}
-                </div>
-                <div style={{marginTop:8}}>
-                  <div className="ca-lbl" style={{marginBottom:6}}>Photos (optional)</div>
-                  <input
-                    className="ca-file"
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    multiple
-                    onChange={(e) => {
-                      addPhotos(item.id, e.target.files);
-                      e.target.value = "";
-                    }}
-                  />
-                  {(item.photos || []).length > 0 && (
-                    <div className="ca-photo-grid">
-                      {item.photos.map((photo) => (
-                        <div key={photo.id} className="ca-photo">
-                          <img src={photo.previewUrl || photo.url} alt={photo.name || "photo"} />
-                          <button className="ca-photo-del" onClick={() => removePhoto(item.id, photo.id)}>x</button>
-                        </div>
-                      ))}
-                    </div>
                   )}
                 </div>
               </div>
@@ -732,7 +764,7 @@ function AddModal({
 }
 
 /* ===================== COUNTRY DETAIL ===================== */
-function CountryDetail({ countryId, entries, onClose, onAdd, contributorOptions, contributorMap }) {
+function CountryDetail({ countryId, entries, onClose, onAdd, onEdit, contributorOptions, contributorMap }) {
   const [ft, setFt] = useState("all");
   const [fc, setFc] = useState("all");
   const cinfo = CD[countryId];
@@ -800,12 +832,27 @@ function CountryDetail({ countryId, entries, onClose, onAdd, contributorOptions,
           relevant.map(entry => {
             const eis = entry.items.filter(i=>ft==="all"||i.type===ft);
             if (!eis.length) return null;
+            const entryPhotos = (entry.photos && entry.photos.length)
+              ? entry.photos
+              : entry.items.flatMap((item) => item.photos || []);
             return (
               <div key={entry.id} style={{marginBottom:16}}>
-                <div style={{fontSize:11,color:"var(--muted)",marginBottom:6,textTransform:"uppercase",letterSpacing:".8px"}}>
-                  {new Date(entry.date).toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})} · {getEntryContributorLabel(entry, contributorMap)}
-                  {entry.isHistorical && <span style={{marginLeft:6,color:"var(--gold)",fontSize:10}}>via {entry.entityName}</span>}
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,marginBottom:6}}>
+                  <div style={{fontSize:11,color:"var(--muted)",textTransform:"uppercase",letterSpacing:".8px"}}>
+                    {new Date(entry.date).toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})} · {getEntryContributorLabel(entry, contributorMap)}
+                    {entry.isHistorical && <span style={{marginLeft:6,color:"var(--gold)",fontSize:10}}>via {entry.entityName}</span>}
+                  </div>
+                  <button className="ca-chip" style={{padding:"4px 10px",fontSize:11}} onClick={() => onEdit(entry)}>Edit</button>
                 </div>
+                {entryPhotos.length > 0 && (
+                  <div className="ca-photo-grid" style={{gridTemplateColumns:"repeat(auto-fill,minmax(70px,1fr))",marginBottom:10}}>
+                    {entryPhotos.map((photo, idx) => (
+                      <a key={`${entry.id}-photo-${idx}`} href={photo.url} target="_blank" rel="noreferrer" className="ca-photo">
+                        <img src={photo.url} alt={photo.name || "photo"} />
+                      </a>
+                    ))}
+                  </div>
+                )}
                 {eis.map(item=>(
                   <div key={item.id} className="ca-ient">
                     <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -816,15 +863,6 @@ function CountryDetail({ countryId, entries, onClose, onAdd, contributorOptions,
                     </div>
                     {item.year && <div className="ca-imt">{item.year}</div>}
                     {item.notes && <div className="ca-imt" style={{fontStyle:"italic"}}>{item.notes}</div>}
-                    {(item.photos || []).length > 0 && (
-                      <div className="ca-photo-grid" style={{gridTemplateColumns:"repeat(auto-fill,minmax(70px,1fr))",marginTop:8}}>
-                        {item.photos.map((photo, idx) => (
-                          <a key={`${item.id}-${idx}`} href={photo.url} target="_blank" rel="noreferrer" className="ca-photo">
-                            <img src={photo.url} alt={photo.name || "photo"} />
-                          </a>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>
@@ -964,6 +1002,7 @@ function CoinAtlasApp({ currentContributor, currentContributorId }) {
   const [contributors, setContributors] = useState([]);
   const [page, setPage] = useState("map");
   const [showAdd, setShowAdd] = useState(false);
+  const [editEntry, setEditEntry] = useState(null);
   const [selCountry, setSelCountry] = useState(null);
   const [preCountry, setPreCountry] = useState(null);
   const [filterType, setFilterType] = useState("all");
@@ -1051,6 +1090,14 @@ function CoinAtlasApp({ currentContributor, currentContributorId }) {
 
   const handleAddForCountry = useCallback((id) => {
     setPreCountry(id);
+    setEditEntry(null);
+    setSelCountry(null);
+    setShowAdd(true);
+  }, []);
+
+  const handleEditEntry = useCallback((entry) => {
+    setEditEntry(entry);
+    setPreCountry(null);
     setSelCountry(null);
     setShowAdd(true);
   }, []);
@@ -1130,6 +1177,7 @@ function CoinAtlasApp({ currentContributor, currentContributorId }) {
           entries={entries}
           onClose={()=>setSelCountry(null)}
           onAdd={handleAddForCountry}
+          onEdit={handleEditEntry}
           contributorOptions={contributorOptions}
           contributorMap={contributorMap}
         />
@@ -1143,12 +1191,13 @@ function CoinAtlasApp({ currentContributor, currentContributorId }) {
       {/* ADD MODAL */}
       {showAdd && (
         <AddModal
-          onClose={()=>{ setShowAdd(false); setPreCountry(null); }}
+          onClose={()=>{ setShowAdd(false); setPreCountry(null); setEditEntry(null); }}
           onSave={handleSave}
           preCountryId={preCountry}
           contributorOptions={contributorOptions}
           currentContributor={currentContributor}
           currentContributorId={currentContributorId}
+          initialEntry={editEntry}
         />
       )}
 
