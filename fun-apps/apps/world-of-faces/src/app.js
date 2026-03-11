@@ -15,6 +15,7 @@ const App = (() => {
     iv: null,        // current interview object
     qIndex: 0,       // current question (0-based)
     questionPrefs: {},
+    prepPrefs: {},
     isRec: false,
     recorder: null,
     chunks: [],
@@ -27,8 +28,16 @@ const App = (() => {
   };
 
   const QUESTION_PREFS_KEY = 'wos_question_prefs';
+  const PREP_PREFS_KEY = 'wos_prep_prefs';
   const LAST_LANG_KEY = 'wos_last_lang';
   const MINUTES_PER_QUESTION = 3;
+  const PREP_SECTIONS = [
+    { id: 'intro', label: 'Introduction' },
+    { id: 'interview_question', label: 'Interview Question' },
+    { id: 'instructions', label: 'Instructions' },
+    { id: 'language_note', label: 'Language Note' },
+    { id: 'question_notes', label: 'Question Notes' },
+  ];
 
   // ─── DB HELPERS ──────────────────────────────────────────────
   function openDB() {
@@ -81,6 +90,7 @@ const App = (() => {
     state.db = await openDB();
     await loadLanguages();
     loadQuestionPrefs();
+    loadPrepPrefs();
 
     checkDraft();
   }
@@ -105,9 +115,24 @@ const App = (() => {
     }
   }
 
+  function loadPrepPrefs() {
+    try {
+      const raw = localStorage.getItem(PREP_PREFS_KEY);
+      state.prepPrefs = raw ? JSON.parse(raw) : {};
+    } catch (_) {
+      state.prepPrefs = {};
+    }
+  }
+
   function saveQuestionPrefs() {
     try {
       localStorage.setItem(QUESTION_PREFS_KEY, JSON.stringify(state.questionPrefs));
+    } catch (_) {}
+  }
+
+  function savePrepPrefs() {
+    try {
+      localStorage.setItem(PREP_PREFS_KEY, JSON.stringify(state.prepPrefs));
     } catch (_) {}
   }
 
@@ -121,6 +146,30 @@ const App = (() => {
     state.questionPrefs[langCode] = existing;
     if (changed) saveQuestionPrefs();
     return existing;
+  }
+
+  function ensurePrepPrefs() {
+    const prefs = state.prepPrefs && typeof state.prepPrefs === 'object'
+      ? { ...state.prepPrefs }
+      : {};
+    let changed = false;
+    PREP_SECTIONS.forEach((s) => {
+      if (typeof prefs[s.id] !== 'boolean') {
+        prefs[s.id] = true;
+        changed = true;
+      }
+    });
+    state.prepPrefs = prefs;
+    if (changed) savePrepPrefs();
+    return prefs;
+  }
+
+  function isPrepEnabled(id) {
+    return ensurePrepPrefs()[id] !== false;
+  }
+
+  function hasPrepContentEnabled() {
+    return PREP_SECTIONS.filter((s) => s.id !== 'intro').some((s) => isPrepEnabled(s.id));
   }
 
   function getActiveQuestions() {
@@ -203,6 +252,10 @@ const App = (() => {
   function goConsent() {
     if (!state.langCode) { toast('Select a language'); return; }
     state.lang = state.languages[state.langCode];
+    if (!isPrepEnabled('intro')) {
+      consentYes();
+      return;
+    }
     const el = document.getElementById('consent-text');
     el.textContent = state.lang.intro;
     el.className = 'consent-text' + (state.lang.dir === 'rtl' ? ' rtl' : '');
@@ -271,6 +324,10 @@ const App = (() => {
       go('settings');
       return;
     }
+    if (!hasPrepContentEnabled()) {
+      startQuestions();
+      return;
+    }
     const minutes = active.length * MINUTES_PER_QUESTION;
     const interviewPrompt = state.lang.interview_question
       || `Now, is it okay if I ask you a few questions? It will take around ${minutes} minutes to answer.`;
@@ -286,6 +343,15 @@ const App = (() => {
     const instrEl = document.getElementById('prep-instructions');
     const langEl = document.getElementById('prep-language-note');
     const notesEl = document.getElementById('prep-question-notes');
+
+    const questionCard = document.getElementById('prep-card-question');
+    const instructionsCard = document.getElementById('prep-card-instructions');
+    const languageCard = document.getElementById('prep-card-language');
+    const notesCard = document.getElementById('prep-card-notes');
+    if (questionCard) questionCard.style.display = isPrepEnabled('interview_question') ? '' : 'none';
+    if (instructionsCard) instructionsCard.style.display = isPrepEnabled('instructions') ? '' : 'none';
+    if (languageCard) languageCard.style.display = isPrepEnabled('language_note') ? '' : 'none';
+    if (notesCard) notesCard.style.display = isPrepEnabled('question_notes') ? '' : 'none';
 
     if (promptEl) {
       promptEl.textContent = interviewPrompt.replace('{minutes}', minutes);
@@ -497,7 +563,8 @@ const App = (() => {
   function prevQ() {
     if (state.isRec) stopRec();
     if (state.qIndex > 0) { state.qIndex--; renderQuestion(); }
-    else { go('prep'); renderPrep(); }
+    else if (hasPrepContentEnabled()) { go('prep'); renderPrep(); }
+    else { go('info'); }
   }
 
   function nextQ() {
@@ -807,6 +874,7 @@ const App = (() => {
     document.getElementById('stat-iv').textContent  = ivs.length;
     document.getElementById('stat-rec').textContent = recs.length;
     renderQuestionSettings();
+    renderPrepSettings();
   }
 
   function renderQuestionSettings() {
@@ -850,6 +918,34 @@ const App = (() => {
     state.questionPrefs[langCode] = prefs;
     saveQuestionPrefs();
     renderQuestionSettings();
+  }
+
+  function renderPrepSettings() {
+    const wrap = document.getElementById('settings-prep');
+    if (!wrap) return;
+    const prefs = ensurePrepPrefs();
+    wrap.innerHTML = '';
+    PREP_SECTIONS.forEach((section) => {
+      const row = document.createElement('div');
+      row.className = 'settings-row settings-question';
+      const text = document.createElement('span');
+      text.className = 'settings-q-text';
+      text.textContent = section.label;
+      const toggle = document.createElement('button');
+      toggle.className = `toggle ${prefs[section.id] ? 'on' : ''}`;
+      toggle.onclick = () => togglePrep(section.id);
+      row.appendChild(text);
+      row.appendChild(toggle);
+      wrap.appendChild(row);
+    });
+  }
+
+  function togglePrep(id) {
+    const prefs = ensurePrepPrefs();
+    prefs[id] = !prefs[id];
+    state.prepPrefs = prefs;
+    savePrepPrefs();
+    renderPrepSettings();
   }
 
   function toggleDark() {
