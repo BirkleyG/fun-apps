@@ -1,11 +1,13 @@
 import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, orderBy, query, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { auth, db, provider, storage } from "./firebase";
 import { APP_VERSION } from "./version";
 
 const APP_DOC_ID = "museum-masterpieces";
 const getAppDocRef = (uid) => doc(db, "users", uid, "apps", APP_DOC_ID);
+const CATALOG_DOC_REF = doc(db, "museum-masterpieces-catalog", "main");
+const SUGGESTIONS_COL_REF = collection(db, "museum-masterpieces-suggestions");
 
 // ═══════════════════ DATA ═══════════════════
 const SEED=[
@@ -57,12 +59,16 @@ const ISO2C={"4":"Afghanistan","8":"Albania","12":"Algeria","24":"Angola","32":"
 const cloneSeed=()=>JSON.parse(JSON.stringify(SEED));
 const defaultUserProfile=()=>({name:'Art Collector',avatar:null,favPainting:null,theme:'light'});
 
-let DB=cloneSeed();
+let DB=[];
+let CATALOG=[];
+let LOGS={};
 let USER=defaultUserProfile();
 let AUTH_USER=null;
 let booted=false;
 let dataReady=false;
 let saveTimer=null;
+let ADMIN=false;
+let SUGGESTIONS=[];
 
 const persist=()=>{scheduleSave();};
 
@@ -79,16 +85,58 @@ function applyTheme(){
   }
 }
 
+function setAdminEnabled(next){
+  ADMIN=!!next;
+  try{localStorage.setItem('museumAdmin',ADMIN?'1':'0');}catch(e){}
+}
+
+function getAdminEnabled(){
+  if(ADMIN) return true;
+  try{
+    ADMIN=localStorage.getItem('museumAdmin')==='1';
+  }catch(e){}
+  return ADMIN;
+}
+
+function promptAdmin(){
+  if(!AUTH_USER){alert('Sign in to access admin tools.');return;}
+  const pw=prompt('Enter admin password');
+  if(pw==='P4t4t0z'){
+    setAdminEnabled(true);
+    renderProfile();
+  } else if(pw){
+    alert('Incorrect password.');
+  }
+}
+
 async function loadRemote(uid){
   const snap=await getDoc(getAppDocRef(uid));
   if(!snap.exists()) return null;
   return snap.data()||null;
 }
 
+async function loadCatalog(){
+  const snap=await getDoc(CATALOG_DOC_REF);
+  if(!snap.exists()) return null;
+  return snap.data()||null;
+}
+
+async function saveCatalog(paintings){
+  await setDoc(CATALOG_DOC_REF,{
+    paintings,
+    updatedAt:serverTimestamp()
+  },{merge:true});
+}
+
+async function loadSuggestions(){
+  const snap=await getDocs(query(SUGGESTIONS_COL_REF, orderBy("createdAt","desc")));
+  return snap.docs.map(d=>({id:d.id,...d.data()}));
+}
+
 async function saveRemote(){
   if(!AUTH_USER) return;
   await setDoc(getAppDocRef(AUTH_USER.uid),{
-    paintings:DB,
+    logs:LOGS,
     userProfile:USER,
     updatedAt:serverTimestamp()
   },{merge:true});
@@ -98,6 +146,34 @@ function scheduleSave(){
   if(!AUTH_USER||!dataReady) return;
   if(saveTimer) clearTimeout(saveTimer);
   saveTimer=setTimeout(()=>{saveRemote().catch(()=>undefined);},500);
+}
+
+function stripUserFields(p){
+  const { seen, date, rating, note, ...rest } = p;
+  return { ...rest };
+}
+
+function buildLogsFromLegacy(paintings){
+  const logs={};
+  (paintings||[]).forEach(p=>{
+    if(p.seen||p.date||p.rating||p.note){
+      logs[p.id]={seen:!!p.seen,date:p.date||null,rating:p.rating||null,note:p.note||null};
+    }
+  });
+  return logs;
+}
+
+function mergeCatalogAndLogs(){
+  DB=(CATALOG||[]).map(p=>{
+    const log=LOGS[p.id]||{};
+    return { ...p, seen:!!log.seen, date:log.date||null, rating:log.rating||null, note:log.note||null };
+  });
+}
+
+function setLog(id, patch){
+  const cur=LOGS[id]||{};
+  LOGS[id]={...cur,...patch};
+  mergeCatalogAndLogs();
 }
 
 function setAuthOverlay(show){
@@ -317,12 +393,20 @@ function sanitizeFileName(name){
   return (name||'photo').replace(/[^\w.-]+/g,'_');
 }
 
-async function uploadPaintingPhotos(paintingId, files){
-  if(!AUTH_USER) return [];
+function updateCatalogPainting(id, patch){
+  const idx=CATALOG.findIndex(p=>p.id===id);
+  if(idx<0) return false;
+  CATALOG[idx]={...CATALOG[idx],...patch};
+  mergeCatalogAndLogs();
+  return true;
+}
+
+async function uploadCatalogPhotos(paintingId, files){
+  if(!AUTH_USER||!getAdminEnabled()) return [];
   const list=[];
   for(const file of Array.from(files||[])){
     const safeName=sanitizeFileName(file.name);
-    const path='museum-masterpieces/'+AUTH_USER.uid+'/'+paintingId+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+'-'+safeName;
+    const path='museum-masterpieces/catalog/'+paintingId+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+'-'+safeName;
     const fileRef=ref(storage,path);
     await uploadBytes(fileRef,file,{contentType:file.type||undefined});
     const url=await getDownloadURL(fileRef);
@@ -331,31 +415,29 @@ async function uploadPaintingPhotos(paintingId, files){
   return list;
 }
 
-async function addPaintingPhotos(id, files){
-  const p=DB.find(x=>x.id===id);if(!p)return;
-  const next=await uploadPaintingPhotos(id, files);
+async function addCatalogPhotos(id, files){
+  const p=CATALOG.find(x=>x.id===id);if(!p)return;
+  const next=await uploadCatalogPhotos(id, files);
   if(!next.length) return;
-  p.photos=[...(p.photos||[]),...next];
-  persist();openDetail(id);
+  const photos=[...(p.photos||[]),...next];
+  updateCatalogPainting(id,{photos});
+  await saveCatalog(CATALOG);
+  openDetail(id);
 }
 
 function removePaintingPhoto(id, idx){
-  const p=DB.find(x=>x.id===id);if(!p||!p.photos||!p.photos.length)return;
+  if(!getAdminEnabled()) return;
+  const p=CATALOG.find(x=>x.id===id);if(!p||!p.photos||!p.photos.length)return;
   if(!confirm('Remove this photo?'))return;
-  p.photos=p.photos.filter((_,i)=>i!==idx);
-  persist();openDetail(id);
-}
-
-function deletePainting(id){
-  if(!confirm('Delete this painting from your database? This cannot be undone.'))return;
-  DB=DB.filter(p=>p.id!==id);
-  closeDetail();
-  persist();refreshMapColors();refreshPanel();refreshActiveTabs();
+  const photos=p.photos.filter((_,i)=>i!==idx);
+  updateCatalogPainting(id,{photos});
+  saveCatalog(CATALOG).catch(()=>undefined);
+  openDetail(id);
 }
 
 function handlePhotoInput(inp,id){
   const files=inp?.files; if(!files||!files.length)return;
-  addPaintingPhotos(id, files).catch(()=>undefined);
+  addCatalogPhotos(id, files).catch(()=>undefined);
   inp.value='';
 }
 function starsH(n,sz){return Array.from({length:5}).map((_,i)=>'<span style="font-size:'+(sz||13)+'px;color:'+(i<n?'var(--gold)':'var(--border)')+'">&#9733;</span>').join('');}
@@ -368,28 +450,27 @@ function openDetail(id){
     ?'<div class="save-area"><div class="save-seen"><div class="seen-top-row"><span class="seen-chk">&#10003;</span><div class="seen-inf"><div class="seen-dt">Seen on '+(p.date||'—')+'</div></div><button class="seen-edit" onclick="openReview('+p.id+',true)">Edit Review</button></div><div class="seen-rev">'+(p.rating?'<div style="display:flex;gap:3px;margin-bottom:10px">'+starsH(p.rating,16)+'</div>':'')+(p.note?'<div class="seen-note-txt">&ldquo;'+p.note+'&rdquo;</div>':'<div class="seen-no-note">No notes yet — tap Edit Review to add some.</div>')+'</div></div><div class="unsee-lnk" onclick="unseeP('+p.id+')">Remove from seen list</div></div>'
     :'<div class="save-area"><div class="save-unseen"><div class="save-unseen-lbl">Have you seen this painting in person?</div><button class="big-save-btn" onclick="openReview('+p.id+',false)">&#10003; &nbsp;Mark as Seen &amp; Write Review</button></div></div>';
   const photos=(p.photos||[]);
+  const canManagePhotos=!!AUTH_USER&&getAdminEnabled();
   const photoGrid=photos.length
-    ?'<div class="det-photo-grid">'+photos.map((ph,i)=>'<div class="det-photo"><a href="'+ph.url+'" target="_blank" rel="noreferrer"><img src="'+ph.url+'" alt="painting photo"></a><button class="det-photo-del" onclick="removePaintingPhoto('+p.id+','+i+')">×</button></div>').join('')+'</div>'
-    :'<div class="det-photo-empty">No photos yet. Add one from your gallery or camera.</div>';
+    ?'<div class="det-photo-grid">'+photos.map((ph,i)=>'<div class="det-photo"><a href="'+ph.url+'" target="_blank" rel="noreferrer"><img src="'+ph.url+'" alt="painting photo"></a>'+(canManagePhotos?'<button class="det-photo-del" onclick="removePaintingPhoto('+p.id+','+i+')">×</button>':'')+'</div>').join('')+'</div>'
+    :'<div class="det-photo-empty">No photos yet.</div>';
+  const photoActions=canManagePhotos
+    ?'<div class="det-photo-actions"><button class="det-photo-btn" onclick="document.getElementById(\\'det-photo-inp\\').click()">Add Photo</button><input type="file" id="det-photo-inp" accept="image/*" capture="environment" multiple onchange="handlePhotoInput(this,'+p.id+')" style="display:none"></div>'
+    :'';
   const photoArea=
     '<div class="det-photos">'+
       '<div class="det-photo-hdr">Painting Photos</div>'+
       photoGrid+
-      '<div class="det-photo-actions">'+
-        '<button class="det-photo-btn" onclick="document.getElementById(\\'det-photo-inp\\').click()">Add Photo</button>'+
-        '<input type="file" id="det-photo-inp" accept="image/*" capture="environment" multiple onchange="handlePhotoInput(this,'+p.id+')" style="display:none">'+
-      '</div>'+
+      photoActions+
     '</div>';
-  const deleteBtn='<button class="det-del-btn" onclick="deletePainting('+p.id+')">Delete Painting</button>';
-  document.getElementById('det-content').innerHTML='<div class="det-canvas"><div class="det-canvas-ico">&#128444;</div></div><div class="det-body"><div class="det-yr">'+p.year+' &middot; '+p.type+'</div><div class="det-nm">'+p.name+'</div><div class="det-ar">'+p.artist+'</div><div class="chips"><span class="chip">'+p.movement+'</span><span class="chip">'+p.era+'</span><span class="chip">'+p.country+'</span></div><div class="det-quote">'+p.importance+'</div><div class="det-loc"><span style="font-size:13px">&#128205;</span><div class="det-loc-t">'+p.museum+' &middot; '+p.city+', '+p.country+'</div></div>'+photoArea+saveArea+deleteBtn+'</div>';
+  document.getElementById('det-content').innerHTML='<div class="det-canvas"><div class="det-canvas-ico">&#128444;</div></div><div class="det-body"><div class="det-yr">'+p.year+' &middot; '+p.type+'</div><div class="det-nm">'+p.name+'</div><div class="det-ar">'+p.artist+'</div><div class="chips"><span class="chip">'+p.movement+'</span><span class="chip">'+p.era+'</span><span class="chip">'+p.country+'</span></div><div class="det-quote">'+p.importance+'</div><div class="det-loc"><span style="font-size:13px">&#128205;</span><div class="det-loc-t">'+p.museum+' &middot; '+p.city+', '+p.country+'</div></div>'+photoArea+saveArea+'</div>';
   document.getElementById('det-ov').classList.add('open');
 }
 
 function closeDetail(){document.getElementById('det-ov').classList.remove('open');}
 function unseeP(id){
   if(!confirm('Remove from seen list?'))return;
-  const p=DB.find(x=>x.id===id);
-  Object.assign(p,{seen:false,date:null,rating:null,note:null});
+  setLog(id,{seen:false,date:null,rating:null,note:null});
   persist();openDetail(id);refreshMapColors();refreshPanel();
   ['tracker','profile','journal'].forEach(t=>{if(document.getElementById(t+'-tab').classList.contains('active'))({tracker:renderTracker,profile:renderProfile,journal:renderJournal}[t])();});
 }
@@ -408,10 +489,10 @@ function openReview(id,isEdit){
 }
 function setS(n){_rvS=n;document.querySelectorAll('.rv-star').forEach((s,i)=>s.classList.toggle('lit',i<n));}
 function saveReview(){
-  const p=DB.find(x=>x.id===_rvId);if(!p)return;
-  p.seen=true;p.rating=_rvS||null;
-  p.note=document.getElementById('rv-note').value.trim()||null;
-  p.date=document.getElementById('rv-date').value||new Date().toISOString().split('T')[0];
+  const rating=_rvS||null;
+  const note=document.getElementById('rv-note').value.trim()||null;
+  const date=document.getElementById('rv-date').value||new Date().toISOString().split('T')[0];
+  setLog(_rvId,{seen:true,rating,note,date});
   persist();cancelReview();openDetail(_rvId);refreshMapColors();refreshPanel();
   ['tracker','profile','journal'].forEach(t=>{if(document.getElementById(t+'-tab').classList.contains('active'))({tracker:renderTracker,profile:renderProfile,journal:renderJournal}[t])();});
 }
@@ -517,16 +598,246 @@ function saveSuggestion(){
   if(!name||!artist||!museum||!city||!country){alert('Please fill in the required fields (*).');return;}
   const lat=parseFloat(document.getElementById('sf-lat').value)||null;
   const lng=parseFloat(document.getElementById('sf-lng').value)||null;
-  if(_sugPath==='edit'&&_sugEditId){
-    const p=DB.find(x=>x.id===_sugEditId);
-    if(p){Object.assign(p,{name,artist,year:parseInt(document.getElementById('sf-year').value)||p.year,type:document.getElementById('sf-type').value,museum,city,country,region:document.getElementById('sf-region').value,movement:document.getElementById('sf-movement').value||p.movement,era:document.getElementById('sf-era').value,lat:lat||p.lat,lng:lng||p.lng,importance:document.getElementById('sf-importance').value.trim()||p.importance});}
-  } else {
-    const newId=Math.max(...DB.map(p=>p.id),0)+1;
-    DB.push({id:newId,name,artist,year:parseInt(document.getElementById('sf-year').value)||new Date().getFullYear(),museum,city,country,region:document.getElementById('sf-region').value,movement:document.getElementById('sf-movement').value||'Unknown',era:document.getElementById('sf-era').value,type:document.getElementById('sf-type').value,lat,lng,seen:false,date:null,rating:null,note:null,importance:document.getElementById('sf-importance').value.trim()||name+' by '+artist+'.'});
+  const payload={
+    type:(_sugPath==='edit'&&_sugEditId)?'edit':'new',
+    paintingId:(_sugPath==='edit'&&_sugEditId)?_sugEditId:null,
+    data:{
+      name,artist,year:parseInt(document.getElementById('sf-year').value)||null,
+      type:document.getElementById('sf-type').value,
+      museum,city,country,
+      region:document.getElementById('sf-region').value,
+      movement:document.getElementById('sf-movement').value||'Unknown',
+      era:document.getElementById('sf-era').value,
+      lat,lng,
+      importance:document.getElementById('sf-importance').value.trim()||name+' by '+artist+'.'
+    },
+    status:'new',
+    createdAt:serverTimestamp(),
+    createdBy:{
+      uid:AUTH_USER?AUTH_USER.uid:null,
+      name:AUTH_USER?(AUTH_USER.displayName||AUTH_USER.email||'User'):null,
+      email:AUTH_USER?AUTH_USER.email:null
+    }
+  };
+  const refDoc=doc(SUGGESTIONS_COL_REF);
+  setDoc(refDoc,payload).then(()=>{
+    closeSugModal();
+    alert('Suggestion sent to admin.');
+  }).catch(()=>alert('Unable to send suggestion right now.'));
+}
+
+// ═══════════════════ ADMIN CONSOLE ═══════════════════
+let adminPhotoQuery='';
+const SUG_FIELDS=[
+  {key:'name',label:'Name'},
+  {key:'artist',label:'Artist'},
+  {key:'year',label:'Year'},
+  {key:'type',label:'Medium'},
+  {key:'museum',label:'Museum'},
+  {key:'city',label:'City'},
+  {key:'country',label:'Country'},
+  {key:'region',label:'Region'},
+  {key:'movement',label:'Movement'},
+  {key:'era',label:'Era'},
+  {key:'lat',label:'Latitude'},
+  {key:'lng',label:'Longitude'},
+  {key:'importance',label:'Importance'}
+];
+
+function formatVal(v){
+  if(v===undefined||v===null||v==='') return '—';
+  return v;
+}
+
+function formatTime(ts){
+  if(!ts) return '—';
+  const d=ts.toDate?ts.toDate():ts.seconds?new Date(ts.seconds*1000):new Date(ts);
+  return Number.isNaN(d?.getTime())?'—':d.toLocaleString('en-US',{dateStyle:'medium',timeStyle:'short'});
+}
+
+function toNum(v){
+  if(v===undefined||v===null||v==='') return null;
+  const n=Number(v);
+  return Number.isFinite(n)?n:null;
+}
+
+function normalizeSuggestionData(data){
+  const d=data||{};
+  return {
+    name:(d.name||'').trim(),
+    artist:(d.artist||'').trim(),
+    year:toNum(d.year),
+    type:(d.type||'').trim(),
+    museum:(d.museum||'').trim(),
+    city:(d.city||'').trim(),
+    country:(d.country||'').trim(),
+    region:(d.region||'').trim(),
+    movement:(d.movement||'').trim(),
+    era:(d.era||'').trim(),
+    lat:toNum(d.lat),
+    lng:toNum(d.lng),
+    importance:(d.importance||'').trim()
+  };
+}
+
+function getNextCatalogId(){
+  const maxId=CATALOG.reduce((m,p)=>Math.max(m,Number(p.id)||0),0);
+  return maxId+1;
+}
+
+function setAdminPhotoQuery(q){
+  adminPhotoQuery=(q||'').trim().toLowerCase();
+  renderAdminPhotos();
+}
+
+function openAdmin(){
+  if(!AUTH_USER){alert('Sign in to access admin tools.');return;}
+  if(!getAdminEnabled()){alert('Admin mode is not enabled.');return;}
+  const ov=document.getElementById('admin-ov');
+  if(ov) ov.classList.add('open');
+  refreshAdmin();
+}
+
+function closeAdmin(){
+  const ov=document.getElementById('admin-ov');
+  if(ov) ov.classList.remove('open');
+}
+
+function exitAdmin(){
+  setAdminEnabled(false);
+  closeAdmin();
+  renderProfile();
+}
+
+function refreshAdmin(){
+  if(!getAdminEnabled()) return;
+  loadSuggestions().then(list=>{
+    SUGGESTIONS=list;
+    renderAdminSuggestions();
+  }).catch(()=>renderAdminSuggestions());
+  renderAdminPhotos();
+}
+
+function renderAdminSuggestions(){
+  const wrap=document.getElementById('admin-suggestions');
+  if(!wrap) return;
+  if(!SUGGESTIONS.length){
+    wrap.innerHTML='<div class="admin-empty">No suggestions yet.</div>';
+    return;
   }
-  persist();closeSugModal();refreshMapColors();
-  if(document.getElementById('list-tab').classList.contains('active'))renderList();
-  if(document.getElementById('tracker-tab').classList.contains('active'))renderTracker();
+  wrap.innerHTML=SUGGESTIONS.map(s=>{
+    const data=normalizeSuggestionData(s.data);
+    const created=formatTime(s.createdAt);
+    const status=(s.status||'new').toUpperCase();
+    const isNew=status==='NEW';
+    const by=s.createdBy?.name||s.createdBy?.email||'Unknown';
+    let body='';
+    if(s.type==='edit' && s.paintingId){
+      const existing=CATALOG.find(p=>p.id===s.paintingId);
+      if(existing){
+        const diffs=SUG_FIELDS.map(f=>{
+          const oldVal=formatVal(existing[f.key]);
+          const newVal=formatVal(data[f.key]);
+          if(String(oldVal)===String(newVal)) return null;
+          return '<div class="admin-diff-row"><div class="admin-diff-key">'+f.label+'</div><div class="admin-diff-old">Old: '+oldVal+'</div><div class="admin-diff-new">New: '+newVal+'</div></div>';
+        }).filter(Boolean);
+        body=diffs.length?diffs.join(''):'<div class="admin-empty">No visible changes.</div>';
+      } else {
+        body='<div class="admin-empty">Painting #'+s.paintingId+' not found in catalog.</div>';
+      }
+    } else {
+      body=SUG_FIELDS.map(f=>'<div class="admin-diff-row"><div class="admin-diff-key">'+f.label+'</div><div class="admin-diff-new">'+formatVal(data[f.key])+'</div></div>').join('');
+    }
+    const actions=isNew
+      ?'<div class="admin-actions"><button class="btn-gold" onclick="applySuggestion(\''+s.id+'\')">Apply</button><button class="btn-ghost" onclick="rejectSuggestion(\''+s.id+'\')">Reject</button></div>'
+      :'<div class="admin-status-line">Status: <span class="admin-status '+status.toLowerCase()+'">'+status+'</span></div>';
+    return '<div class="admin-sug-card '+(isNew?'new':'')+'">'
+      +'<div class="admin-sug-head"><div><div class="admin-sug-title">'+(s.type==='edit'?'Edit Suggestion':'New Painting')+'</div><div class="admin-sug-meta">From '+by+' • '+created+'</div></div><span class="admin-status '+status.toLowerCase()+'">'+status+'</span></div>'
+      +'<div class="admin-sug-body">'+body+'</div>'
+      +actions
+      +'</div>';
+  }).join('');
+}
+
+function renderAdminPhotos(){
+  const wrap=document.getElementById('admin-photo-list');
+  if(!wrap) return;
+  if(!CATALOG.length){
+    wrap.innerHTML='<div class="admin-empty">Catalog is empty.</div>';
+    return;
+  }
+  const list=CATALOG.filter(p=>{
+    if(!adminPhotoQuery) return true;
+    const q=adminPhotoQuery;
+    return (p.name||'').toLowerCase().includes(q)
+      || (p.artist||'').toLowerCase().includes(q)
+      || (p.museum||'').toLowerCase().includes(q)
+      || (p.country||'').toLowerCase().includes(q);
+  });
+  if(!list.length){
+    wrap.innerHTML='<div class="admin-empty">No paintings match that search.</div>';
+    return;
+  }
+  wrap.innerHTML=list.map(p=>{
+    const count=(p.photos||[]).length;
+    return '<div class="admin-photo-row">'
+      +'<div class="admin-photo-info"><div class="admin-photo-name">'+p.name+'</div><div class="admin-photo-sub">'+p.artist+' • '+p.museum+'</div><div class="admin-photo-count">'+count+' photo'+(count===1?'':'s')+'</div></div>'
+      +'<div class="admin-photo-actions"><button class="btn-ghost" onclick="document.getElementById(\\'admin-photo-inp-'+p.id+'\\').click()">Upload</button><input type="file" id="admin-photo-inp-'+p.id+'" accept="image/*" multiple onchange="handleAdminPhotoInput(this,'+p.id+')" style="display:none"></div>'
+      +'</div>';
+  }).join('');
+}
+
+async function applySuggestion(id){
+  if(!AUTH_USER||!getAdminEnabled()) return;
+  const s=SUGGESTIONS.find(x=>x.id===id);
+  if(!s) return;
+  if(!confirm('Apply this suggestion to the catalog?'))return;
+  let next=[...CATALOG];
+  if(s.type==='new'){
+    const nextId=getNextCatalogId();
+    const data=normalizeSuggestionData(s.data);
+    next=[...next,{...data,id:nextId,photos:[]}].sort((a,b)=>a.id-b.id);
+  } else if(s.type==='edit' && s.paintingId){
+    const idx=next.findIndex(p=>p.id===s.paintingId);
+    if(idx<0){alert('Painting not found in catalog.');return;}
+    const data=normalizeSuggestionData(s.data);
+    next[idx]={...next[idx],...data,id:next[idx].id};
+  }
+  await saveCatalog(next);
+  CATALOG=next;
+  mergeCatalogAndLogs();
+  refreshMapColors();refreshPanel();refreshActiveTabs();
+  await updateDoc(doc(SUGGESTIONS_COL_REF,id),{
+    status:'applied',
+    resolvedAt:serverTimestamp(),
+    resolvedBy:{
+      uid:AUTH_USER?AUTH_USER.uid:null,
+      name:AUTH_USER?(AUTH_USER.displayName||AUTH_USER.email||'Admin'):null,
+      email:AUTH_USER?AUTH_USER.email:null
+    }
+  });
+  refreshAdmin();
+}
+
+async function rejectSuggestion(id){
+  if(!AUTH_USER||!getAdminEnabled()) return;
+  if(!confirm('Reject this suggestion?'))return;
+  await updateDoc(doc(SUGGESTIONS_COL_REF,id),{
+    status:'rejected',
+    resolvedAt:serverTimestamp(),
+    resolvedBy:{
+      uid:AUTH_USER?AUTH_USER.uid:null,
+      name:AUTH_USER?(AUTH_USER.displayName||AUTH_USER.email||'Admin'):null,
+      email:AUTH_USER?AUTH_USER.email:null
+    }
+  });
+  refreshAdmin();
+}
+
+function handleAdminPhotoInput(inp,id){
+  const files=inp?.files; if(!files||!files.length)return;
+  addCatalogPhotos(id, files).catch(()=>undefined);
+  inp.value='';
 }
 
 // ═══════════════════ LIST ═══════════════════
@@ -705,6 +1016,11 @@ function renderProfile(){
   const avH=USER.avatar?'<img src="'+USER.avatar+'" style="width:76px;height:76px;border-radius:50%;object-fit:cover;border:2px solid var(--border)">'
     :'<div class="av">&#127912;</div>';
   const authLabel=AUTH_USER?(AUTH_USER.email||AUTH_USER.displayName||'Signed in'):'';
+  const adminControls=AUTH_USER
+    ?(getAdminEnabled()
+      ?'<button class="btn-ghost" onclick="openAdmin()">Open Admin Console</button><button class="btn-ghost" onclick="exitAdmin()">Exit Admin Mode</button>'
+      :'<button class="btn-ghost" onclick="promptAdmin()">Admin Login</button>')
+    :'';
   document.getElementById('pscr').innerHTML=
     '<div class="prof-hero"><div class="av-wrap" onclick="document.getElementById(\'av-inp\').click()">'+avH+'<div class="av-e">&#9998;</div></div><div class="pn-row"><div id="pnd" class="pn">'+USER.name+'</div><span class="pn-eb" onclick="editName()">&#9998;</span></div><div class="pbio">Chasing masterpieces across the world</div></div>'
     +'<div class="theme-row"><span class="theme-label">Appearance</span><div class="theme-icons"><span style="font-size:15px">&#9728;</span><div class="toggle-track" onclick="toggleTheme()"><div class="toggle-thumb"></div></div><span style="font-size:15px">&#9790;</span></div></div>'
@@ -720,6 +1036,7 @@ function renderProfile(){
     +'<div class="pt" style="height:4px"><div class="pf" style="width:'+Math.round(seen/total*100)+'%"></div></div></div>'
     +'<div style="padding:16px 20px 24px;display:flex;flex-direction:column;gap:10px">'
       +(authLabel?'<div class="auth-meta">'+authLabel+'</div>':'')
+      +adminControls
       +'<div class="auth-meta">Version '+APP_VERSION+'</div>'
       +'<button class="btn-ghost" onclick="doSignOut()">Sign out</button>'
     +'</div>';
@@ -763,10 +1080,35 @@ function refreshActiveTabs(){
   if(document.getElementById('profile-tab').classList.contains('active')) renderProfile();
 }
 
-function applyLoadedState(remote){
-  const safePaintings=remote&&Array.isArray(remote.paintings)?remote.paintings:null;
+function applyLoadedState(remote, catalog){
   const safeUser=remote&&remote.userProfile?remote.userProfile:null;
-  DB=safePaintings?safePaintings:[];
+  const legacyPaintings=remote&&Array.isArray(remote.paintings)?remote.paintings:null;
+  const catalogPaintings=catalog&&Array.isArray(catalog.paintings)?catalog.paintings:null;
+  const useAdmin=getAdminEnabled();
+
+  if(catalogPaintings){
+    CATALOG=catalogPaintings;
+  } else if(legacyPaintings){
+    CATALOG=legacyPaintings.map(stripUserFields);
+    if(useAdmin){
+      saveCatalog(CATALOG).catch(()=>undefined);
+    }
+  } else {
+    CATALOG=[];
+  }
+
+  if(remote&&remote.logs){
+    LOGS=remote.logs||{};
+  } else if(legacyPaintings){
+    LOGS=buildLogsFromLegacy(legacyPaintings);
+    if(AUTH_USER){
+      setDoc(getAppDocRef(AUTH_USER.uid),{logs:LOGS},{merge:true}).catch(()=>undefined);
+    }
+  } else {
+    LOGS={};
+  }
+
+  mergeCatalogAndLogs();
   USER={...defaultUserProfile(),...(safeUser||{})};
   updateUserProfileFromAuth();
   applyTheme();
@@ -775,6 +1117,7 @@ function applyLoadedState(remote){
   refreshMapColors();
   refreshPanel();
   refreshActiveTabs();
+  if(getAdminEnabled()) renderAdminPhotos();
 }
 
 bindStaticHandlers();
@@ -787,12 +1130,13 @@ onAuthStateChanged(auth,(user)=>{
     DB=[];
     USER=defaultUserProfile();
     applyTheme();
+    closeAdmin();
     return;
   }
   setAuthOverlay(false);
-  loadRemote(AUTH_USER.uid)
-    .then((remote)=>applyLoadedState(remote))
-    .catch(()=>applyLoadedState(null));
+  Promise.all([loadRemote(AUTH_USER.uid), loadCatalog()])
+    .then(([remote,catalog])=>applyLoadedState(remote,catalog))
+    .catch(()=>applyLoadedState(null,null));
 });
 
 Object.assign(window,{
@@ -825,6 +1169,14 @@ Object.assign(window,{
   openMuseumPanel,
   doSignOut,
   handlePhotoInput,
+  handleAdminPhotoInput,
   removePaintingPhoto,
-  deletePainting
+  promptAdmin,
+  openAdmin,
+  closeAdmin,
+  exitAdmin,
+  applySuggestion,
+  rejectSuggestion,
+  setAdminPhotoQuery
 });
+

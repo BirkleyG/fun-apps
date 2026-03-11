@@ -9,8 +9,8 @@ service firebase.storage {
       allow read, write: if signedIn();
     }
 
-    match /museum-masterpieces/{userId}/{paintingId}/{fileName} {
-      allow read, write: if signedIn() && request.auth.uid == userId;
+    match /museum-masterpieces/catalog/{paintingId}/{fileName} {
+      allow read, write: if signedIn();
     }
   }
 }

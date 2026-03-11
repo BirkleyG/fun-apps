@@ -18,6 +18,15 @@ service cloud.firestore {
       allow write: if signedIn() && request.auth.uid == userId;
     }
 
+    match /museum-masterpieces-catalog/{docId} {
+      allow read, write: if signedIn();
+    }
+
+    match /museum-masterpieces-suggestions/{docId} {
+      allow create: if signedIn();
+      allow read, update, delete: if signedIn();
+    }
+
     match /time-loop-cyoa/{docId} {
       allow read, write: if docId == "story";
     }

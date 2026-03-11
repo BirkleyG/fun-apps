@@ -157,6 +157,39 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-fam
 .unsee-lnk{display:block;text-align:center;padding:11px;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);cursor:pointer;transition:color .2s}
 .unsee-lnk:hover{color:var(--red)}
 
+/* ADMIN */
+#admin-ov{position:fixed;inset:0;background:var(--bg);z-index:9400;transform:translateX(100%);transition:transform .42s cubic-bezier(.22,1,.36,1),background .35s;overflow-y:auto;scrollbar-width:none}
+#admin-ov.open{transform:translateX(0)}
+#admin-ov::-webkit-scrollbar{display:none}
+#admin-head{position:sticky;top:0;background:var(--nav-bg);backdrop-filter:blur(20px);padding:calc(50px + var(--safe-top)) 20px 13px;display:flex;align-items:center;gap:12px;cursor:pointer;border-bottom:1px solid var(--border2);z-index:10;transition:background .35s}
+.admin-body{padding:18px 20px 120px;display:flex;flex-direction:column;gap:18px}
+.admin-card{background:var(--surf);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-sm);padding:16px}
+.admin-title{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:10px}
+.admin-sug-card{border:1px solid var(--border2);border-radius:10px;padding:12px;margin-bottom:12px;background:var(--surf2)}
+.admin-sug-card.new{border-color:var(--gold);box-shadow:var(--shadow-sm)}
+.admin-sug-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:8px}
+.admin-sug-title{font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--text)}
+.admin-sug-meta{font-family:'DM Mono',monospace;font-size:9px;color:var(--faint);margin-top:3px}
+.admin-sug-body{margin-top:6px}
+.admin-status{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:4px 8px;border-radius:99px;border:1px solid var(--border2);color:var(--gold-dim);align-self:flex-start}
+.admin-status.new{border-color:var(--gold);color:var(--gold)}
+.admin-status.applied{border-color:var(--green);color:var(--green)}
+.admin-status.rejected{border-color:var(--red);color:var(--red)}
+.admin-diff-row{display:grid;grid-template-columns:90px 1fr;gap:6px;margin:6px 0}
+.admin-diff-key{font-family:'DM Mono',monospace;font-size:9px;color:var(--gold-dim);text-transform:uppercase}
+.admin-diff-old{font-family:'Outfit',sans-serif;font-size:12px;color:var(--faint)}
+.admin-diff-new{font-family:'Outfit',sans-serif;font-size:12px;color:var(--text)}
+.admin-actions{display:flex;gap:8px;margin-top:10px}
+.admin-status-line{font-family:'DM Mono',monospace;font-size:9px;color:var(--faint);margin-top:10px}
+.admin-empty{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:14px;color:var(--faint);padding:8px 0}
+.admin-search{width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:6px;padding:10px 12px;color:var(--text);font-family:'Outfit',sans-serif;font-size:13px;margin-bottom:12px}
+.admin-photo-row{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--border2);border-radius:8px;padding:10px;margin-bottom:10px;background:var(--surf2)}
+.admin-photo-info{flex:1;min-width:0}
+.admin-photo-name{font-family:'Cormorant Garamond',serif;font-size:16px;color:var(--text)}
+.admin-photo-sub{font-family:'DM Mono',monospace;font-size:9px;color:var(--faint);margin-top:2px}
+.admin-photo-count{font-family:'DM Mono',monospace;font-size:9px;color:var(--gold-dim);margin-top:4px}
+.admin-photo-actions{display:flex;flex-shrink:0}
+
 /* MODALS */
 #rv-modal,#sug-modal{position:fixed;inset:0;z-index:9500;display:none;align-items:flex-end}
 #rv-modal.open,#sug-modal.open{display:flex}
@@ -444,6 +477,25 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-fam
     <div class="det-crumb" id="det-crumb">Back</div>
   </div>
   <div id="det-content"></div>
+</div>
+
+<!-- ADMIN CONSOLE -->
+<div id="admin-ov">
+  <div id="admin-head" onclick="closeAdmin()">
+    <div class="back-c">&#8592;</div>
+    <div class="det-crumb">Admin Console</div>
+  </div>
+  <div class="admin-body">
+    <div class="admin-card">
+      <div class="admin-title">Suggestions</div>
+      <div id="admin-suggestions"></div>
+    </div>
+    <div class="admin-card">
+      <div class="admin-title">Catalog Photos</div>
+      <input class="admin-search" id="admin-photo-q" placeholder="Search paintings..." oninput="setAdminPhotoQuery(this.value)">
+      <div id="admin-photo-list"></div>
+    </div>
+  </div>
 </div>
 
 <!-- REVIEW MODAL -->
