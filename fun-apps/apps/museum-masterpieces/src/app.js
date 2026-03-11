@@ -455,7 +455,7 @@ function openDetail(id){
     ?'<div class="det-photo-grid">'+photos.map((ph,i)=>'<div class="det-photo"><a href="'+ph.url+'" target="_blank" rel="noreferrer"><img src="'+ph.url+'" alt="painting photo"></a>'+(canManagePhotos?'<button class="det-photo-del" onclick="removePaintingPhoto('+p.id+','+i+')">×</button>':'')+'</div>').join('')+'</div>'
     :'<div class="det-photo-empty">No photos yet.</div>';
   const photoActions=canManagePhotos
-    ?'<div class="det-photo-actions"><button class="det-photo-btn" onclick="document.getElementById(\\'det-photo-inp\\').click()">Add Photo</button><input type="file" id="det-photo-inp" accept="image/*" capture="environment" multiple onchange="handlePhotoInput(this,'+p.id+')" style="display:none"></div>'
+    ?'<div class="det-photo-actions"><button class="det-photo-btn" onclick="document.getElementById(\'det-photo-inp\').click()">Add Photo</button><input type="file" id="det-photo-inp" accept="image/*" capture="environment" multiple onchange="handlePhotoInput(this,'+p.id+')" style="display:none"></div>'
     :'';
   const photoArea=
     '<div class="det-photos">'+
@@ -782,7 +782,7 @@ function renderAdminPhotos(){
     const count=(p.photos||[]).length;
     return '<div class="admin-photo-row">'
       +'<div class="admin-photo-info"><div class="admin-photo-name">'+p.name+'</div><div class="admin-photo-sub">'+p.artist+' • '+p.museum+'</div><div class="admin-photo-count">'+count+' photo'+(count===1?'':'s')+'</div></div>'
-      +'<div class="admin-photo-actions"><button class="btn-ghost" onclick="document.getElementById(\\'admin-photo-inp-'+p.id+'\\').click()">Upload</button><input type="file" id="admin-photo-inp-'+p.id+'" accept="image/*" multiple onchange="handleAdminPhotoInput(this,'+p.id+')" style="display:none"></div>'
+      +'<div class="admin-photo-actions"><button class="btn-ghost" onclick="document.getElementById(\'admin-photo-inp-'+p.id+'\').click()">Upload</button><input type="file" id="admin-photo-inp-'+p.id+'" accept="image/*" multiple onchange="handleAdminPhotoInput(this,'+p.id+')" style="display:none"></div>'
       +'</div>';
   }).join('');
 }
