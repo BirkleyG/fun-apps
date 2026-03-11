@@ -1,3 +1,5 @@
+import { FALLBACK_LANGS } from './languages.js';
+
 // ═══════════════════════════════════════════════════════════════
 //  WORLD OF FACES — Field Interview App
 //  v1.0 | Single-file PWA
@@ -12,6 +14,7 @@ const App = (() => {
     lang: null,
     iv: null,        // current interview object
     qIndex: 0,       // current question (0-based)
+    questionPrefs: {},
     isRec: false,
     recorder: null,
     chunks: [],
@@ -22,6 +25,10 @@ const App = (() => {
     dark: false,
     detailId: null,
   };
+
+  const QUESTION_PREFS_KEY = 'wos_question_prefs';
+  const LAST_LANG_KEY = 'wos_last_lang';
+  const MINUTES_PER_QUESTION = 3;
 
   // ─── DB HELPERS ──────────────────────────────────────────────
   function openDB() {
@@ -73,6 +80,7 @@ const App = (() => {
 
     state.db = await openDB();
     await loadLanguages();
+    loadQuestionPrefs();
 
     checkDraft();
   }
@@ -86,6 +94,63 @@ const App = (() => {
     } catch (_) {
       state.languages = FALLBACK_LANGS;
     }
+  }
+
+  function loadQuestionPrefs() {
+    try {
+      const raw = localStorage.getItem(QUESTION_PREFS_KEY);
+      state.questionPrefs = raw ? JSON.parse(raw) : {};
+    } catch (_) {
+      state.questionPrefs = {};
+    }
+  }
+
+  function saveQuestionPrefs() {
+    try {
+      localStorage.setItem(QUESTION_PREFS_KEY, JSON.stringify(state.questionPrefs));
+    } catch (_) {}
+  }
+
+  function ensureQuestionPrefs(langCode, total) {
+    let changed = false;
+    const existing = Array.isArray(state.questionPrefs?.[langCode])
+      ? state.questionPrefs[langCode].slice(0, total)
+      : [];
+    if (!Array.isArray(state.questionPrefs?.[langCode])) changed = true;
+    while (existing.length < total) { existing.push(true); changed = true; }
+    state.questionPrefs[langCode] = existing;
+    if (changed) saveQuestionPrefs();
+    return existing;
+  }
+
+  function getActiveQuestions() {
+    const qs = state.lang?.questions || [];
+    const enabled = ensureQuestionPrefs(state.langCode, qs.length);
+    const active = [];
+    qs.forEach((q, i) => {
+      if (enabled[i] !== false) active.push({ index: i, text: q });
+    });
+    return active;
+  }
+
+  function getCurrentQuestion() {
+    const active = getActiveQuestions();
+    return active[state.qIndex] || null;
+  }
+
+  function getCurrentQKey() {
+    const q = getCurrentQuestion();
+    return q ? `Q${q.index + 1}` : null;
+  }
+
+  function getSettingsLang() {
+    const saved = localStorage.getItem(LAST_LANG_KEY);
+    const code = state.langCode || saved || 'en';
+    const lang = state.languages[code]
+      || state.languages.en
+      || Object.values(state.languages)[0]
+      || { label: 'English', questions: [] };
+    return { code, lang };
   }
 
   // ─── NAVIGATION ──────────────────────────────────────────────
@@ -125,6 +190,8 @@ const App = (() => {
       card.onclick = () => {
         state.langCode = code;
         state.lang = lang;
+        localStorage.setItem(LAST_LANG_KEY, code);
+        ensureQuestionPrefs(code, (lang.questions || []).length);
         renderLangList();
         document.getElementById('lang-continue-btn').style.display = 'flex';
       };
@@ -154,9 +221,9 @@ const App = (() => {
   function renderInfoForm() {
     const f   = state.lang.fields;
     const dir = state.lang.dir || 'ltr';
-    document.getElementById('info-header').textContent = f.sectionTitle || 'About You';
+    document.getElementById('info-header').textContent = f.sectionTitle || 'Biographical Info';
     document.getElementById('info-form').innerHTML = `
-      <div class="settings-group-label" style="margin-bottom:16px">${f.sectionTitle || 'About You'}</div>
+      <div class="settings-group-label" style="margin-bottom:16px">${f.sectionTitle || 'Biographical Info'}</div>
       ${field('name',     f.name,     'text',   dir, state.iv.name)}
       ${field('age',      f.age,      'number', dir, state.iv.age)}
       ${field('religion', f.religion, 'text',   dir, state.iv.religion)}
@@ -182,10 +249,63 @@ const App = (() => {
     state.iv.language = state.langCode;
     state.iv.langLabel = state.lang.label;
 
+    const active = getActiveQuestions();
+    if (!active.length) {
+      toast('Enable at least one question in Settings');
+      return;
+    }
+
     const now = new Date();
     state.iv.date = now.toISOString().slice(0,10);
     state.iv.id   = `${state.iv.date}-${sanitize(state.iv.name)}-${Date.now()}`;
 
+    state.qIndex = 0;
+    go('prep');
+    renderPrep();
+  }
+
+  function renderPrep() {
+    const active = getActiveQuestions();
+    if (!active.length) {
+      toast('Enable at least one question in Settings');
+      go('settings');
+      return;
+    }
+    const minutes = active.length * MINUTES_PER_QUESTION;
+    const interviewPrompt = state.lang.interview_question
+      || `Now, is it okay if I ask you a few questions? It will take around ${minutes} minutes to answer.`;
+    const instructions = state.lang.instructions
+      || 'The screen will show a question. I will record your answer on my phone. Once you are done, just let me know, and I will move to the next question. Feel free to take as long or as short as you want.';
+    const languageNote = state.lang.language_note
+      || 'Just so you know, I will not understand what you are saying, so feel free to say whatever you wish. I will only translate the recording once our conversation is finished.';
+    const questionNotes = state.lang.question_notes
+      || 'The questions are intentionally left ambiguous and open ended. This means you cannot answer them in a way that is wrong. Answer however you wish!';
+
+    const dir = state.lang.dir === 'rtl' ? ' rtl' : '';
+    const promptEl = document.getElementById('prep-question');
+    const instrEl = document.getElementById('prep-instructions');
+    const langEl = document.getElementById('prep-language-note');
+    const notesEl = document.getElementById('prep-question-notes');
+
+    if (promptEl) {
+      promptEl.textContent = interviewPrompt.replace('{minutes}', minutes);
+      promptEl.className = 'prep-text' + dir;
+    }
+    if (instrEl) {
+      instrEl.textContent = instructions;
+      instrEl.className = 'prep-text' + dir;
+    }
+    if (langEl) {
+      langEl.textContent = languageNote;
+      langEl.className = 'prep-text' + dir;
+    }
+    if (notesEl) {
+      notesEl.textContent = questionNotes;
+      notesEl.className = 'prep-text' + dir;
+    }
+  }
+
+  function startQuestions() {
     state.qIndex = 0;
     go('question');
     renderQuestion();
@@ -193,9 +313,21 @@ const App = (() => {
 
   // ─── QUESTION SCREEN ─────────────────────────────────────────
   function renderQuestion() {
-    const qs    = state.lang.questions;
+    const active = getActiveQuestions();
+    if (!active.length) {
+      toast('Enable at least one question in Settings');
+      go('settings');
+      return;
+    }
     const i     = state.qIndex;
-    const total = qs.length;
+    const total = active.length;
+    if (i >= total) {
+      state.qIndex = 0;
+      renderQuestion();
+      return;
+    }
+    const current = active[i];
+    const qKey = current ? `Q${current.index + 1}` : null;
 
     document.getElementById('q-counter').textContent = `Q ${i+1} / ${total}`;
     document.getElementById('q-lang-tag').textContent = state.lang.label;
@@ -204,21 +336,21 @@ const App = (() => {
     // Dots
     const dotsEl = document.getElementById('q-dots');
     dotsEl.innerHTML = '';
-    qs.forEach((_, di) => {
+    active.forEach((q, di) => {
       const d = document.createElement('div');
       d.className = 'q-dot';
       if (di === i) d.classList.add('active');
-      else if (state.iv.recs[`Q${di+1}`]) d.classList.add('recorded');
+      else if (q && state.iv.recs[`Q${q.index + 1}`]) d.classList.add('recorded');
       dotsEl.appendChild(d);
     });
 
     // Question text
     const textEl = document.getElementById('q-text');
-    textEl.textContent = qs[i];
+    textEl.textContent = current ? current.text : '';
     textEl.className   = 'q-text' + (state.lang.dir === 'rtl' ? ' rtl' : '');
 
     requestAnimationFrame(fitText);
-    updateRecButtons();
+    updateRecButtons(qKey);
     saveDraft();
   }
 
@@ -237,8 +369,8 @@ const App = (() => {
     textEl.style.fontSize = lo + 'px';
   }
 
-  function updateRecButtons() {
-    const qKey   = `Q${state.qIndex+1}`;
+  function updateRecButtons(qKey = getCurrentQKey()) {
+    if (!qKey) return;
     const hasRec = !!state.iv.recs[qKey];
     const btnRec = document.getElementById('btn-record');
     const btnPly = document.getElementById('btn-play');
@@ -264,7 +396,8 @@ const App = (() => {
   // ─── RECORDING ───────────────────────────────────────────────
   async function toggleRecord() {
     if (state.isRec) { stopRec(); return; }
-    const qKey = `Q${state.qIndex+1}`;
+    const qKey = getCurrentQKey();
+    if (!qKey) return;
     if (state.iv.recs[qKey]) {
       showSheet('Re-record this answer?', [
         { label: 'Re-record',      fn: startRec },
@@ -324,7 +457,8 @@ const App = (() => {
   }
 
   async function storeRec(blob, mime) {
-    const qKey = `Q${state.qIndex+1}`;
+    const qKey = getCurrentQKey();
+    if (!qKey) return;
     const ext  = mime.includes('mp4')||mime.includes('m4a') ? 'm4a'
                : mime.includes('aac') ? 'aac' : 'webm';
     const fn   = `${state.iv.date}-${sanitize(state.iv.name)}-${qKey}.${ext}`;
@@ -343,7 +477,7 @@ const App = (() => {
   }
 
   async function playCurrentRec() {
-    const qKey = `Q${state.qIndex+1}`;
+    const qKey = getCurrentQKey();
     const rec  = state.iv.recs[qKey];
     if (rec) playByKey(rec.key);
   }
@@ -363,19 +497,35 @@ const App = (() => {
   function prevQ() {
     if (state.isRec) stopRec();
     if (state.qIndex > 0) { state.qIndex--; renderQuestion(); }
-    else go('info');
+    else { go('prep'); renderPrep(); }
   }
 
   function nextQ() {
     if (state.isRec) stopRec();
-    const total = state.lang.questions.length;
+    const total = getActiveQuestions().length;
     if (state.qIndex < total - 1) { state.qIndex++; renderQuestion(); }
-    else renderShareConsent();
+    else renderComplete();
   }
 
   function backToQuestions() {
     go('question');
     renderQuestion();
+  }
+
+  function renderComplete() {
+    const dir = state.lang.dir || 'ltr';
+    const el  = document.getElementById('complete-text');
+    const msg = state.lang.completed
+      || 'That is all the questions I have. Thank you so very much.';
+    if (el) {
+      el.textContent = msg;
+      el.className = 'consent-text' + (dir === 'rtl' ? ' rtl' : '');
+    }
+    go('complete');
+  }
+
+  function goShareConsent() {
+    renderShareConsent();
   }
 
   // ─── SHARING CONSENT ─────────────────────────────────────────
@@ -397,19 +547,18 @@ const App = (() => {
   }
 
   function backFromShareConsent() {
-    // Go back to last question
-    state.qIndex = state.lang.questions.length - 1;
-    go('question');
-    renderQuestion();
+    const total = getActiveQuestions().length;
+    state.qIndex = Math.max(0, total - 1);
+    renderComplete();
   }
 
   // ─── REVIEW ──────────────────────────────────────────────────
   function renderReview() {
-    const qs  = state.lang.questions;
+    const qs  = getActiveQuestions();
     const el  = document.getElementById('review-list');
     el.innerHTML = '';
     qs.forEach((q, i) => {
-      const key    = `Q${i+1}`;
+      const key    = `Q${q.index + 1}`;
       const hasRec = !!state.iv.recs[key];
       const item   = document.createElement('div');
       item.className = 'review-item';
@@ -418,7 +567,7 @@ const App = (() => {
           <span class="review-qnum">Question ${i+1}</span>
           <span class="${hasRec ? 'review-status-rec' : 'review-status-none'}">${hasRec ? '✓ Recorded' : '○ No recording'}</span>
         </div>
-        <div class="review-qtext">${q}</div>`;
+        <div class="review-qtext">${q.text}</div>`;
       el.appendChild(item);
     });
     go('review');
@@ -474,9 +623,15 @@ const App = (() => {
 
   async function resumeDraft(d) {
     state.iv       = d.iv;
-    state.qIndex   = d.qIndex;
     state.langCode = d.langCode;
     state.lang     = state.languages[d.langCode] || Object.values(state.languages)[0];
+    const active = getActiveQuestions();
+    if (!active.length) {
+      toast('Enable at least one question in Settings');
+      go('settings');
+      return;
+    }
+    state.qIndex = Math.min(d.qIndex, active.length - 1);
     go('question');
     renderQuestion();
   }
@@ -651,6 +806,50 @@ const App = (() => {
     const recs = await dbAll('recordings');
     document.getElementById('stat-iv').textContent  = ivs.length;
     document.getElementById('stat-rec').textContent = recs.length;
+    renderQuestionSettings();
+  }
+
+  function renderQuestionSettings() {
+    const wrap = document.getElementById('settings-questions');
+    if (!wrap) return;
+    const { code, lang } = getSettingsLang();
+    const qs = lang.questions || [];
+    const prefs = ensureQuestionPrefs(code, qs.length);
+    const enabledCount = prefs.filter(Boolean).length;
+
+    const langLabel = document.getElementById('questions-lang-label');
+    const countLabel = document.getElementById('questions-enabled-count');
+    if (langLabel) langLabel.textContent = lang.label || code;
+    if (countLabel) countLabel.textContent = `${enabledCount} / ${qs.length}`;
+
+    wrap.innerHTML = '';
+    if (!qs.length) {
+      wrap.innerHTML = `<div class="settings-val" style="padding:8px 0">No questions configured.</div>`;
+      return;
+    }
+    qs.forEach((q, i) => {
+      const row = document.createElement('div');
+      row.className = 'settings-row settings-question';
+      const text = document.createElement('span');
+      text.className = 'settings-q-text';
+      text.textContent = q;
+      const toggle = document.createElement('button');
+      toggle.className = `toggle ${prefs[i] ? 'on' : ''}`;
+      toggle.onclick = () => toggleQuestion(i, code);
+      row.appendChild(text);
+      row.appendChild(toggle);
+      wrap.appendChild(row);
+    });
+  }
+
+  function toggleQuestion(index, langCode) {
+    const lang = state.languages[langCode] || {};
+    const qs = lang.questions || [];
+    const prefs = ensureQuestionPrefs(langCode, qs.length);
+    prefs[index] = !prefs[index];
+    state.questionPrefs[langCode] = prefs;
+    saveQuestionPrefs();
+    renderQuestionSettings();
   }
 
   function toggleDark() {
@@ -711,68 +910,16 @@ const App = (() => {
     if (document.getElementById('s-question').classList.contains('active')) fitText();
   });
 
-  // ─── FALLBACK LANGUAGES (inline) ─────────────────────────────
-  const FALLBACK_LANGS = {
-    en: {
-      label:'English', nativeLabel:'English', dir:'ltr',
-      intro:'May I record an interview with you for a project about people and their stories?',
-      consent_yes:'✓  Yes, I agree', consent_no:'✗  No thanks',
-      sharing_question:'Can I share this interview?', sharing_yes:'Yes', sharing_anonymous:'Yes, but keep me anonymous', sharing_no:'No',
-      fields:{ sectionTitle:'About You', name:'Name', age:'Age', religion:'Religion', location:'Location' },
-      questions:['Who are you?','What is your story?','What is the best part of your life?','What is the hardest part of your life?','What do you hope for?']
-    },
-    es: {
-      label:'Spanish', nativeLabel:'Español', dir:'ltr',
-      intro:'¿Puedo grabarte una entrevista para un proyecto sobre personas y sus historias?',
-      consent_yes:'✓  Sí, acepto', consent_no:'✗  No, gracias',
-      sharing_question:'¿Puedo compartir esta entrevista?', sharing_yes:'Sí', sharing_anonymous:'Sí, pero de forma anónima', sharing_no:'No',
-      fields:{ sectionTitle:'Sobre Ti', name:'Nombre', age:'Edad', religion:'Religión', location:'Lugar' },
-      questions:['¿Quién eres?','¿Cuál es tu historia?','¿Cuál es la mejor parte de tu vida?','¿Cuál es la parte más difícil de tu vida?','¿Qué esperas para el futuro?']
-    },
-    ar: {
-      label:'Arabic', nativeLabel:'العربية', dir:'rtl',
-      intro:'هل يمكنني تسجيل مقابلة معك لمشروع عن الناس وقصصهم؟',
-      consent_yes:'✓  نعم، أوافق', consent_no:'✗  لا، شكراً',
-      sharing_question:'هل يمكنني مشاركة هذه المقابلة؟', sharing_yes:'نعم', sharing_anonymous:'نعم، لكن بشكل مجهول', sharing_no:'لا',
-      fields:{ sectionTitle:'عنك', name:'الاسم', age:'العمر', religion:'الدين', location:'المكان' },
-      questions:['من أنت؟','ما هي قصتك؟','ما هو أفضل جزء في حياتك؟','ما هو أصعب جزء في حياتك؟','بماذا تأمل في المستقبل؟']
-    },
-    fr: {
-      label:'French', nativeLabel:'Français', dir:'ltr',
-      intro:'Puis-je enregistrer un entretien avec vous pour un projet sur les gens et leurs histoires?',
-      consent_yes:"✓  Oui, j'accepte", consent_no:'✗  Non, merci',
-      sharing_question:'Puis-je partager cette interview?', sharing_yes:'Oui', sharing_anonymous:'Oui, mais de façon anonyme', sharing_no:'Non',
-      fields:{ sectionTitle:'À Votre Sujet', name:'Nom', age:'Âge', religion:'Religion', location:'Lieu' },
-      questions:['Qui êtes-vous?','Quelle est votre histoire?','Quelle est la meilleure partie de votre vie?','Quelle est la partie la plus difficile de votre vie?',"Qu'espérez-vous pour l'avenir?"]
-    },
-    id: {
-      label:'Indonesian', nativeLabel:'Bahasa Indonesia', dir:'ltr',
-      intro:'Bolehkah saya merekam wawancara dengan Anda untuk proyek tentang orang-orang dan kisah mereka?',
-      consent_yes:'✓  Ya, saya setuju', consent_no:'✗  Tidak, terima kasih',
-      sharing_question:'Bolehkah saya membagikan wawancara ini?', sharing_yes:'Ya', sharing_anonymous:'Ya, tapi anonim saja', sharing_no:'Tidak',
-      fields:{ sectionTitle:'Tentang Anda', name:'Nama', age:'Usia', religion:'Agama', location:'Lokasi' },
-      questions:['Siapa Anda?','Apa kisah Anda?','Apa bagian terbaik dari hidup Anda?','Apa bagian terberat dari hidup Anda?','Apa harapan Anda?']
-    },
-    ban: {
-      label:'Balinese', nativeLabel:'Basa Bali', dir:'ltr',
-      intro:'Dados titiang ngrekam wawancara sareng ragane, antuk proyek indik jadma lan satua-satuannyane?',
-      consent_yes:'✓  Inggih, titiang setuju', consent_no:'✗  Nenten, suksma',
-      sharing_question:'Dados titiang ngwedar wawancara puniki?', sharing_yes:'Inggih', sharing_anonymous:'Inggih, nanging tanpa adan', sharing_no:'Nenten',
-      fields:{ sectionTitle:'Indik Ragane', name:'Adan ragane', age:'Umur ragane', religion:'Agama ragane', location:'Genah ragane' },
-      questions:['Sira ragane?','Napi satua urip ragane?','Napi sane becik pisan ring urip ragane?','Napi sane paling berat ring urip ragane?','Napi pangaptin ragane?']
-    },
-  };
-
   // ─── BOOT ────────────────────────────────────────────────────
   init();
 
   // Public API
   return {
     go, startNew, goConsent, consentYes,
-    beginInterview, renderQuestion,
+    beginInterview, renderPrep, startQuestions, renderQuestion,
     toggleRecord, playCurrentRec,
     prevQ, nextQ, backToQuestions,
-    backFromShareConsent, setShareConsent,
+    backFromShareConsent, setShareConsent, goShareConsent,
     saveInterview,
     openDetail, promptDeleteInterview,
     playByKey, shareByKey, shareAll,

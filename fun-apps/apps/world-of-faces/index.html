@@ -235,6 +235,29 @@
     }
 
     /* ===== ==================== ===== */
+    /* ===== SCREEN: PREP         ===== */
+    /* ===== ==================== ===== */
+    .prep-card {
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 12px;
+      background: var(--white);
+    }
+    .prep-label {
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 2px; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 8px;
+    }
+    .prep-text {
+      font-family: var(--serif);
+      font-size: 16px;
+      line-height: 1.5;
+      color: var(--ink);
+    }
+    .prep-text.rtl { direction: rtl; text-align: right; }
+
+    /* ===== ==================== ===== */
     /* ===== SCREEN: INFO FORM    ===== */
     /* ===== ==================== ===== */
     .form-section-title {
@@ -504,6 +527,9 @@
       font-size: 16px; font-weight: 500;
     }
     .settings-val { font-size: 15px; color: var(--muted); }
+    .settings-question { align-items: flex-start; gap: 12px; }
+    .settings-q-text { flex: 1; font-size: 14px; line-height: 1.4; color: var(--ink); }
+    .settings-question .toggle { margin-top: 2px; }
 
     .toggle {
       width: 51px; height: 31px;
@@ -618,7 +644,7 @@
     <div style="width:44px"></div>
   </div>
   <div class="consent-body">
-    <div class="consent-label">Interview Consent</div>
+    <div class="consent-label">Introduction</div>
     <div class="consent-text" id="consent-text"></div>
   </div>
   <div class="consent-actions">
@@ -631,7 +657,7 @@
 <div class="screen" id="s-info">
   <div class="nav-header">
     <button class="nav-back" onclick="App.go('consent')">‹</button>
-    <span class="nav-title" id="info-header">About You</span>
+    <span class="nav-title" id="info-header">Biographical Info</span>
     <div style="width:44px"></div>
   </div>
   <div class="scroll">
@@ -641,10 +667,39 @@
   </div>
 </div>
 
+<!-- ─────────────────────────── PREP ─────────────────────────── -->
+<div class="screen" id="s-prep">
+  <div class="nav-header">
+    <button class="nav-back" onclick="App.go('info')">‹</button>
+    <span class="nav-title">Interview</span>
+    <div style="width:44px"></div>
+  </div>
+  <div class="scroll">
+    <div class="prep-card">
+      <div class="prep-label">Interview Question</div>
+      <div class="prep-text" id="prep-question"></div>
+    </div>
+    <div class="prep-card">
+      <div class="prep-label">Instructions</div>
+      <div class="prep-text" id="prep-instructions"></div>
+    </div>
+    <div class="prep-card">
+      <div class="prep-label">Language Note</div>
+      <div class="prep-text" id="prep-language-note"></div>
+    </div>
+    <div class="prep-card">
+      <div class="prep-label">Question Notes</div>
+      <div class="prep-text" id="prep-question-notes"></div>
+    </div>
+    <div class="spacer-sm"></div>
+    <button class="btn btn-ink" onclick="App.startQuestions()">Begin Questions →</button>
+  </div>
+</div>
+
 <!-- ─────────────────────────── QUESTION ─────────────────────── -->
 <div class="screen" id="s-question">
   <div class="q-topbar">
-    <span class="q-counter" id="q-counter">Q 1 / 5</span>
+    <span class="q-counter" id="q-counter">Q 1 / 7</span>
     <span class="q-lang-tag" id="q-lang-tag">English</span>
   </div>
   <div class="q-dots-row" id="q-dots"></div>
@@ -688,6 +743,21 @@
     <div class="spacer-sm"></div>
     <button class="btn btn-ink" onclick="App.saveInterview()">Save Interview</button>
     <button class="btn btn-ghost" style="margin-top:10px" onclick="App.backToQuestions()">← Continue Recording</button>
+  </div>
+</div>
+
+<!-- ─────────────────────────── COMPLETED ─────────────────────────── -->
+<div class="screen" id="s-complete">
+  <div class="nav-header" style="border-bottom:none;background:transparent">
+    <button class="nav-back" onclick="App.backToQuestions()">‹</button>
+    <div style="width:44px"></div>
+  </div>
+  <div class="consent-body">
+    <div class="consent-label">Completed</div>
+    <div class="consent-text" id="complete-text"></div>
+  </div>
+  <div class="consent-actions">
+    <button class="btn btn-ink" onclick="App.goShareConsent()">Continue →</button>
   </div>
 </div>
 
@@ -756,6 +826,18 @@
         <span>Dark Mode</span>
         <button class="toggle" id="dark-toggle" onclick="App.toggleDark()"></button>
       </div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-group-label">Questions</div>
+      <div class="settings-row">
+        <span>Language</span>
+        <span class="settings-val" id="questions-lang-label">English</span>
+      </div>
+      <div class="settings-row">
+        <span>Enabled</span>
+        <span class="settings-val" id="questions-enabled-count">—</span>
+      </div>
+      <div id="settings-questions"></div>
     </div>
     <div class="settings-group">
       <div class="settings-group-label">Storage</div>
