@@ -721,10 +721,10 @@ function refreshAdmin(){
 function renderAdminSuggestions(){
   const wrap=document.getElementById('admin-suggestions');
   if(!wrap) return;
-  if(!SUGGESTIONS.length){
-    wrap.innerHTML='<div class="admin-empty">No suggestions yet.</div>';
+  if(!SUGGESTIONS.length){
+  wrap.innerHTML='<div class="admin-empty">No suggestions yet.</div>';
     return;
-  }
+  }
   wrap.innerHTML=SUGGESTIONS.map(s=>{
     const data=normalizeSuggestionData(s.data);
     const created=formatTime(s.createdAt);
@@ -780,13 +780,26 @@ function renderAdminPhotos(){
   }
   wrap.innerHTML=list.map(p=>{
     const count=(p.photos||[]).length;
+    const photoStrip=count
+      ?'<div class="admin-photo-strip">'+(p.photos||[]).map((ph,i)=>'<div class="admin-photo-thumb"><img src="'+ph.url+'" alt="photo"><button class="admin-photo-del" onclick="adminRemovePhoto('+p.id+','+i+')">&times;</button></div>').join('')+'</div>'
+      :'<div class="admin-empty">No photos yet.</div>';
     return '<div class="admin-photo-row">'
-      +'<div class="admin-photo-info"><div class="admin-photo-name">'+p.name+'</div><div class="admin-photo-sub">'+p.artist+' • '+p.museum+'</div><div class="admin-photo-count">'+count+' photo'+(count===1?'':'s')+'</div></div>'
+      +'<div class="admin-photo-info"><div class="admin-photo-name">'+p.name+'</div><div class="admin-photo-sub">'+p.artist+' &middot; '+p.museum+'</div><div class="admin-photo-count">'+count+' photo'+(count===1?'':'s')+'</div>'+photoStrip+'</div>'
       +'<div class="admin-photo-actions"><button class="btn-ghost" onclick="document.getElementById(\'admin-photo-inp-'+p.id+'\').click()">Upload</button><input type="file" id="admin-photo-inp-'+p.id+'" accept="image/*" multiple onchange="handleAdminPhotoInput(this,'+p.id+')" style="display:none"></div>'
       +'</div>';
   }).join('');
 }
 
+function adminRemovePhoto(id, idx){
+  if(!AUTH_USER||!getAdminEnabled()) return;
+  const p=CATALOG.find(x=>x.id===id);if(!p||!p.photos||!p.photos.length)return;
+  if(!confirm('Remove this photo?'))return;
+  const photos=p.photos.filter((_,i)=>i!==idx);
+  updateCatalogPainting(id,{photos});
+  saveCatalog(CATALOG).catch(()=>undefined);
+  renderAdminPhotos();
+  if(_did===id) openDetail(id);
+}
 async function applySuggestion(id){
   if(!AUTH_USER||!getAdminEnabled()) return;
   const s=SUGGESTIONS.find(x=>x.id===id);
@@ -1170,6 +1183,7 @@ Object.assign(window,{
   doSignOut,
   handlePhotoInput,
   handleAdminPhotoInput,
+  adminRemovePhoto,
   removePaintingPhoto,
   promptAdmin,
   openAdmin,
@@ -1179,4 +1193,5 @@ Object.assign(window,{
   rejectSuggestion,
   setAdminPhotoQuery
 });
+
 

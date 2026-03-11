@@ -189,6 +189,10 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-fam
 .admin-photo-sub{font-family:'DM Mono',monospace;font-size:9px;color:var(--faint);margin-top:2px}
 .admin-photo-count{font-family:'DM Mono',monospace;font-size:9px;color:var(--gold-dim);margin-top:4px}
 .admin-photo-actions{display:flex;flex-shrink:0}
+.admin-photo-strip{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.admin-photo-thumb{position:relative;width:54px;height:54px;border-radius:8px;overflow:hidden;border:1px solid var(--border2);background:var(--surf)}
+.admin-photo-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.admin-photo-del{position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;border:none;background:rgba(0,0,0,.6);color:#fff;font-size:12px;cursor:pointer}
 
 /* MODALS */
 #rv-modal,#sug-modal{position:fixed;inset:0;z-index:9500;display:none;align-items:flex-end}
