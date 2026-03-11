@@ -1,6 +1,7 @@
 import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
-import { auth, db, provider } from "./firebase";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { auth, db, provider, storage } from "./firebase";
 import { APP_VERSION } from "./version";
 
 const APP_DOC_ID = "museum-masterpieces";
@@ -312,6 +313,51 @@ function refreshPanel(){if(!_pd)return;_pd.type==='c'?openCountryPanel(_pd.cn):o
 
 // ═══════════════════ DETAIL ═══════════════════
 let _did=null;
+function sanitizeFileName(name){
+  return (name||'photo').replace(/[^\w.-]+/g,'_');
+}
+
+async function uploadPaintingPhotos(paintingId, files){
+  if(!AUTH_USER) return [];
+  const list=[];
+  for(const file of Array.from(files||[])){
+    const safeName=sanitizeFileName(file.name);
+    const path='museum-masterpieces/'+AUTH_USER.uid+'/'+paintingId+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+'-'+safeName;
+    const fileRef=ref(storage,path);
+    await uploadBytes(fileRef,file,{contentType:file.type||undefined});
+    const url=await getDownloadURL(fileRef);
+    list.push({url,name:file.name||'photo',size:file.size||null,type:file.type||null});
+  }
+  return list;
+}
+
+async function addPaintingPhotos(id, files){
+  const p=DB.find(x=>x.id===id);if(!p)return;
+  const next=await uploadPaintingPhotos(id, files);
+  if(!next.length) return;
+  p.photos=[...(p.photos||[]),...next];
+  persist();openDetail(id);
+}
+
+function removePaintingPhoto(id, idx){
+  const p=DB.find(x=>x.id===id);if(!p||!p.photos||!p.photos.length)return;
+  if(!confirm('Remove this photo?'))return;
+  p.photos=p.photos.filter((_,i)=>i!==idx);
+  persist();openDetail(id);
+}
+
+function deletePainting(id){
+  if(!confirm('Delete this painting from your database? This cannot be undone.'))return;
+  DB=DB.filter(p=>p.id!==id);
+  closeDetail();
+  persist();refreshMapColors();refreshPanel();refreshActiveTabs();
+}
+
+function handlePhotoInput(inp,id){
+  const files=inp?.files; if(!files||!files.length)return;
+  addPaintingPhotos(id, files).catch(()=>undefined);
+  inp.value='';
+}
 function starsH(n,sz){return Array.from({length:5}).map((_,i)=>'<span style="font-size:'+(sz||13)+'px;color:'+(i<n?'var(--gold)':'var(--border)')+'">&#9733;</span>').join('');}
 
 function openDetail(id){
@@ -321,7 +367,21 @@ function openDetail(id){
   const saveArea=p.seen
     ?'<div class="save-area"><div class="save-seen"><div class="seen-top-row"><span class="seen-chk">&#10003;</span><div class="seen-inf"><div class="seen-dt">Seen on '+(p.date||'—')+'</div></div><button class="seen-edit" onclick="openReview('+p.id+',true)">Edit Review</button></div><div class="seen-rev">'+(p.rating?'<div style="display:flex;gap:3px;margin-bottom:10px">'+starsH(p.rating,16)+'</div>':'')+(p.note?'<div class="seen-note-txt">&ldquo;'+p.note+'&rdquo;</div>':'<div class="seen-no-note">No notes yet — tap Edit Review to add some.</div>')+'</div></div><div class="unsee-lnk" onclick="unseeP('+p.id+')">Remove from seen list</div></div>'
     :'<div class="save-area"><div class="save-unseen"><div class="save-unseen-lbl">Have you seen this painting in person?</div><button class="big-save-btn" onclick="openReview('+p.id+',false)">&#10003; &nbsp;Mark as Seen &amp; Write Review</button></div></div>';
-  document.getElementById('det-content').innerHTML='<div class="det-canvas"><div class="det-canvas-ico">&#128444;</div></div><div class="det-body"><div class="det-yr">'+p.year+' &middot; '+p.type+'</div><div class="det-nm">'+p.name+'</div><div class="det-ar">'+p.artist+'</div><div class="chips"><span class="chip">'+p.movement+'</span><span class="chip">'+p.era+'</span><span class="chip">'+p.country+'</span></div><div class="det-quote">'+p.importance+'</div><div class="det-loc"><span style="font-size:13px">&#128205;</span><div class="det-loc-t">'+p.museum+' &middot; '+p.city+', '+p.country+'</div></div>'+saveArea+'</div>';
+  const photos=(p.photos||[]);
+  const photoGrid=photos.length
+    ?'<div class="det-photo-grid">'+photos.map((ph,i)=>'<div class="det-photo"><a href="'+ph.url+'" target="_blank" rel="noreferrer"><img src="'+ph.url+'" alt="painting photo"></a><button class="det-photo-del" onclick="removePaintingPhoto('+p.id+','+i+')">×</button></div>').join('')+'</div>'
+    :'<div class="det-photo-empty">No photos yet. Add one from your gallery or camera.</div>';
+  const photoArea=
+    '<div class="det-photos">'+
+      '<div class="det-photo-hdr">Painting Photos</div>'+
+      photoGrid+
+      '<div class="det-photo-actions">'+
+        '<button class="det-photo-btn" onclick="document.getElementById(\\'det-photo-inp\\').click()">Add Photo</button>'+
+        '<input type="file" id="det-photo-inp" accept="image/*" capture="environment" multiple onchange="handlePhotoInput(this,'+p.id+')" style="display:none">'+
+      '</div>'+
+    '</div>';
+  const deleteBtn='<button class="det-del-btn" onclick="deletePainting('+p.id+')">Delete Painting</button>';
+  document.getElementById('det-content').innerHTML='<div class="det-canvas"><div class="det-canvas-ico">&#128444;</div></div><div class="det-body"><div class="det-yr">'+p.year+' &middot; '+p.type+'</div><div class="det-nm">'+p.name+'</div><div class="det-ar">'+p.artist+'</div><div class="chips"><span class="chip">'+p.movement+'</span><span class="chip">'+p.era+'</span><span class="chip">'+p.country+'</span></div><div class="det-quote">'+p.importance+'</div><div class="det-loc"><span style="font-size:13px">&#128205;</span><div class="det-loc-t">'+p.museum+' &middot; '+p.city+', '+p.country+'</div></div>'+photoArea+saveArea+deleteBtn+'</div>';
   document.getElementById('det-ov').classList.add('open');
 }
 
@@ -706,7 +766,7 @@ function refreshActiveTabs(){
 function applyLoadedState(remote){
   const safePaintings=remote&&Array.isArray(remote.paintings)?remote.paintings:null;
   const safeUser=remote&&remote.userProfile?remote.userProfile:null;
-  DB=safePaintings?safePaintings:cloneSeed();
+  DB=safePaintings?safePaintings:[];
   USER={...defaultUserProfile(),...(safeUser||{})};
   updateUserProfileFromAuth();
   applyTheme();
@@ -724,7 +784,7 @@ onAuthStateChanged(auth,(user)=>{
   if(!AUTH_USER){
     setAuthOverlay(true);
     dataReady=false;
-    DB=cloneSeed();
+    DB=[];
     USER=defaultUserProfile();
     applyTheme();
     return;
@@ -763,5 +823,8 @@ Object.assign(window,{
   openSugModal,
   openCountryPanel,
   openMuseumPanel,
-  doSignOut
+  doSignOut,
+  handlePhotoInput,
+  removePaintingPhoto,
+  deletePainting
 });

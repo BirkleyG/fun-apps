@@ -126,6 +126,18 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-fam
 .det-quote{background:var(--gold-faint);border-left:2px solid var(--gold);padding:14px 16px;margin-bottom:20px;font-family:'Cormorant Garamond',serif;font-style:italic;font-size:15px;line-height:1.65;color:var(--dim)}
 .det-loc{display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--surf2);border-radius:4px;margin-bottom:22px;box-shadow:var(--shadow-sm)}
 .det-loc-t{font-family:'DM Mono',monospace;font-size:10px;color:var(--dim)}
+.det-photos{margin-bottom:22px;padding:14px;border:1px solid var(--border2);border-radius:8px;background:var(--surf2)}
+.det-photo-hdr{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:10px}
+.det-photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:10px}
+.det-photo{position:relative;border-radius:8px;overflow:hidden;border:1px solid var(--border2);background:var(--surf)}
+.det-photo img{width:100%;height:90px;object-fit:cover;display:block}
+.det-photo-del{position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;border:none;background:rgba(0,0,0,.55);color:#fff;font-size:12px;cursor:pointer}
+.det-photo-actions{display:flex;justify-content:flex-end;margin-top:10px}
+.det-photo-btn{padding:9px 14px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--gold);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer}
+.det-photo-btn:hover{background:var(--gold-faint)}
+.det-photo-empty{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:14px;color:var(--faint);margin-bottom:10px}
+.det-del-btn{width:100%;padding:12px;border-radius:6px;border:1px solid var(--red);background:transparent;color:var(--red);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;cursor:pointer}
+.det-del-btn:hover{background:rgba(160,48,48,.12)}
 .save-area{margin-bottom:24px}
 .save-unseen{background:var(--gold-faint);border:1.5px solid var(--border);border-radius:10px;padding:22px;text-align:center;box-shadow:var(--shadow-sm)}
 .save-unseen-lbl{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:14px}
