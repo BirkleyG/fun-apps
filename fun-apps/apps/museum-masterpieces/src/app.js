@@ -225,11 +225,16 @@ function updateLegend(){
   const all=document.getElementById('leg-all');
   const some=document.getElementById('leg-some');
   const none=document.getElementById('leg-none');
-  if(all)all.style.cssText=`background:${d?'#f0d060':'#6A5000'};box-shadow:0 0 5px ${d?'rgba(240,208,96,.6)':'rgba(106,80,0,.4)'}`;
-  if(some)some.style.cssText=`background:${d?'#C9A84C':'#C9A84C'}`;
+  if(isCountry){
+    if(all)all.style.cssText=`background:${d?'#F06A74':'#A81F2A'};box-shadow:0 0 5px ${d?'rgba(240,106,116,.55)':'rgba(168,31,42,.4)'}`;
+    if(some)some.style.cssText=`background:${d?'#D0545C':'#B53A43'}`;
+  } else {
+    if(all)all.style.cssText=`background:${d?'#f0d060':'#6A5000'};box-shadow:0 0 5px ${d?'rgba(240,208,96,.6)':'rgba(106,80,0,.4)'}`;
+    if(some)some.style.cssText=`background:${d?'#C9A84C':'#C9A84C'}`;
+  }
   if(none){
     if(isCountry){
-      none.style.cssText=`background:${d?'#1d1414':'#9E8C85'};border:1px solid ${d?'#3b2a2a':'#7E6E68'}`;
+      none.style.cssText=`background:${d?'#2C0F12':'#A14A4E'};border:1px solid ${d?'#5A1E22':'#7A3437'}`;
     } else {
       none.style.cssText=`background:${d?'#2a2620':'#C8C3BA'};border:1px solid ${d?'#3a3526':'#A8A29A'}`;
     }
@@ -281,13 +286,27 @@ function switchTab(n,btn){
 function countryStyle(cn){
   const d=document.documentElement.getAttribute('data-theme')==='dark';
   const hasCountry=cn&&MAP_PIN_COUNTRIES.has(cn);
-  if(!cn||!hasCountry){
-    // Gray out countries with no paintings in this map mode
-    if(MAP_MODE==='country'){
+  if(MAP_MODE==='country'){
+    if(!hasCountry){
+      // Missing in country mode = darker red (not gray)
       return d
-        ?{fillColor:'#1D1414',fillOpacity:.85,color:'#3B2A2A',weight:.5,opacity:.9}
-        :{fillColor:'#9E8C85',fillOpacity:.65,color:'#7E6E68',weight:.5,opacity:.8};
+        ?{fillColor:'#2C0F12',fillOpacity:.85,color:'#5A1E22',weight:.6,opacity:.9}
+        :{fillColor:'#A14A4E',fillOpacity:.7,color:'#7A3437',weight:.6,opacity:.85};
     }
+    const s=MAP_DB.filter(p=>p.country===cn&&p.seen).length;
+    const t=MAP_DB.filter(p=>p.country===cn).length;
+    if(s===0) return d
+      ?{fillColor:'#6E1F25',fillOpacity:.35,color:'#D0545C',weight:.9,opacity:.6}
+      :{fillColor:'#D0545C',fillOpacity:.28,color:'#9B3A40',weight:.9,opacity:.6};
+    if(s===t) return d
+      ?{fillColor:'#F06A74',fillOpacity:.55,color:'#F06A74',weight:1.3,opacity:.85}
+      :{fillColor:'#A81F2A',fillOpacity:.62,color:'#7C141D',weight:1.3,opacity:.9};
+    return d
+      ?{fillColor:'#D0545C',fillOpacity:.4,color:'#D0545C',weight:1,opacity:.65}
+      :{fillColor:'#B53A43',fillOpacity:.42,color:'#8E2A33',weight:1,opacity:.7};
+  }
+  if(!cn||!hasCountry){
+    // Gray out countries with no paintings in top-100 mode
     return d
       ?{fillColor:'#2D2B3D',fillOpacity:.75,color:'#3E3B55',weight:.5,opacity:.85}
       :{fillColor:'#C8C4BB',fillOpacity:.55,color:'#B0AB9F',weight:.5,opacity:.75};
