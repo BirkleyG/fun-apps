@@ -30,6 +30,7 @@ let MISSING_COUNTRIES=[];
 let MAP_MODE='top100';
 let MAP_DB=[];
 let MAP_COUNTRIES=new Set();
+let MAP_PIN_COUNTRIES=new Set();
 
 document.documentElement.setAttribute('data-map-mode', MAP_MODE);
 
@@ -39,11 +40,7 @@ function applyTheme(){
   document.documentElement.setAttribute('data-theme', USER.theme||'light');
   updateLegend();
   if(window._map){
-    const u=tileUrls();
-    if(window._baseTile){window._map.removeLayer(window._baseTile);}
-    if(window._labelTile){window._map.removeLayer(window._labelTile);}
-    window._baseTile=L.tileLayer(u.base,{subdomains:'abcd',maxZoom:19,keepBuffer:3}).addTo(window._map);
-    window._labelTile=L.tileLayer(u.labels,{subdomains:'abcd',maxZoom:19,opacity:.65,keepBuffer:3}).addTo(window._map);
+    syncTiles();
     refreshMapColors();
   }
 }
@@ -164,11 +161,7 @@ function toggleTheme(){
   USER.theme=next; persist();
   updateLegend();
   if(window._map){
-    const u=tileUrls();
-    if(window._baseTile){window._map.removeLayer(window._baseTile);}
-    if(window._labelTile){window._map.removeLayer(window._labelTile);}
-    window._baseTile=L.tileLayer(u.base,{subdomains:'abcd',maxZoom:19,keepBuffer:3}).addTo(window._map);
-    window._labelTile=L.tileLayer(u.labels,{subdomains:'abcd',maxZoom:19,opacity:.65,keepBuffer:3}).addTo(window._map);
+    syncTiles();
     refreshMapColors();
   }
   if(document.getElementById('profile-tab').classList.contains('active'))renderProfile();
@@ -179,6 +172,52 @@ function tileUrls(){
     base:`https://{s}.basemaps.cartocdn.com/${d?'dark':'light'}_nolabels/{z}/{x}/{y}{r}.png`,
     labels:`https://{s}.basemaps.cartocdn.com/${d?'dark':'light'}_only_labels/{z}/{x}/{y}{r}.png`
   };
+}
+const STATIC_MAP_ZOOM=2.6;
+function syncTiles(){
+  if(!window._map) return;
+  const u=tileUrls();
+  if(window._baseTile){window._map.removeLayer(window._baseTile);}
+  if(window._labelTile){window._map.removeLayer(window._labelTile);}
+  window._baseTile=L.tileLayer(u.base,{subdomains:'abcd',maxZoom:19,keepBuffer:3});
+  window._labelTile=L.tileLayer(u.labels,{subdomains:'abcd',maxZoom:19,opacity:.65,keepBuffer:3});
+  if(!window._staticMap){
+    window._baseTile.addTo(window._map);
+    window._labelTile.addTo(window._map);
+  }
+}
+
+function setStaticMap(active){
+  const map=window._map; if(!map) return;
+  window._staticMap=!!active;
+  const el=document.getElementById('map');
+  if(el) el.classList.toggle('map-static',!!active);
+  if(active){
+    if(window._baseTile&&map.hasLayer(window._baseTile)) map.removeLayer(window._baseTile);
+    if(window._labelTile&&map.hasLayer(window._labelTile)) map.removeLayer(window._labelTile);
+    map.dragging.disable();
+    map.boxZoom.disable();
+    map.keyboard.disable();
+    map.scrollWheelZoom.enable();
+    map.doubleClickZoom.enable();
+    map.touchZoom.enable();
+    if(map.tap) map.tap.disable();
+  } else {
+    if(window._baseTile&&!map.hasLayer(window._baseTile)) window._baseTile.addTo(map);
+    if(window._labelTile&&!map.hasLayer(window._labelTile)) window._labelTile.addTo(map);
+    map.dragging.enable();
+    map.scrollWheelZoom.enable();
+    map.doubleClickZoom.enable();
+    map.boxZoom.enable();
+    map.keyboard.enable();
+    map.touchZoom.enable();
+    if(map.tap) map.tap.enable();
+  }
+}
+
+function refreshMapInteractivity(){
+  const map=window._map; if(!map) return;
+  setStaticMap(map.getZoom()<STATIC_MAP_ZOOM);
 }
 function updateLegend(){
   const d=document.documentElement.getAttribute('data-theme')==='dark';
@@ -205,6 +244,7 @@ function deriveMapData(){
     MAP_DB=base.filter(p=>p.top100);
   }
   MAP_COUNTRIES=new Set(MAP_DB.map(p=>p.country));
+  MAP_PIN_COUNTRIES=new Set(MAP_DB.filter(p=>p.lat&&p.lng).map(p=>p.country));
 }
 
 function updateMapToggleUI(){
@@ -224,6 +264,7 @@ function setMapMode(mode){
   updateLegend();
   refreshMapColors();
   refreshPanel();
+  refreshActiveTabs();
 }
 
 // ═══════════════════ TABS ═══════════════════
@@ -239,7 +280,7 @@ function switchTab(n,btn){
 // ═══════════════════ MAP ═══════════════════
 function countryStyle(cn){
   const d=document.documentElement.getAttribute('data-theme')==='dark';
-  const hasCountry=cn&&MAP_COUNTRIES.has(cn);
+  const hasCountry=cn&&MAP_PIN_COUNTRIES.has(cn);
   if(!cn||!hasCountry){
     // Gray out countries with no paintings in this map mode
     if(MAP_MODE==='country'){
@@ -290,7 +331,7 @@ function fixAntimeridian(features){
 const MISSING_TIP_TEXT="No painting for this country. Please, suggest a piece!";
 function updateMissingTooltip(layer, cn){
   if(!layer||!cn) return;
-  const shouldShow=MAP_MODE==='country' && !MAP_COUNTRIES.has(cn);
+  const shouldShow=MAP_MODE==='country' && !MAP_PIN_COUNTRIES.has(cn);
   if(shouldShow){
     if(!layer._missingTip){
       layer.bindTooltip(MISSING_TIP_TEXT,{sticky:true,className:'miss-tt',direction:'center',opacity:0.95});
@@ -320,11 +361,12 @@ function initMap(){
   });
   setTimeout(()=>map.invalidateSize({animate:false,pan:false}),200);
 
-  const u=tileUrls();
-  window._baseTile=L.tileLayer(u.base,{subdomains:'abcd',maxZoom:19}).addTo(map);
-  window._labelTile=L.tileLayer(u.labels,{subdomains:'abcd',maxZoom:19,opacity:0.7}).addTo(map);
+  window._staticMap=map.getZoom()<STATIC_MAP_ZOOM;
+  syncTiles();
   map.zoomControl.setPosition('topright');
   updateLegend();
+  refreshMapInteractivity();
+  map.on('zoomend',refreshMapInteractivity);
 
   fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
     .then(r=>r.json())
@@ -346,7 +388,7 @@ function initMap(){
             });
             l.on('mouseout',()=>l.setStyle(countryStyle(cn)));
             l.on('click',e=>{
-              if(cn&&MAP_COUNTRIES.has(cn)){
+              if(cn&&MAP_PIN_COUNTRIES.has(cn)){
                 L.DomEvent.stop(e);openCountryPanel(cn);
               }
             });
@@ -572,7 +614,7 @@ function setSugPath(path){
 function doSugSearch(q){
   const rl=document.getElementById('sug-results-list');
   if(!q.trim()){rl.style.display='none';rl.innerHTML='';return;}
-  const results=DB.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())||p.artist.toLowerCase().includes(q.toLowerCase())).slice(0,8);
+  const results=MAP_DB.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())||p.artist.toLowerCase().includes(q.toLowerCase())).slice(0,8);
   if(!results.length){rl.style.display='none';return;}
   rl.innerHTML=results.map(p=>'<div class="sug-result-item" onclick="selectSugPainting('+p.id+')"><div class="sug-result-nm">'+p.name+'</div><div class="sug-result-sub">'+p.artist+' &middot; '+p.museum+'</div></div>').join('');
   rl.style.display='block';
@@ -984,7 +1026,8 @@ function handleAdminPhotoInput(inp,id){
 // ═══════════════════ LIST ═══════════════════
 let lF='All',lC='All',lQ='';
 function renderList(){
-  const cs=['All',...new Set(DB.map(p=>p.country))];
+  const src=MAP_DB;
+  const cs=['All',...new Set(src.map(p=>p.country))];
   document.getElementById('fchips').innerHTML=
     [{k:'All',l:'All'},{k:'Seen',l:'Seen'},{k:'Unseen',l:'Not Seen'}].map(f=>'<button class="fc '+(lF===f.k?'on':'')+'" onclick="setLF(\''+f.k+'\')">'+f.l+'</button>').join('')
     +'<div style="width:1px;background:var(--border);margin:0 3px;flex-shrink:0"></div>'
@@ -995,7 +1038,8 @@ function setLF(f){lF=f;renderList();}
 function setLC(c){lC=c;renderList();}
 function renderLI(){
   const q=lQ.toLowerCase();
-  const fil=DB.filter(p=>{
+  const src=MAP_DB;
+  const fil=src.filter(p=>{
     const ms=lF==='Seen'?p.seen:lF==='Unseen'?!p.seen:true;
     const mc=lC==='All'||p.country===lC;
     const mq=!q||p.name.toLowerCase().includes(q)||p.artist.toLowerCase().includes(q)||p.museum.toLowerCase().includes(q)||p.country.toLowerCase().includes(q);
@@ -1016,7 +1060,10 @@ function toggleTrSec(id){
   if(body){body.style.maxHeight=_trSec[id]?body.scrollHeight+'px':'0';}
   if(chev){chev.style.transform=_trSec[id]?'rotate(0deg)':'rotate(180deg)';}
 }
-function gS(k){return[...new Set(DB.map(p=>p[k]))].map(v=>({name:v,total:DB.filter(p=>p[k]===v).length,seen:DB.filter(p=>p[k]===v&&p.seen).length})).sort((a,b)=>b.seen-a.seen||b.total-a.total);}
+function gS(k){
+  const src=MAP_DB;
+  return[...new Set(src.map(p=>p[k]))].map(v=>({name:v,total:src.filter(p=>p[k]===v).length,seen:src.filter(p=>p[k]===v&&p.seen).length})).sort((a,b)=>b.seen-a.seen||b.total-a.total);
+}
 
 let _achOpen=true;
 function toggleAch(){
@@ -1028,13 +1075,14 @@ function toggleAch(){
 }
 
 function renderTracker(){
-  const seen=DB.filter(p=>p.seen).length,total=DB.length;
-  const seenPs=DB.filter(p=>p.seen);
+  const src=MAP_DB;
+  const seen=src.filter(p=>p.seen).length,total=src.length;
+  const seenPs=src.filter(p=>p.seen);
   const mus=[...new Set(seenPs.map(p=>p.museum))].length;
   const cou=[...new Set(seenPs.map(p=>p.country))].length;
-  const rated=DB.filter(p=>p.seen&&p.rating);
+  const rated=src.filter(p=>p.seen&&p.rating);
   const avgR=rated.length?(rated.reduce((a,p)=>a+p.rating,0)/rated.length).toFixed(1):null;
-  const dates=DB.filter(p=>p.seen&&p.date).map(p=>p.date).sort();
+  const dates=src.filter(p=>p.seen&&p.date).map(p=>p.date).sort();
   let vrH='<div style="padding:12px 20px;font-family:\'DM Mono\',monospace;font-size:10px;color:var(--faint)">See more paintings to unlock visit stats.</div>';
   if(dates.length>=2){
     const span=Math.max(1,Math.round((new Date(dates[dates.length-1])-new Date(dates[0]))/86400000));
@@ -1044,32 +1092,32 @@ function renderTracker(){
       +'<div class="kv"><div><div class="kv-k">Span</div></div><div class="kv-v">'+span+' days</div></div>'
       +(avgR?'<div class="kv"><div><div class="kv-k">Avg Rating</div></div><div class="kv-v">'+avgR+'&#9733;</div></div>':'');
   }
-  const topR=DB.filter(p=>p.seen&&p.rating).sort((a,b)=>b.rating-a.rating||a.name.localeCompare(b.name));
+  const topR=src.filter(p=>p.seen&&p.rating).sort((a,b)=>b.rating-a.rating||a.name.localeCompare(b.name));
   const rkH=topR.length?topR.slice(0,10).map((p,i)=>'<div class="rk" onclick="openDetail('+p.id+')"><div class="rk-p">'+(i===0?'&#127942;':i+1)+'</div><div class="rk-i"><div class="rk-nm">'+p.name+'</div><div class="rk-ar">'+p.artist+'</div></div><div style="display:flex;gap:2px">'+starsH(p.rating,11)+'</div></div>').join('')
     :'<div style="padding:12px 20px;font-family:\'DM Mono\',monospace;font-size:10px;color:var(--faint)">Rate paintings to build your ranking.</div>';
-  const dd={};DB.filter(p=>p.seen&&p.date).forEach(p=>{dd[p.date]=(dd[p.date]||0)+1;});
-  function dWR(n){const ds=DB.filter(p=>p.seen&&p.date).map(p=>p.date).sort();return ds[n-1]||null;}
+  const dd={};src.filter(p=>p.seen&&p.date).forEach(p=>{dd[p.date]=(dd[p.date]||0)+1;});
+  function dWR(n){const ds=src.filter(p=>p.seen&&p.date).map(p=>p.date).sort();return ds[n-1]||null;}
   const ach=[
     // Milestones
     {ico:'&#128064;',nm:'First Glance',      ds:'Stood before your very first masterpiece in person.',              un:seen>=1,        dt:dWR(1)},
     {ico:'&#127942;',nm:'The Collector',     ds:'Seen 10 masterpieces. You\'re officially devoted.',               un:seen>=10,       dt:dWR(10)},
     {ico:'&#129351;',nm:'Connoisseur',       ds:'Seen 20 masterpieces. A true student of art.',                    un:seen>=20,       dt:dWR(20)},
     {ico:'&#128081;',nm:'Grand Master',      ds:'Seen all 40 masterpieces. An extraordinary achievement.',         un:seen>=40,       dt:dWR(40)},
-    {ico:'&#127919;',nm:'Completionist',     ds:'Ticked off every painting in a single museum.',                   un:[...new Set(DB.map(p=>p.museum))].some(m=>{const ps=DB.filter(p=>p.museum===m);return ps.length>0&&ps.every(p=>p.seen);}),dt:dates[dates.length-1]||null},
+    {ico:'&#127919;',nm:'Completionist',     ds:'Ticked off every painting in a single museum.',                   un:[...new Set(src.map(p=>p.museum))].some(m=>{const ps=src.filter(p=>p.museum===m);return ps.length>0&&ps.every(p=>p.seen);}),dt:dates[dates.length-1]||null},
     // Specific paintings (fun)
-    {ico:'&#128563;',nm:'Size Matters',      ds:'Saw the Mona Lisa. Smaller than expected, right?',                un:!!DB.find(p=>p.id===1&&p.seen),  dt:DB.find(p=>p.id===1)?.date||null},
-    {ico:'&#127769;',nm:'Night Watch',       ds:'Stood before Rembrandt\'s colossal masterpiece.',                 un:!!DB.find(p=>p.id===9&&p.seen),  dt:DB.find(p=>p.id===9)?.date||null},
-    {ico:'&#128584;',nm:'Scream Queen',      ds:'Found Munch\'s The Scream. Did you relate?',                      un:!!DB.find(p=>p.id===32&&p.seen), dt:DB.find(p=>p.id===32)?.date||null},
-    {ico:'&#127800;',nm:'Born to See It',    ds:'Stood before The Birth of Venus in Florence.',                    un:!!DB.find(p=>p.id===15&&p.seen), dt:DB.find(p=>p.id===15)?.date||null},
-    {ico:'&#127775;',nm:'Stargazer',         ds:'Saw The Starry Night. Van Gogh would be thrilled.',               un:!!DB.find(p=>p.id===23&&p.seen), dt:DB.find(p=>p.id===23)?.date||null},
-    {ico:'&#128092;',nm:'Kiss Chaser',       ds:'Saw Klimt\'s The Kiss. Romantic of you.',                         un:!!DB.find(p=>p.id===31&&p.seen), dt:DB.find(p=>p.id===31)?.date||null},
-    {ico:'&#127807;',nm:'Guerrilla Art',     ds:'Stood before Picasso\'s anti-war Guernica.',                      un:!!DB.find(p=>p.id===12&&p.seen), dt:DB.find(p=>p.id===12)?.date||null},
+    {ico:'&#128563;',nm:'Size Matters',      ds:'Saw the Mona Lisa. Smaller than expected, right?',                un:!!src.find(p=>p.id===1&&p.seen),  dt:src.find(p=>p.id===1)?.date||null},
+    {ico:'&#127769;',nm:'Night Watch',       ds:'Stood before Rembrandt\'s colossal masterpiece.',                 un:!!src.find(p=>p.id===9&&p.seen),  dt:src.find(p=>p.id===9)?.date||null},
+    {ico:'&#128584;',nm:'Scream Queen',      ds:'Found Munch\'s The Scream. Did you relate?',                      un:!!src.find(p=>p.id===32&&p.seen), dt:src.find(p=>p.id===32)?.date||null},
+    {ico:'&#127800;',nm:'Born to See It',    ds:'Stood before The Birth of Venus in Florence.',                    un:!!src.find(p=>p.id===15&&p.seen), dt:src.find(p=>p.id===15)?.date||null},
+    {ico:'&#127775;',nm:'Stargazer',         ds:'Saw The Starry Night. Van Gogh would be thrilled.',               un:!!src.find(p=>p.id===23&&p.seen), dt:src.find(p=>p.id===23)?.date||null},
+    {ico:'&#128092;',nm:'Kiss Chaser',       ds:'Saw Klimt\'s The Kiss. Romantic of you.',                         un:!!src.find(p=>p.id===31&&p.seen), dt:src.find(p=>p.id===31)?.date||null},
+    {ico:'&#127807;',nm:'Guerrilla Art',     ds:'Stood before Picasso\'s anti-war Guernica.',                      un:!!src.find(p=>p.id===12&&p.seen), dt:src.find(p=>p.id===12)?.date||null},
     // Ratings & reviews
-    {ico:'&#11088;',nm:'Five Star Critic',   ds:'Awarded the full 5 stars to a painting.',                         un:DB.some(p=>p.seen&&p.rating===5),                                    dt:DB.filter(p=>p.seen&&p.rating===5).map(p=>p.date).sort()[0]||null},
-    {ico:'&#128221;',nm:'The Reviewer',      ds:'Left a personal note for every painting seen.',                   un:seen>0&&seenPs.every(p=>p.note),                                     dt:dates[dates.length-1]||null},
-    {ico:'&#129397;',nm:'Deeply Moved',      ds:'Wrote a note of 100+ characters. Pure passion.',                  un:DB.some(p=>p.note&&p.note.length>=100),                               dt:DB.filter(p=>p.note&&p.note.length>=100).map(p=>p.date).sort()[0]||null},
-    {ico:'&#128580;',nm:'Wall Hugger',       ds:'Saw a painting but left no note. Too stunned to write?',          un:DB.some(p=>p.seen&&!p.note),                                         dt:DB.filter(p=>p.seen&&!p.note).map(p=>p.date).sort()[0]||null},
-    {ico:'&#128172;',nm:'Harshest Critic',   ds:'Gave a painting only 1 star. Someone\'s opinionated.',            un:DB.some(p=>p.seen&&p.rating===1),                                    dt:DB.filter(p=>p.seen&&p.rating===1).map(p=>p.date).sort()[0]||null},
+    {ico:'&#11088;',nm:'Five Star Critic',   ds:'Awarded the full 5 stars to a painting.',                         un:src.some(p=>p.seen&&p.rating===5),                                    dt:src.filter(p=>p.seen&&p.rating===5).map(p=>p.date).sort()[0]||null},
+    {ico:'&#128221;',nm:'The Reviewer',      ds:'Left a personal note for every painting seen.',                   un:seen>0&&seenPs.every(p=>p.note),                                      dt:dates[dates.length-1]||null},
+    {ico:'&#129397;',nm:'Deeply Moved',      ds:'Wrote a note of 100+ characters. Pure passion.',                  un:src.some(p=>p.note&&p.note.length>=100),                               dt:src.filter(p=>p.note&&p.note.length>=100).map(p=>p.date).sort()[0]||null},
+    {ico:'&#128580;',nm:'Wall Hugger',       ds:'Saw a painting but left no note. Too stunned to write?',          un:src.some(p=>p.seen&&!p.note),                                         dt:src.filter(p=>p.seen&&!p.note).map(p=>p.date).sort()[0]||null},
+    {ico:'&#128172;',nm:'Harshest Critic',   ds:'Gave a painting only 1 star. Someone\'s opinionated.',            un:src.some(p=>p.seen&&p.rating===1),                                    dt:src.filter(p=>p.seen&&p.rating===1).map(p=>p.date).sort()[0]||null},
     // Geography
     {ico:'&#127758;',nm:'Continental',       ds:'Seen works on 2 different continents.',                           un:[...new Set(seenPs.map(p=>p.region))].length>=2,                     dt:dates[dates.length-1]||null},
     {ico:'&#128506;',nm:'Globetrotter',      ds:'Collected paintings across 4 or more countries.',                 un:cou>=4,                                                              dt:dates[dates.length-1]||null},
@@ -1077,14 +1125,14 @@ function renderTracker(){
     {ico:'&#9992;', nm:'Jet-Setter',         ds:'Seen paintings in 3 or more different cities.',                   un:[...new Set(seenPs.map(p=>p.city))].length>=3,                       dt:dates[dates.length-1]||null},
     {ico:'&#127979;',nm:'Grand Tour',        ds:'Seen works in both Europe and the Americas.',                     un:['Europe','Americas'].every(r=>seenPs.some(p=>p.region===r)),        dt:dates[dates.length-1]||null},
     // Style & era
-    {ico:'&#127917;',nm:'Renaissance Soul',  ds:'Seen 3 or more Renaissance masterpieces in person.',              un:DB.filter(p=>p.seen&&p.era==='Renaissance').length>=3,               dt:dates[dates.length-1]||null},
+    {ico:'&#127917;',nm:'Renaissance Soul',  ds:'Seen 3 or more Renaissance masterpieces in person.',              un:src.filter(p=>p.seen&&p.era==='Renaissance').length>=3,               dt:dates[dates.length-1]||null},
     {ico:'&#127752;',nm:'Style Hunter',      ds:'Encountered 4 or more distinct art movements.',                   un:[...new Set(seenPs.map(p=>p.movement))].length>=4,                   dt:dates[dates.length-1]||null},
     {ico:'&#128161;',nm:'Era Explorer',      ds:'Seen paintings from 3 or more different eras.',                   un:[...new Set(seenPs.map(p=>p.era))].length>=3,                        dt:dates[dates.length-1]||null},
-    {ico:'&#128396;',nm:'Baroque Binge',     ds:'Seen 3 Baroque works. Dramatic tastes confirmed.',                un:DB.filter(p=>p.seen&&p.era==='Baroque').length>=3,                   dt:dates[dates.length-1]||null},
+    {ico:'&#128396;',nm:'Baroque Binge',     ds:'Seen 3 Baroque works. Dramatic tastes confirmed.',                un:src.filter(p=>p.seen&&p.era==='Baroque').length>=3,                   dt:dates[dates.length-1]||null},
     // Quirky / pace
     {ico:'&#9889;', nm:'Speed Run',          ds:'Saw 3 or more paintings in a single day.',                        un:Object.values(dd).some(v=>v>=3),                                    dt:Object.entries(dd).find(([,v])=>v>=3)?.[0]||null},
     {ico:'&#128012;',nm:'Taking It Slow',    ds:'Left 6+ months between your first two visits.',                   un:dates.length>=2&&Math.abs(new Date(dates[0])-new Date(dates[1]))/86400000>180,dt:dates[1]||null},
-    {ico:'&#128736;',nm:'Art Tourist',       ds:'Added or edited a painting in the database yourself.',             un:DB.some(p=>p.id>40),                                                 dt:null},
+    {ico:'&#128736;',nm:'Art Tourist',       ds:'Added or edited a painting in the database yourself.',             un:src.some(p=>p.id>40),                                                 dt:null},
   ];
   const unlocked=ach.filter(a=>a.un).length;
   const pct=Math.round(unlocked/ach.length*100);
@@ -1119,7 +1167,7 @@ function renderTracker(){
 }
 // ═══════════════════ JOURNAL ═══════════════════
 function renderJournal(){
-  const entries=DB.filter(p=>p.seen).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const entries=MAP_DB.filter(p=>p.seen).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const el=document.getElementById('jscr');
   if(!entries.length){el.innerHTML='<div class="empty"><div class="empty-ico">&#9998;</div><div class="empty-tx">Your diary is empty.<br>Mark paintings as seen to begin.</div></div>';return;}
   let html='',lastM='';
@@ -1133,17 +1181,17 @@ function renderJournal(){
 
 // ═══════════════════ PROFILE ═══════════════════
 function renderProfile(){
-  const seen=DB.filter(p=>p.seen).length,total=DB.length;
-  const mus=[...new Set(DB.filter(p=>p.seen).map(p=>p.museum))].length;
-  const cou=[...new Set(DB.filter(p=>p.seen).map(p=>p.country))].length;
+  const seen=MAP_DB.filter(p=>p.seen).length,total=MAP_DB.length;
+  const mus=[...new Set(MAP_DB.filter(p=>p.seen).map(p=>p.museum))].length;
+  const cou=[...new Set(MAP_DB.filter(p=>p.seen).map(p=>p.country))].length;
   const aA={},mA={};
-  DB.filter(p=>p.seen&&p.rating).forEach(p=>{
+  MAP_DB.filter(p=>p.seen&&p.rating).forEach(p=>{
     [aA,mA].forEach((obj,i)=>{const k=i?p.museum:p.artist;if(!obj[k])obj[k]={s:0,c:0};obj[k].s+=p.rating;obj[k].c++;});
   });
   const topArt=Object.entries(aA).map(([a,d])=>({name:a,avg:Math.round(d.s/d.c*10)/10})).sort((a,b)=>b.avg-a.avg);
   const topMus=Object.entries(mA).map(([m,d])=>({name:m,avg:Math.round(d.s/d.c*10)/10})).sort((a,b)=>b.avg-a.avg);
-  const maxR=DB.filter(p=>p.seen&&p.rating).reduce((b,p)=>Math.max(b,p.rating),0);
-  const topPs=DB.filter(p=>p.seen&&p.rating===maxR);
+  const maxR=MAP_DB.filter(p=>p.seen&&p.rating).reduce((b,p)=>Math.max(b,p.rating),0);
+  const topPs=MAP_DB.filter(p=>p.seen&&p.rating===maxR);
   let favBlock='<div style="margin:4px 20px 16px;padding:20px;border:1px solid var(--border);border-radius:8px;text-align:center;font-family:\'Cormorant Garamond\',serif;font-style:italic;font-size:16px;color:var(--faint)">Rate paintings to reveal your favourite.</div>';
   if(topPs.length){
     const fav=USER.favPainting&&topPs.find(p=>p.id===USER.favPainting)?topPs.find(p=>p.id===USER.favPainting):topPs[0];
