@@ -3,58 +3,15 @@ import { collection, doc, getDoc, getDocs, orderBy, query, serverTimestamp, setD
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { auth, db, provider, storage } from "./firebase";
 import { APP_VERSION } from "./version";
+import { SEED } from "./seed";
 
 const APP_DOC_ID = "museum-masterpieces";
 const getAppDocRef = (uid) => doc(db, "users", uid, "apps", APP_DOC_ID);
 const CATALOG_DOC_REF = doc(db, "museum-masterpieces-catalog", "main");
 const SUGGESTIONS_COL_REF = collection(db, "museum-masterpieces-suggestions");
 
-// ═══════════════════ DATA ═══════════════════
-const SEED=[
-{id:1,name:"Mona Lisa",artist:"Leonardo da Vinci",year:1503,museum:"Louvre",city:"Paris",country:"France",region:"Europe",movement:"Renaissance",era:"Renaissance",type:"Oil on Wood Panel",lat:48.8606,lng:2.3376,seen:true,date:"2024-06-12",rating:5,note:"Much smaller than expected. The crowd made it hard to see, but the presence was undeniable.",importance:"The most famous painting in the world, celebrated for its masterful sfumato and the subject's mysterious expression."},
-{id:2,name:"Liberty Leading the People",artist:"Eugène Delacroix",year:1830,museum:"Louvre",city:"Paris",country:"France",region:"Europe",movement:"Romanticism",era:"Romanticism",type:"Oil on Canvas",lat:48.8606,lng:2.3376,seen:true,date:"2024-06-12",rating:4,note:"Monumental in scale and emotion. The figures surge forward with extraordinary urgency.",importance:"An audacious blend of allegory and realism, symbolising the spirit of the French Revolution."},
-{id:3,name:"The Raft of the Medusa",artist:"Théodore Géricault",year:1818,museum:"Louvre",city:"Paris",country:"France",region:"Europe",movement:"Romanticism",era:"Romanticism",type:"Oil on Canvas",lat:48.8606,lng:2.3376,seen:false,date:null,rating:null,note:null,importance:"A landmark of French Romantic painting depicting the real shipwreck of the Méduse."},
-{id:4,name:"Coronation of Napoleon",artist:"Jacques-Louis David",year:1807,museum:"Louvre",city:"Paris",country:"France",region:"Europe",movement:"Neoclassicism",era:"Romanticism",type:"Oil on Canvas",lat:48.8606,lng:2.3376,seen:false,date:null,rating:null,note:null,importance:"A vast ceremonial record of Napoleon's 1804 coronation — David's most ambitious work."},
-{id:5,name:"Dance at Le Moulin de la Galette",artist:"Pierre-Auguste Renoir",year:1876,museum:"Musée d'Orsay",city:"Paris",country:"France",region:"Europe",movement:"Impressionism",era:"Impressionism",type:"Oil on Canvas",lat:48.8600,lng:2.3266,seen:false,date:null,rating:null,note:null,importance:"A joyful snapshot of Parisian social life bathed in shimmering dappled light."},
-{id:6,name:"The Gleaners",artist:"Jean-François Millet",year:1857,museum:"Musée d'Orsay",city:"Paris",country:"France",region:"Europe",movement:"Realism",era:"Realism",type:"Oil on Canvas",lat:48.8600,lng:2.3266,seen:false,date:null,rating:null,note:null,importance:"A dignified political statement honouring the rural poor of 19th-century France."},
-{id:7,name:"Olympia",artist:"Édouard Manet",year:1863,museum:"Musée d'Orsay",city:"Paris",country:"France",region:"Europe",movement:"Realism",era:"Realism",type:"Oil on Canvas",lat:48.8600,lng:2.3266,seen:false,date:null,rating:null,note:null,importance:"Manet's provocative nude shocked Paris and paved the way for modern art."},
-{id:8,name:"Girl with a Pearl Earring",artist:"Johannes Vermeer",year:1665,museum:"Mauritshuis",city:"The Hague",country:"Netherlands",region:"Europe",movement:"Dutch Golden Age",era:"Baroque",type:"Oil on Canvas",lat:52.0800,lng:4.3108,seen:true,date:"2023-09-04",rating:5,note:"Hauntingly intimate. She follows you with her eyes across the room.",importance:"The 'Mona Lisa of the North' — one of the most celebrated Dutch Golden Age paintings."},
-{id:9,name:"The Night Watch",artist:"Rembrandt van Rijn",year:1642,museum:"Rijksmuseum",city:"Amsterdam",country:"Netherlands",region:"Europe",movement:"Dutch Golden Age",era:"Baroque",type:"Oil on Canvas",lat:52.3600,lng:4.8852,seen:true,date:"2023-09-05",rating:5,note:"Enormous. The drama of light is electric in person. Nothing prepares you for the scale.",importance:"A masterwork of Dutch Golden Age painting, revolutionary for its dynamic composition."},
-{id:10,name:"The Milkmaid",artist:"Johannes Vermeer",year:1660,museum:"Rijksmuseum",city:"Amsterdam",country:"Netherlands",region:"Europe",movement:"Dutch Golden Age",era:"Baroque",type:"Oil on Canvas",lat:52.3600,lng:4.8852,seen:false,date:null,rating:null,note:null,importance:"Vermeer's quiet domestic masterpiece — extraordinary for its handling of light and texture."},
-{id:11,name:"Las Meninas",artist:"Diego Velázquez",year:1656,museum:"Museo del Prado",city:"Madrid",country:"Spain",region:"Europe",movement:"Baroque",era:"Baroque",type:"Oil on Canvas",lat:40.4138,lng:-3.6921,seen:false,date:null,rating:null,note:null,importance:"Considered one of the most important paintings in Western art history."},
-{id:12,name:"Guernica",artist:"Pablo Picasso",year:1937,museum:"Museo Reina Sofía",city:"Madrid",country:"Spain",region:"Europe",movement:"Cubism",era:"Modern",type:"Oil on Canvas",lat:40.4082,lng:-3.6938,seen:false,date:null,rating:null,note:null,importance:"Picasso's devastating response to the bombing of Guernica — a timeless anti-war statement."},
-{id:13,name:"The Garden of Earthly Delights",artist:"Hieronymus Bosch",year:1510,museum:"Museo del Prado",city:"Madrid",country:"Spain",region:"Europe",movement:"Early Netherlandish",era:"Renaissance",type:"Oil on Wood Panel",lat:40.4138,lng:-3.6921,seen:false,date:null,rating:null,note:null,importance:"Bosch's triptych is one of the most complex and visionary works ever created."},
-{id:14,name:"Saturn Devouring His Son",artist:"Francisco de Goya",year:1823,museum:"Museo del Prado",city:"Madrid",country:"Spain",region:"Europe",movement:"Romanticism",era:"Romanticism",type:"Oil Mural on Canvas",lat:40.4138,lng:-3.6921,seen:false,date:null,rating:null,note:null,importance:"One of Goya's Black Paintings — a raw terrifying vision from the artist's darkest period."},
-{id:15,name:"The Birth of Venus",artist:"Sandro Botticelli",year:1484,museum:"Uffizi Gallery",city:"Florence",country:"Italy",region:"Europe",movement:"Renaissance",era:"Renaissance",type:"Tempera on Canvas",lat:43.7677,lng:11.2553,seen:false,date:null,rating:null,note:null,importance:"A defining image of the Italian Renaissance and the Western idealisation of beauty."},
-{id:16,name:"Primavera",artist:"Sandro Botticelli",year:1480,museum:"Uffizi Gallery",city:"Florence",country:"Italy",region:"Europe",movement:"Renaissance",era:"Renaissance",type:"Tempera on Wood Panel",lat:43.7677,lng:11.2553,seen:false,date:null,rating:null,note:null,importance:"Botticelli's allegorical spring garden is among the most debated works in Renaissance art."},
-{id:17,name:"The Creation of Adam",artist:"Michelangelo",year:1512,museum:"Sistine Chapel",city:"Vatican City",country:"Italy",region:"Europe",movement:"High Renaissance",era:"Renaissance",type:"Fresco",lat:41.9029,lng:12.4534,seen:false,date:null,rating:null,note:null,importance:"The most iconic image from one of the greatest artistic achievements in human history."},
-{id:18,name:"The Last Supper",artist:"Leonardo da Vinci",year:1498,museum:"Santa Maria delle Grazie",city:"Milan",country:"Italy",region:"Europe",movement:"High Renaissance",era:"Renaissance",type:"Fresco",lat:45.4654,lng:9.1707,seen:false,date:null,rating:null,note:null,importance:"Leonardo's revolutionary depiction of the moment Jesus announces his betrayal."},
-{id:19,name:"Sunflowers",artist:"Vincent van Gogh",year:1888,museum:"National Gallery",city:"London",country:"UK",region:"Europe",movement:"Post-Impressionism",era:"Modern",type:"Oil on Canvas",lat:51.5089,lng:-0.1283,seen:false,date:null,rating:null,note:null,importance:"Captures Van Gogh's most joyful intense period while living in Arles."},
-{id:20,name:"The Ambassadors",artist:"Hans Holbein the Younger",year:1533,museum:"National Gallery",city:"London",country:"UK",region:"Europe",movement:"Northern Renaissance",era:"Renaissance",type:"Oil on Wood Panel",lat:51.5089,lng:-0.1283,seen:false,date:null,rating:null,note:null,importance:"Contains one of art history's most celebrated anamorphic illusions — a distorted skull."},
-{id:21,name:"The Fighting Temeraire",artist:"J.M.W. Turner",year:1839,museum:"National Gallery",city:"London",country:"UK",region:"Europe",movement:"Romanticism",era:"Romanticism",type:"Oil on Canvas",lat:51.5089,lng:-0.1283,seen:false,date:null,rating:null,note:null,importance:"Voted Britain's greatest painting — a haunting elegy for the age of sail."},
-{id:22,name:"The Arnolfini Portrait",artist:"Jan van Eyck",year:1434,museum:"National Gallery",city:"London",country:"UK",region:"Europe",movement:"Early Netherlandish",era:"Renaissance",type:"Oil on Wood Panel",lat:51.5089,lng:-0.1283,seen:false,date:null,rating:null,note:null,importance:"Van Eyck's virtuosic technique set a new standard for oil painting and detailed observation."},
-{id:23,name:"The Starry Night",artist:"Vincent van Gogh",year:1889,museum:"MoMA",city:"New York",country:"USA",region:"Americas",movement:"Post-Impressionism",era:"Modern",type:"Oil on Canvas",lat:40.7614,lng:-73.9776,seen:false,date:null,rating:null,note:null,importance:"Van Gogh's swirling nocturnal sky is one of the most recognised artworks ever made."},
-{id:24,name:"The Persistence of Memory",artist:"Salvador Dalí",year:1931,museum:"MoMA",city:"New York",country:"USA",region:"Americas",movement:"Surrealism",era:"Modern",type:"Oil on Canvas",lat:40.7614,lng:-73.9776,seen:false,date:null,rating:null,note:null,importance:"Dalí's melting clocks became the defining image of Surrealism worldwide."},
-{id:25,name:"Campbell's Soup Cans",artist:"Andy Warhol",year:1962,museum:"MoMA",city:"New York",country:"USA",region:"Americas",movement:"Pop Art",era:"Contemporary",type:"Synthetic polymer on canvas",lat:40.7614,lng:-73.9776,seen:false,date:null,rating:null,note:null,importance:"Warhol's defining work transformed consumer imagery into high art, launching Pop Art."},
-{id:26,name:"The Great Wave off Kanagawa",artist:"Katsushika Hokusai",year:1831,museum:"Metropolitan Museum",city:"New York",country:"USA",region:"Americas",movement:"Ukiyo-e",era:"Modern",type:"Woodblock Print",lat:40.7794,lng:-73.9632,seen:false,date:null,rating:null,note:null,importance:"The most recognisable work of Japanese art in the world."},
-{id:27,name:"Portrait of Adele Bloch-Bauer I",artist:"Gustav Klimt",year:1907,museum:"Neue Galerie",city:"New York",country:"USA",region:"Americas",movement:"Art Nouveau",era:"Modern",type:"Oil on Canvas",lat:40.7852,lng:-73.9575,seen:false,date:null,rating:null,note:null,importance:"Known as Austria's Mona Lisa — centrepiece of a landmark Nazi-looted art restitution case."},
-{id:28,name:"Water Lilies",artist:"Claude Monet",year:1906,museum:"Art Institute of Chicago",city:"Chicago",country:"USA",region:"Americas",movement:"Impressionism",era:"Impressionism",type:"Oil on Canvas",lat:41.8796,lng:-87.6237,seen:false,date:null,rating:null,note:null,importance:"Part of Monet's legendary series painted at his Giverny garden."},
-{id:29,name:"Nighthawks",artist:"Edward Hopper",year:1942,museum:"Art Institute of Chicago",city:"Chicago",country:"USA",region:"Americas",movement:"Realism",era:"Modern",type:"Oil on Canvas",lat:41.8796,lng:-87.6237,seen:false,date:null,rating:null,note:null,importance:"Hopper's diner scene became the definitive image of American urban loneliness."},
-{id:30,name:"A Sunday on La Grande Jatte",artist:"Georges Seurat",year:1886,museum:"Art Institute of Chicago",city:"Chicago",country:"USA",region:"Americas",movement:"Pointillism",era:"Impressionism",type:"Oil on Canvas",lat:41.8796,lng:-87.6237,seen:false,date:null,rating:null,note:null,importance:"Seurat's pointillist masterpiece took two years and transformed modern painting."},
-{id:31,name:"The Kiss",artist:"Gustav Klimt",year:1908,museum:"Belvedere",city:"Vienna",country:"Austria",region:"Europe",movement:"Art Nouveau",era:"Modern",type:"Oil on Canvas",lat:48.1912,lng:16.3814,seen:false,date:null,rating:null,note:null,importance:"Klimt's golden masterpiece — the quintessential image of romantic love in Western art."},
-{id:32,name:"The Scream",artist:"Edvard Munch",year:1893,museum:"National Museum",city:"Oslo",country:"Norway",region:"Europe",movement:"Expressionism",era:"Modern",type:"Oil Pastel & Tempera",lat:59.9139,lng:10.7522,seen:false,date:null,rating:null,note:null,importance:"The most anguished face in art history — a universal symbol of existential dread."},
-{id:33,name:"Wanderer above the Sea of Fog",artist:"Caspar David Friedrich",year:1818,museum:"Hamburger Kunsthalle",city:"Hamburg",country:"Germany",region:"Europe",movement:"Romanticism",era:"Romanticism",type:"Oil on Canvas",lat:53.5660,lng:10.0007,seen:false,date:null,rating:null,note:null,importance:"The defining image of German Romanticism — man alone before the sublime vastness of nature."},
-{id:34,name:"The Ninth Wave",artist:"Ivan Aivazovsky",year:1850,museum:"Russian Museum",city:"St. Petersburg",country:"Russia",region:"Europe",movement:"Romanticism",era:"Romanticism",type:"Oil on Canvas",lat:59.9386,lng:30.3141,seen:false,date:null,rating:null,note:null,importance:"The most famous Russian seascape — a dramatic vision of survival against nature's fury."},
-{id:35,name:"The Two Fridas",artist:"Frida Kahlo",year:1939,museum:"Museo de Arte Moderno",city:"Mexico City",country:"Mexico",region:"Americas",movement:"Surrealism",era:"Modern",type:"Oil on Canvas",lat:19.4284,lng:-99.1677,seen:false,date:null,rating:null,note:null,importance:"Kahlo's monumental double self-portrait — a meditation on identity love and duality."},
-{id:36,name:"The Son of Man",artist:"René Magritte",year:1964,museum:"Private Collection (Brussels)",city:"Brussels",country:"Belgium",region:"Europe",movement:"Surrealism",era:"Modern",type:"Oil on Canvas",lat:50.8503,lng:4.3517,seen:false,date:null,rating:null,note:null,importance:"Magritte's bowler-hatted man with an apple — Surrealism's most iconic image."},
-{id:37,name:"Blue Poles",artist:"Jackson Pollock",year:1952,museum:"National Gallery of Australia",city:"Canberra",country:"Australia",region:"Oceania",movement:"Abstract Expressionism",era:"Contemporary",type:"Oil on Canvas",lat:-35.2809,lng:149.1213,seen:false,date:null,rating:null,note:null,importance:"Pollock's drip masterpiece — Australia paid a record price in 1973 sparking national debate."},
-{id:38,name:"Las Lanzas",artist:"Diego Velázquez",year:1635,museum:"Museo del Prado",city:"Madrid",country:"Spain",region:"Europe",movement:"Baroque",era:"Baroque",type:"Oil on Canvas",lat:40.4138,lng:-3.6921,seen:false,date:null,rating:null,note:null,importance:"Velázquez's dignified depiction of military surrender — a masterpiece of baroque narrative."},
-{id:39,name:"The Hay Wain",artist:"John Constable",year:1821,museum:"National Gallery",city:"London",country:"UK",region:"Europe",movement:"Romanticism",era:"Romanticism",type:"Oil on Canvas",lat:51.5089,lng:-0.1283,seen:false,date:null,rating:null,note:null,importance:"Constable's pastoral vision of the English countryside changed European landscape painting."},
-{id:40,name:"American Gothic",artist:"Grant Wood",year:1930,museum:"Art Institute of Chicago",city:"Chicago",country:"USA",region:"Americas",movement:"Regionalism",era:"Modern",type:"Oil on Beaver Board",lat:41.8796,lng:-87.6237,seen:false,date:null,rating:null,note:null,importance:"One of the most recognisable images in American art — a deadpan portrait of rural life."}
-];
-
 // Extensive ISO numeric → country name for EVERY world country
-const ISO2C={"4":"Afghanistan","8":"Albania","12":"Algeria","24":"Angola","32":"Argentina","36":"Australia","40":"Austria","50":"Bangladesh","56":"Belgium","64":"Bhutan","68":"Bolivia","76":"Brazil","100":"Bulgaria","104":"Myanmar","116":"Cambodia","120":"Cameroon","124":"Canada","152":"Chile","156":"China","170":"Colombia","188":"Costa Rica","191":"Croatia","192":"Cuba","196":"Cyprus","203":"Czech Republic","208":"Denmark","214":"Dominican Republic","218":"Ecuador","818":"Egypt","222":"El Salvador","231":"Ethiopia","246":"Finland","250":"France","266":"Gabon","276":"Germany","288":"Ghana","300":"Greece","320":"Guatemala","332":"Haiti","340":"Honduras","348":"Hungary","356":"India","360":"Indonesia","364":"Iran","368":"Iraq","372":"Ireland","376":"Israel","380":"Italy","388":"Jamaica","392":"Japan","400":"Jordan","398":"Kazakhstan","404":"Kenya","408":"North Korea","410":"South Korea","414":"Kuwait","418":"Laos","422":"Lebanon","430":"Liberia","434":"Libya","440":"Lithuania","442":"Luxembourg","450":"Madagascar","454":"Malawi","458":"Malaysia","484":"Mexico","504":"Morocco","508":"Mozambique","516":"Namibia","524":"Nepal","528":"Netherlands","554":"New Zealand","558":"Nicaragua","566":"Nigeria","578":"Norway","586":"Pakistan","591":"Panama","600":"Paraguay","604":"Peru","608":"Philippines","616":"Poland","620":"Portugal","634":"Qatar","642":"Romania","643":"Russia","646":"Rwanda","682":"Saudi Arabia","686":"Senegal","694":"Sierra Leone","706":"Somalia","710":"South Africa","724":"Spain","144":"Sri Lanka","729":"Sudan","752":"Sweden","756":"Switzerland","760":"Syria","764":"Thailand","768":"Togo","792":"Turkey","800":"Uganda","804":"Ukraine","784":"United Arab Emirates","826":"UK","840":"USA","858":"Uruguay","860":"Uzbekistan","862":"Venezuela","704":"Vietnam","887":"Yemen","894":"Zambia","716":"Zimbabwe"};
+const ISO2C={"4":"Afghanistan","8":"Albania","12":"Algeria","24":"Angola","32":"Argentina","36":"Australia","40":"Austria","50":"Bangladesh","56":"Belgium","64":"Bhutan","68":"Bolivia","76":"Brazil","100":"Bulgaria","104":"Myanmar","116":"Cambodia","120":"Cameroon","124":"Canada","152":"Chile","156":"China","170":"Colombia","188":"Costa Rica","191":"Croatia","192":"Cuba","196":"Cyprus","203":"Czech Republic","208":"Denmark","214":"Dominican Republic","218":"Ecuador","818":"Egypt","222":"El Salvador","231":"Ethiopia","246":"Finland","250":"France","266":"Gabon","276":"Germany","288":"Ghana","300":"Greece","320":"Guatemala","332":"Haiti","340":"Honduras","348":"Hungary","356":"India","360":"Indonesia","364":"Iran","368":"Iraq","372":"Ireland","376":"Israel","380":"Italy","388":"Jamaica","392":"Japan","400":"Jordan","398":"Kazakhstan","404":"Kenya","408":"North Korea","410":"South Korea","414":"Kuwait","418":"Laos","422":"Lebanon","430":"Liberia","434":"Libya","440":"Lithuania","442":"Luxembourg","450":"Madagascar","454":"Malawi","458":"Malaysia","484":"Mexico","504":"Morocco","508":"Mozambique","516":"Namibia","524":"Nepal","528":"Netherlands","554":"New Zealand","558":"Nicaragua","566":"Nigeria","578":"Norway","586":"Pakistan","591":"Panama","600":"Paraguay","604":"Peru","608":"Philippines","616":"Poland","620":"Portugal","634":"Qatar","642":"Romania","643":"Russia","646":"Rwanda","682":"Saudi Arabia","686":"Senegal","694":"Sierra Leone","706":"Somalia","710":"South Africa","724":"Spain","144":"Sri Lanka","729":"Sudan","752":"Sweden","756":"Switzerland","760":"Syria","764":"Thailand","768":"Togo","792":"Turkey","800":"Uganda","804":"Ukraine","784":"United Arab Emirates","826":"United Kingdom","840":"United States","858":"Uruguay","860":"Uzbekistan","862":"Venezuela","704":"Vietnam","887":"Yemen","894":"Zambia","716":"Zimbabwe","688":"Serbia","702":"Singapore","705":"Slovenia","336":"Vatican City"};
 
 const cloneSeed=()=>JSON.parse(JSON.stringify(SEED));
 const defaultUserProfile=()=>({name:'Art Collector',avatar:null,favPainting:null,theme:'light'});
@@ -69,6 +26,12 @@ let dataReady=false;
 let saveTimer=null;
 let ADMIN=false;
 let SUGGESTIONS=[];
+let MISSING_COUNTRIES=[];
+let MAP_MODE='top100';
+let MAP_DB=[];
+let MAP_COUNTRIES=new Set();
+
+document.documentElement.setAttribute('data-map-mode', MAP_MODE);
 
 const persist=()=>{scheduleSave();};
 
@@ -121,11 +84,13 @@ async function loadCatalog(){
   return snap.data()||null;
 }
 
-async function saveCatalog(paintings){
-  await setDoc(CATALOG_DOC_REF,{
+async function saveCatalog(paintings, meta){
+  const payload={
     paintings,
     updatedAt:serverTimestamp()
-  },{merge:true});
+  };
+  if(meta&&meta.missingCountries) payload.missingCountries=meta.missingCountries;
+  await setDoc(CATALOG_DOC_REF, payload, {merge:true});
 }
 
 async function loadSuggestions(){
@@ -168,6 +133,7 @@ function mergeCatalogAndLogs(){
     const log=LOGS[p.id]||{};
     return { ...p, seen:!!log.seen, date:log.date||null, rating:log.rating||null, note:log.note||null };
   });
+  deriveMapData();
 }
 
 function setLog(id, patch){
@@ -216,12 +182,48 @@ function tileUrls(){
 }
 function updateLegend(){
   const d=document.documentElement.getAttribute('data-theme')==='dark';
+  const isCountry=MAP_MODE==='country';
   const all=document.getElementById('leg-all');
   const some=document.getElementById('leg-some');
   const none=document.getElementById('leg-none');
   if(all)all.style.cssText=`background:${d?'#f0d060':'#6A5000'};box-shadow:0 0 5px ${d?'rgba(240,208,96,.6)':'rgba(106,80,0,.4)'}`;
   if(some)some.style.cssText=`background:${d?'#C9A84C':'#C9A84C'}`;
-  if(none)none.style.cssText=`background:${d?'#2a2620':'#C8C3BA'};border:1px solid ${d?'#3a3526':'#A8A29A'}`;
+  if(none){
+    if(isCountry){
+      none.style.cssText=`background:${d?'#1d1414':'#9E8C85'};border:1px solid ${d?'#3b2a2a':'#7E6E68'}`;
+    } else {
+      none.style.cssText=`background:${d?'#2a2620':'#C8C3BA'};border:1px solid ${d?'#3a3526':'#A8A29A'}`;
+    }
+  }
+}
+
+function deriveMapData(){
+  const base=DB||[];
+  if(MAP_MODE==='country'){
+    MAP_DB=base.filter(p=>p.topCountry);
+  } else {
+    MAP_DB=base.filter(p=>p.top100);
+  }
+  MAP_COUNTRIES=new Set(MAP_DB.map(p=>p.country));
+}
+
+function updateMapToggleUI(){
+  const topBtn=document.getElementById('mt-top100');
+  const countryBtn=document.getElementById('mt-country');
+  if(topBtn)topBtn.classList.toggle('on', MAP_MODE==='top100');
+  if(countryBtn)countryBtn.classList.toggle('on', MAP_MODE==='country');
+}
+
+function setMapMode(mode){
+  const next=(mode==='country')?'country':'top100';
+  if(MAP_MODE===next) return;
+  MAP_MODE=next;
+  document.documentElement.setAttribute('data-map-mode', MAP_MODE);
+  deriveMapData();
+  updateMapToggleUI();
+  updateLegend();
+  refreshMapColors();
+  refreshPanel();
 }
 
 // ═══════════════════ TABS ═══════════════════
@@ -237,15 +239,20 @@ function switchTab(n,btn){
 // ═══════════════════ MAP ═══════════════════
 function countryStyle(cn){
   const d=document.documentElement.getAttribute('data-theme')==='dark';
-  const allDB_countries=new Set(DB.map(p=>p.country));
-  if(!cn||!allDB_countries.has(cn)){
-    // Gray out countries with no paintings
+  const hasCountry=cn&&MAP_COUNTRIES.has(cn);
+  if(!cn||!hasCountry){
+    // Gray out countries with no paintings in this map mode
+    if(MAP_MODE==='country'){
+      return d
+        ?{fillColor:'#1D1414',fillOpacity:.85,color:'#3B2A2A',weight:.5,opacity:.9}
+        :{fillColor:'#9E8C85',fillOpacity:.65,color:'#7E6E68',weight:.5,opacity:.8};
+    }
     return d
       ?{fillColor:'#2D2B3D',fillOpacity:.75,color:'#3E3B55',weight:.5,opacity:.85}
       :{fillColor:'#C8C4BB',fillOpacity:.55,color:'#B0AB9F',weight:.5,opacity:.75};
   }
-  const s=DB.filter(p=>p.country===cn&&p.seen).length;
-  const t=DB.filter(p=>p.country===cn).length;
+  const s=MAP_DB.filter(p=>p.country===cn&&p.seen).length;
+  const t=MAP_DB.filter(p=>p.country===cn).length;
   if(s===0) return d
     ?{fillColor:'#5C4820',fillOpacity:.28,color:'#C9A84C',weight:.9,opacity:.5}
     :{fillColor:'#C9A84C',fillOpacity:.22,color:'#8B6914',weight:.9,opacity:.55};
@@ -280,6 +287,21 @@ function fixAntimeridian(features){
   return features.map(f=>({...f,geometry:fixGeom(f.geometry)}));
 }
 
+const MISSING_TIP_TEXT="No painting for this country. Please, suggest a piece!";
+function updateMissingTooltip(layer, cn){
+  if(!layer||!cn) return;
+  const shouldShow=MAP_MODE==='country' && !MAP_COUNTRIES.has(cn);
+  if(shouldShow){
+    if(!layer._missingTip){
+      layer.bindTooltip(MISSING_TIP_TEXT,{sticky:true,className:'miss-tt',direction:'center',opacity:0.95});
+      layer._missingTip=true;
+    }
+  } else if(layer._missingTip){
+    layer.unbindTooltip();
+    layer._missingTip=false;
+  }
+}
+
 function initMap(){
   const WORLD=L.latLngBounds(L.latLng(-85,-220),L.latLng(85,220));
   const map=L.map('map',{
@@ -307,29 +329,31 @@ function initMap(){
   fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
     .then(r=>r.json())
     .then(world=>{
-      window._clayers={};
+      window._clayersAll={};
       const rawFeatures=topojson.feature(world,world.objects.countries).features;
       const features=fixAntimeridian(rawFeatures); // ← kills the stripe artifacts
-      const allDB_countries=new Set(DB.map(p=>p.country));
       features.forEach(f=>{
         const cn=ISO2C[String(f.id)]||null;
-        const hasPaintings=cn&&allDB_countries.has(cn);
         const style=countryStyle(cn);
         const layer=L.geoJSON(f,{
           style,
           smoothFactor:1.5,
           onEachFeature:(_,l)=>{
-            if(hasPaintings){
-              l.on('mouseover',()=>{
-                const s2=countryStyle(cn);
-                l.setStyle({...s2,fillOpacity:Math.min((s2.fillOpacity||0)+.15,.9),weight:2});
-              });
-              l.on('mouseout',()=>l.setStyle(countryStyle(cn)));
-              l.on('click',e=>{L.DomEvent.stop(e);openCountryPanel(cn);});
-            }
+            l.on('mouseover',()=>{
+              const s2=countryStyle(cn);
+              l.setStyle({...s2,fillOpacity:Math.min((s2.fillOpacity||0)+.15,.9),weight:2});
+              updateMissingTooltip(l, cn);
+            });
+            l.on('mouseout',()=>l.setStyle(countryStyle(cn)));
+            l.on('click',e=>{
+              if(cn&&MAP_COUNTRIES.has(cn)){
+                L.DomEvent.stop(e);openCountryPanel(cn);
+              }
+            });
           }
         }).addTo(map);
-        if(hasPaintings) window._clayers[cn]=layer;
+        if(cn) window._clayersAll[cn]=layer;
+        updateMissingTooltip(layer, cn);
       });
       addMarkers();
     }).catch(err=>{console.warn('Map data failed:',err);addMarkers();});
@@ -337,8 +361,11 @@ function initMap(){
 }
 
 function refreshMapColors(){
-  if(!window._clayers)return;
-  Object.entries(window._clayers).forEach(([cn,layer])=>layer.setStyle(countryStyle(cn)));
+  if(!window._clayersAll)return;
+  Object.entries(window._clayersAll).forEach(([cn,layer])=>{
+    layer.setStyle(countryStyle(cn));
+    updateMissingTooltip(layer, cn);
+  });
   addMarkers();
 }
 
@@ -347,7 +374,7 @@ function addMarkers(){
   if(window._mms)window._mms.forEach(m=>m.remove());
   window._mms=[];
   const ms={};
-  DB.forEach(p=>{
+  MAP_DB.forEach(p=>{
     if(!p.lat||!p.lng)return;
     const k=p.museum+'||'+p.lat+'||'+p.lng;
     if(!ms[k])ms[k]={name:p.museum,city:p.city,country:p.country,lat:p.lat,lng:p.lng,ps:[]};
@@ -368,7 +395,8 @@ function piH(p){return'<div class="pi" onclick="openDetail('+p.id+')"><div class
 
 function openCountryPanel(cn){
   _pd={type:'c',cn};
-  const ps=DB.filter(p=>p.country===cn),s=ps.filter(p=>p.seen).length;
+  const ps=MAP_DB.filter(p=>p.country===cn);if(!ps.length){closePanel();return;}
+  const s=ps.filter(p=>p.seen).length;
   document.getElementById('p-head').innerHTML='<div class="p-eye">Country</div><div class="p-tit">'+cn+'</div><div class="p-prog"><div class="p-pt"><div class="p-pf" style="width:'+Math.round(s/ps.length*100)+'%"></div></div><div class="p-ptxt">'+s+'/'+ps.length+'</div></div>';
   const byM={};ps.forEach(p=>{if(!byM[p.museum])byM[p.museum]=[];byM[p.museum].push(p);});
   document.getElementById('p-body').innerHTML=Object.entries(byM).map(([m,mps])=>{const ms=mps.filter(p=>p.seen).length;return'<div class="mg-h"><div><div class="mg-nm">'+m+'</div><div class="mg-sub">'+mps[0].city+'</div></div><div class="mg-badge">'+ms+'/'+mps.length+'</div></div>'+mps.map(piH).join('');}).join('');
@@ -377,7 +405,7 @@ function openCountryPanel(cn){
 
 function openMuseumPanel(name,cn){
   _pd={type:'m',name,cn};
-  const ps=DB.filter(p=>p.museum===name);if(!ps.length)return;
+  const ps=MAP_DB.filter(p=>p.museum===name);if(!ps.length){closePanel();return;}
   const s=ps.filter(p=>p.seen).length;
   document.getElementById('p-head').innerHTML='<div class="p-eye">'+ps[0].city+', '+cn+'</div><div class="p-tit">'+name+'</div><div class="p-prog"><div class="p-pt"><div class="p-pf" style="width:'+Math.round(s/ps.length*100)+'%"></div></div><div class="p-ptxt">'+s+'/'+ps.length+'</div></div>';
   document.getElementById('p-body').innerHTML='<div style="padding:6px 0">'+ps.map(piH).join('')+'</div>';
@@ -680,6 +708,100 @@ function normalizeSuggestionData(data){
   };
 }
 
+function parseCSV(text){
+  const rows=[];
+  let row=[],field='',inQuotes=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(inQuotes){
+      if(ch==='"'){
+        if(text[i+1]==='"'){field+='"';i++;}
+        else inQuotes=false;
+      } else {
+        field+=ch;
+      }
+    } else {
+      if(ch==='"') inQuotes=true;
+      else if(ch===','){row.push(field);field='';}
+      else if(ch==='\r'){}
+      else if(ch==='\n'){row.push(field);rows.push(row);row=[];field='';}
+      else field+=ch;
+    }
+  }
+  if(field.length||row.length){row.push(field);rows.push(row);}
+  return rows;
+}
+
+function normalizeCsvCatalog(rows){
+  if(!rows.length) return {paintings:[],missingCountries:[]};
+  const header=rows[0].map(h=>(h||'').replace(/^\uFEFF/,'').trim());
+  const idx={};
+  header.forEach((h,i)=>{idx[h]=i;});
+  const get=(r,name)=>idx[name]!==undefined?(r[idx[name]]||''):'';
+  const paintings=[];
+  const missing=new Set();
+  let id=1;
+  for(let i=1;i<rows.length;i++){
+    const r=rows[i]; if(!r||!r.length) continue;
+    const name=(get(r,'Painting Name')||'').trim();
+    const country=(get(r,'Country')||'').trim();
+    if(!name){
+      if(country) missing.add(country);
+      continue;
+    }
+    const latVal=parseFloat(get(r,'Latitude'));
+    const lngVal=parseFloat(get(r,'Longitude'));
+    const artist=(get(r,'Artist')||'').trim();
+    const yearStr=(get(r,'Year')||'').trim();
+    const importance=(get(r,'Short Description')||'').trim()||(`${name} by ${artist||'Unknown'}.`);
+    paintings.push({
+      id:id++,
+      name,
+      artist,
+      year:yearStr||null,
+      type:(get(r,'Medium')||'').trim()||'Other',
+      museum:(get(r,'Museum')||'').trim(),
+      city:(get(r,'City')||'').trim(),
+      country,
+      region:(get(r,'Region')||'').trim(),
+      movement:(get(r,'Art Movement')||'').trim()||'Unknown',
+      era:(get(r,'Era')||'').trim()||'Unknown',
+      lat:Number.isFinite(latVal)?latVal:null,
+      lng:Number.isFinite(lngVal)?lngVal:null,
+      importance,
+      top100:(get(r,'Is100')||'').trim().toUpperCase()==='T',
+      topCountry:(get(r,'IsBest')||'').trim().toUpperCase()==='T'
+    });
+  }
+  return {paintings,missingCountries:[...missing]};
+}
+
+async function importCatalogCsv(){
+  if(!AUTH_USER||!getAdminEnabled()){alert('Admin login required.');return;}
+  const inp=document.getElementById('admin-csv');
+  const file=inp&&inp.files&&inp.files[0]; if(!file){alert('Choose a CSV file first.');return;}
+  const text=await file.text();
+  const rows=parseCSV(text);
+  if(!rows.length){alert('CSV appears empty.');return;}
+  const {paintings,missingCountries}=normalizeCsvCatalog(rows);
+  const top100Count=paintings.filter(p=>p.top100).length;
+  const topCountryCount=paintings.filter(p=>p.topCountry).length;
+  if(!confirm(`Import ${paintings.length} paintings? Top 100: ${top100Count}, Top Country: ${topCountryCount}, Missing Countries: ${missingCountries.length}. This will overwrite the catalog.`)) return;
+  await saveCatalog(paintings,{missingCountries});
+  CATALOG=paintings;
+  MISSING_COUNTRIES=missingCountries;
+  const valid=new Set(paintings.map(p=>String(p.id)));
+  Object.keys(LOGS||{}).forEach(id=>{if(!valid.has(String(id))) delete LOGS[id];});
+  mergeCatalogAndLogs();
+  persist();
+  refreshMapColors();
+  refreshPanel();
+  refreshActiveTabs();
+  if(getAdminEnabled()) renderAdminPhotos();
+  if(inp) inp.value='';
+  alert('Catalog imported.');
+}
+
 function getNextCatalogId(){
   const maxId=CATALOG.reduce((m,p)=>Math.max(m,Number(p.id)||0),0);
   return maxId+1;
@@ -721,10 +843,16 @@ function refreshAdmin(){
 function renderAdminSuggestions(){
   const wrap=document.getElementById('admin-suggestions');
   if(!wrap) return;
-  if(!SUGGESTIONS.length){
+  if(!SUGGESTIONS.length){
+
+
+
   wrap.innerHTML='<div class="admin-empty">No suggestions yet.</div>';
     return;
-  }
+  }
+
+
+
   wrap.innerHTML=SUGGESTIONS.map(s=>{
     const data=normalizeSuggestionData(s.data);
     const created=formatTime(s.createdAt);
@@ -1078,6 +1206,7 @@ function bindStaticHandlers(){
   if(signInBtn){
     signInBtn.addEventListener('click',()=>{signInWithPopup(auth,provider).catch(()=>undefined);});
   }
+  updateMapToggleUI();
 }
 
 function boot(){
@@ -1101,13 +1230,19 @@ function applyLoadedState(remote, catalog){
 
   if(catalogPaintings){
     CATALOG=catalogPaintings;
+    MISSING_COUNTRIES=Array.isArray(catalog.missingCountries)?catalog.missingCountries:[];
   } else if(legacyPaintings){
     CATALOG=legacyPaintings.map(stripUserFields);
+    MISSING_COUNTRIES=[];
     if(useAdmin){
       saveCatalog(CATALOG).catch(()=>undefined);
     }
   } else {
-    CATALOG=[];
+    CATALOG=cloneSeed();
+    MISSING_COUNTRIES=[];
+    if(useAdmin){
+      saveCatalog(CATALOG).catch(()=>undefined);
+    }
   }
 
   if(remote&&remote.logs){
@@ -1176,11 +1311,13 @@ Object.assign(window,{
   editName,
   saveName,
   handleAvatar,
+  setMapMode,
   toggleTheme,
   openSugModal,
   openCountryPanel,
   openMuseumPanel,
   doSignOut,
+  importCatalogCsv,
   handlePhotoInput,
   handleAdminPhotoInput,
   adminRemovePhoto,

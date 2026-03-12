@@ -33,7 +33,8 @@
   --shadow:none;--shadow-sm:none;
   --nav-bg:rgba(10,9,6,.97);
 }
-:root{--safe-top:env(safe-area-inset-top,0px);--safe-bottom:env(safe-area-inset-bottom,0px);}
+:root{--safe-top:env(safe-area-inset-top,0px);--safe-bottom:env(safe-area-inset-bottom,0px);--pin-all:var(--gold-lit);--pin-partial:#8a6a2a;--pin-none:var(--faint);--pin-glow:rgba(160,120,32,.7);--pin-pulse:var(--gold-faint);}
+html[data-map-mode="country"]{--pin-all:var(--red);--pin-partial:#8b3434;--pin-glow:rgba(160,48,48,.6);--pin-pulse:rgba(160,48,48,.18);}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;font-weight:300;overflow:hidden;transition:background .35s,color .35s}
 #app{width:100%;height:100%;display:flex;flex-direction:column}
@@ -65,16 +66,22 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-fam
 [data-theme="light"] #map-top{background:linear-gradient(to bottom,rgba(245,240,232,.94) 55%,transparent)}
 [data-theme="dark"] #map-top{background:linear-gradient(to bottom,rgba(6,9,15,.92) 55%,transparent)}
 .wm{font-family:'Cormorant Garamond',serif;font-size:14px;font-weight:300;letter-spacing:.32em;text-transform:uppercase;color:var(--gold);opacity:.9}
+.map-top-left{display:flex;flex-direction:column;gap:8px;pointer-events:auto}
+.map-toggle{display:flex;gap:4px;padding:3px;border-radius:999px;border:1px solid var(--border);background:var(--surf);box-shadow:var(--shadow-sm);width:fit-content}
+.mt-btn{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;padding:6px 10px;border:none;background:transparent;color:var(--faint);cursor:pointer;border-radius:999px;transition:background .2s,color .2s}
+.mt-btn.on{background:var(--gold-faint);color:var(--gold)}
+html[data-map-mode="country"] .mt-btn.on{background:rgba(160,48,48,.12);color:var(--red)}
 .leg{display:flex;flex-direction:column;gap:5px}
 .leg-r{display:flex;align-items:center;gap:7px}
 .leg-d{width:9px;height:9px;border-radius:50%;flex-shrink:0}
 .leg-l{font-family:'DM Mono',monospace;font-size:9px;color:var(--faint)}
 .mus-pin{width:11px;height:11px;border-radius:50%;border:2px solid var(--surf);cursor:pointer;position:relative}
-.mus-pin.all{background:var(--gold-lit);box-shadow:0 0 8px rgba(160,120,32,.7)}
-.mus-pin.all::after{content:'';position:absolute;inset:-4px;border-radius:50%;background:var(--gold-faint);animation:pulse 2.5s infinite}
-.mus-pin.partial{background:#8a6a2a}
-.mus-pin.none{background:var(--faint);opacity:.5}
+.mus-pin.all{background:var(--pin-all);box-shadow:0 0 8px var(--pin-glow)}
+.mus-pin.all::after{content:'';position:absolute;inset:-4px;border-radius:50%;background:var(--pin-pulse);animation:pulse 2.5s infinite}
+.mus-pin.partial{background:var(--pin-partial)}
+.mus-pin.none{background:var(--pin-none);opacity:.5}
 @keyframes pulse{0%,100%{transform:scale(1);opacity:.5}50%{transform:scale(2.2);opacity:0}}
+.leaflet-tooltip.miss-tt{background:var(--surf);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.08em;text-transform:uppercase;box-shadow:var(--shadow-sm);padding:6px 8px}
 
 /* PANEL */
 #panel-ov{position:fixed;inset:0;z-index:8000;pointer-events:none}
@@ -193,6 +200,9 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-fam
 .admin-photo-thumb{position:relative;width:54px;height:54px;border-radius:8px;overflow:hidden;border:1px solid var(--border2);background:var(--surf)}
 .admin-photo-thumb img{width:100%;height:100%;object-fit:cover;display:block}
 .admin-photo-del{position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;border:none;background:rgba(0,0,0,.6);color:#fff;font-size:12px;cursor:pointer}
+.admin-import-row{display:flex;align-items:center;gap:10px}
+.admin-file{flex:1;background:var(--surf2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'Outfit',sans-serif;font-size:12px}
+.admin-import-note{font-family:'DM Mono',monospace;font-size:9px;color:var(--faint);margin-top:8px}
 
 /* MODALS */
 #rv-modal,#sug-modal{position:fixed;inset:0;z-index:9500;display:none;align-items:flex-end}
@@ -423,7 +433,13 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-fam
 <!-- MAP TAB -->
 <div id="map-tab" class="tab active">
   <div id="map-top">
-    <div class="wm">Masterpieces</div>
+    <div class="map-top-left">
+      <div class="wm">Masterpieces</div>
+      <div class="map-toggle">
+        <button class="mt-btn on" id="mt-top100" onclick="setMapMode('top100')">Top 100 Paintings</button>
+        <button class="mt-btn" id="mt-country" onclick="setMapMode('country')">Top Paintings by Country</button>
+      </div>
+    </div>
     <div class="leg">
       <div class="leg-r"><div class="leg-d" id="leg-all" style="background:#8C6C00"></div><span class="leg-l">All seen</span></div>
       <div class="leg-r"><div class="leg-d" id="leg-some" style="background:#C9A84C"></div><span class="leg-l">Partial</span></div>
@@ -493,6 +509,14 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-fam
     <div class="admin-card">
       <div class="admin-title">Suggestions</div>
       <div id="admin-suggestions"></div>
+    </div>
+    <div class="admin-card">
+      <div class="admin-title">Catalog Import</div>
+      <div class="admin-import-row">
+        <input class="admin-file" type="file" id="admin-csv" accept=".csv,text/csv">
+        <button class="btn-gold" onclick="importCatalogCsv()">Import CSV</button>
+      </div>
+      <div class="admin-import-note">Overwrites the catalog in Firestore. This may reset some seen data if painting IDs change.</div>
     </div>
     <div class="admin-card">
       <div class="admin-title">Catalog Photos</div>
