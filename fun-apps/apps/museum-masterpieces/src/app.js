@@ -471,10 +471,18 @@ function updateCatalogPainting(id, patch){
   return true;
 }
 
+function isImageFile(file){
+  if(!file) return false;
+  if(file.type) return file.type.startsWith('image/');
+  return /\.(jpe?g|png|gif|webp|bmp|tiff?)$/i.test(file.name||'');
+}
+
 async function uploadCatalogPhotos(paintingId, files){
-  if(!AUTH_USER||!getAdminEnabled()) return [];
+  if(!AUTH_USER||!getAdminEnabled()) throw new Error('Admin login required.');
   const list=[];
-  for(const file of Array.from(files||[])){
+  const items=Array.from(files||[]).filter(isImageFile);
+  if(!items.length) throw new Error('Please choose a valid image file.');
+  for(const file of items){
     const safeName=sanitizeFileName(file.name);
     const path='museum-masterpieces/catalog/'+paintingId+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+'-'+safeName;
     const fileRef=ref(storage,path);
@@ -485,14 +493,24 @@ async function uploadCatalogPhotos(paintingId, files){
   return list;
 }
 
-async function addCatalogPhotos(id, files){
+async function addCatalogPhotos(id, files, opts){
   const p=CATALOG.find(x=>x.id===id);if(!p)return;
-  const next=await uploadCatalogPhotos(id, files);
-  if(!next.length) return;
-  const photos=[...(p.photos||[]),...next];
-  updateCatalogPainting(id,{photos});
-  await saveCatalog(CATALOG);
-  openDetail(id);
+  const fromAdmin=!!(opts&&opts.fromAdmin);
+  try{
+    const next=await uploadCatalogPhotos(id, files);
+    if(!next.length) return;
+    const photos=[...(p.photos||[]),...next];
+    updateCatalogPainting(id,{photos});
+    await saveCatalog(CATALOG);
+    if(fromAdmin){
+      renderAdminPhotos();
+    } else {
+      openDetail(id);
+    }
+  }catch(err){
+    console.warn('Photo upload failed:', err);
+    alert('Upload failed. '+(err?.message||'Please check your sign-in and storage settings.'));
+  }
 }
 
 function removePaintingPhoto(id, idx){
@@ -507,7 +525,7 @@ function removePaintingPhoto(id, idx){
 
 function handlePhotoInput(inp,id){
   const files=inp?.files; if(!files||!files.length)return;
-  addCatalogPhotos(id, files).catch(()=>undefined);
+  addCatalogPhotos(id, files);
   inp.value='';
 }
 function starsH(n,sz){return Array.from({length:5}).map((_,i)=>'<span style="font-size:'+(sz||13)+'px;color:'+(i<n?'var(--gold)':'var(--border)')+'">&#9733;</span>').join('');}
@@ -1019,7 +1037,7 @@ async function rejectSuggestion(id){
 
 function handleAdminPhotoInput(inp,id){
   const files=inp?.files; if(!files||!files.length)return;
-  addCatalogPhotos(id, files).catch(()=>undefined);
+  addCatalogPhotos(id, files, {fromAdmin:true});
   inp.value='';
 }
 
