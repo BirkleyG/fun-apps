@@ -942,6 +942,8 @@ function Sandbox({ classes, settings, analyzerState }) {
   const [floatVisible, setFloatVisible]   = useState(false);
   const [editingTarget, setEditingTarget] = useState(false);
   const [targetEditValue, setTargetEditValue] = useState("");
+  const [editingCatId, setEditingCatId] = useState(null);
+  const [catEditValue, setCatEditValue] = useState("");
   const [solverFeedback, setSolverFeedback] = useState("");
   const [pendingSolveTarget, setPendingSolveTarget] = useState(null);
   const liveGradeRef = useRef(null);
@@ -1217,6 +1219,25 @@ function Sandbox({ classes, settings, analyzerState }) {
     setTargetEditValue("");
   }
 
+  function beginCategoryEdit(catId, currentVal, locked) {
+    if (locked) return;
+    setEditingCatId(catId);
+    setCatEditValue((currentVal ?? 0).toFixed(2));
+    setSolverFeedback("");
+  }
+
+  function submitCategoryEdit(catId) {
+    if (editingCatId !== catId) return;
+    setGrade(catId, catEditValue);
+    setEditingCatId(null);
+    setCatEditValue("");
+  }
+
+  function cancelCategoryEdit() {
+    setEditingCatId(null);
+    setCatEditValue("");
+  }
+
   // Final sandbox grade = sum of weighted grades for all categories
   const totalGrade = cls
     ? cls.categories.reduce((sum, cat) => {
@@ -1273,46 +1294,41 @@ function Sandbox({ classes, settings, analyzerState }) {
         <div style={{ display: "flex", gap: 40, alignItems: "center", flexWrap: "wrap" }}>
           <div>
             <div className="stat-label">Final Grade</div>
-            <div className={`stat-value ${
-              totalGrade >= settings.aThreshold ? "good"
-              : totalGrade >= settings.aMinusThreshold ? "warn"
-              : "bad"}`}>
-              {totalGrade.toFixed(2)}%
-            </div>
-            {analyzeCategories.length > 0 && (
-              <div style={{ marginTop: 6 }}>
-                {editingTarget ? (
-                  <input
-                    className="input input-sm input-num"
-                    style={{ width: 120 }}
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    value={targetEditValue}
-                    autoFocus
-                    onChange={e => setTargetEditValue(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === "Enter") submitTargetEdit();
-                      if (e.key === "Escape") cancelTargetEdit();
-                    }}
-                    onBlur={submitTargetEdit}
-                  />
-                ) : (
-                  <span
-                    style={{
-                      color: "#7a7890",
-                      fontSize: 11,
-                      fontFamily: "'IBM Plex Mono',monospace",
-                      borderBottom: "1px dotted #4a4860",
-                      cursor: "text"
-                    }}
-                    onClick={beginTargetEdit}
-                    title="Click to type target grade and auto-set Analyze sliders"
-                  >
-                    click to set target grade
-                  </span>
-                )}
+            {editingTarget ? (
+              <input
+                className="input input-num"
+                style={{ width: 150, fontSize: 28, fontWeight: 600, lineHeight: 1, padding: "6px 10px" }}
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={targetEditValue}
+                autoFocus
+                onChange={e => setTargetEditValue(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter") submitTargetEdit();
+                  if (e.key === "Escape") cancelTargetEdit();
+                }}
+                onBlur={submitTargetEdit}
+              />
+            ) : (
+              <div
+                className={`stat-value ${
+                  totalGrade >= settings.aThreshold ? "good"
+                  : totalGrade >= settings.aMinusThreshold ? "warn"
+                  : "bad"}`}
+                style={analyzeCategories.length > 0 ? { cursor: "text" } : undefined}
+                onClick={() => {
+                  if (analyzeCategories.length > 0) beginTargetEdit();
+                }}
+                title={analyzeCategories.length > 0 ? "Click to type target grade and auto-set Analyze sliders" : undefined}
+              >
+                {totalGrade.toFixed(2)}%
+              </div>
+            )}
+            {analyzeCategories.length > 0 && !editingTarget && (
+              <div style={{ marginTop: 4, color: "#7a7890", fontSize: 10, fontFamily: "'IBM Plex Mono',monospace" }}>
+                Click grade to set target
               </div>
             )}
           </div>
@@ -1413,9 +1429,40 @@ function Sandbox({ classes, settings, analyzerState }) {
                     {locked ? "🔒 " : ""}
                     {mode}
                   </span>
-                  <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 22, fontWeight: 600, color: modeColor, minWidth: 60, textAlign: "right" }}>
-                    {formatSandboxGrade(displayVal)}
-                  </span>
+                  {editingCatId === cat.id ? (
+                    <input
+                      className="input input-sm input-num"
+                      style={{ width: 90 }}
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={catEditValue}
+                      autoFocus
+                      onChange={e => setCatEditValue(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === "Enter") submitCategoryEdit(cat.id);
+                        if (e.key === "Escape") cancelCategoryEdit();
+                      }}
+                      onBlur={() => submitCategoryEdit(cat.id)}
+                    />
+                  ) : (
+                    <span
+                      style={{
+                        fontFamily: "'IBM Plex Mono',monospace",
+                        fontSize: 22,
+                        fontWeight: 600,
+                        color: modeColor,
+                        minWidth: 60,
+                        textAlign: "right",
+                        cursor: locked ? "default" : "text",
+                      }}
+                      onClick={() => beginCategoryEdit(cat.id, displayVal, locked)}
+                      title={locked ? undefined : "Click to type exact percentage"}
+                    >
+                      {formatSandboxGrade(displayVal)}
+                    </span>
+                  )}
                 </div>
               </div>
               <input
@@ -1426,22 +1473,6 @@ function Sandbox({ classes, settings, analyzerState }) {
                 onChange={e => setGrade(cat.id, e.target.value)}
                 style={{ opacity: locked ? 0.2 : 1, cursor: locked ? "not-allowed" : "pointer" }}
               />
-              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
-                <div className="setting-input-wrap">
-                  <input
-                    className="input input-sm input-num"
-                    style={{ width: 90 }}
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    value={displayVal ?? ""}
-                    disabled={locked}
-                    onChange={e => setGrade(cat.id, e.target.value)}
-                  />
-                  <span style={{ color: "#7a7890", fontSize: 13 }}>%</span>
-                </div>
-              </div>
             </div>
           );
         })}
