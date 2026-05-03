@@ -354,8 +354,38 @@ function ConfirmModal({ title, body, onConfirm, onCancel }) {
   );
 }
 
+function ScenarioSolveModal({ targetGrade, options, onPick, onCancel }) {
+  return (
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="modal" style={{ width: 520, maxWidth: "calc(100vw - 24px)" }} onClick={e => e.stopPropagation()}>
+        <div className="modal-title">Choose Analyze Scenario</div>
+        <div className="modal-body" style={{ marginBottom: 14 }}>
+          Target final grade: <strong style={{ color: "#e8e6f0" }}>{targetGrade.toFixed(2)}%</strong>.
+          Pick how Analyze categories should be distributed.
+        </div>
+        <div style={{ display: "grid", gap: 8 }}>
+          {options.map(opt => (
+            <button
+              key={opt.id}
+              className="btn btn-ghost"
+              style={{ width: "100%", justifyContent: "flex-start", textAlign: "left", whiteSpace: "normal", display: "block", padding: "10px 12px" }}
+              onClick={() => onPick(opt.id)}
+            >
+              <div style={{ color: "#e8e6f0", fontSize: 13, fontWeight: 500 }}>{opt.label}</div>
+              <div style={{ color: "#7a7890", fontSize: 12, marginTop: 2 }}>{opt.desc}</div>
+            </button>
+          ))}
+        </div>
+        <div className="modal-actions" style={{ marginTop: 12 }}>
+          <button className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function StatBox({ label, value, sub, color }) {
-  const fmt = v => (v === null || v === undefined) ? "—" : v.toFixed(1) + "%";
+  const fmt = v => (v === null || v === undefined) ? "—" : v.toFixed(2) + "%";
   const cls = (value === null || value === undefined) ? "null-val" : color || "";
   return (
     <div className="stat-box">
@@ -372,7 +402,7 @@ function StatsCard({ categories, settings }) {
     if (v === null)  return "No analyze categories";
     if (v <= 0)      return "✓ Already secured";
     if (v > 100)     return "✗ Impossible (> 100%)";
-    return `Need avg ${v.toFixed(1)}% across yellows`;
+    return `Need avg ${v.toFixed(2)}% across yellows`;
   }
   function minColor(v) {
     if (v === null || v <= 0) return "good";
@@ -609,7 +639,7 @@ function GradeAnalyzer({ classes, settings, analyzerState, setAnalyzerState }) {
     const assignments = (cur.assignments || []).map(a => a.id === aId ? { ...a, [field]: val } : a);
     // Recompute grade from assignments
     const calc = calcAssignmentGrade(assignments);
-    patchEntry(catId, { assignments, grade: calc !== null ? String(calc.pct.toFixed(4)) : cur.grade });
+    patchEntry(catId, { assignments, grade: calc !== null ? String(calc.pct) : cur.grade });
   }
 
   function removeAssignment(catId, aId) {
@@ -617,7 +647,7 @@ function GradeAnalyzer({ classes, settings, analyzerState, setAnalyzerState }) {
     const cur = clsEntries[catId] || { ...BLANK_ENTRY };
     const assignments = (cur.assignments || []).filter(a => a.id !== aId);
     const calc = calcAssignmentGrade(assignments);
-    patchEntry(catId, { assignments, grade: calc !== null ? String(calc.pct.toFixed(4)) : "" });
+    patchEntry(catId, { assignments, grade: calc !== null ? String(calc.pct) : "" });
   }
 
   const classEntries = cls ? (entries[cls.id] || {}) : {};
@@ -626,7 +656,7 @@ function GradeAnalyzer({ classes, settings, analyzerState, setAnalyzerState }) {
   const analyzeCategories = cls ? cls.categories.map(c => {
     const entry = classEntries[c.id] || { ...BLANK_ENTRY };
     const calc = calcAssignmentGrade(entry.assignments || []);
-    const effectiveGrade = calc !== null ? String(calc.pct.toFixed(4)) : entry.grade;
+    const effectiveGrade = calc !== null ? String(calc.pct) : entry.grade;
     return { ...c, grade: effectiveGrade, mode: entry.mode };
   }) : [];
 
@@ -663,11 +693,6 @@ function GradeAnalyzer({ classes, settings, analyzerState, setAnalyzerState }) {
               const calc        = calcAssignmentGrade(assignments);
               const isExpanded  = expandedCatId === cat.id;
               const hasAssign   = assignments.length > 0;
-
-              // Effective displayed grade
-              const displayGrade = calc !== null
-                ? calc.pct.toFixed(1)
-                : entry.grade !== "" ? parseFloat(entry.grade).toFixed(1) : "";
 
               const modeColor = entry.mode === "known" ? "#7a7890"
                 : entry.mode === "analyze" ? "#ffd166" : "#3ecf8e";
@@ -708,7 +733,7 @@ function GradeAnalyzer({ classes, settings, analyzerState, setAnalyzerState }) {
                         // Computed from assignments — read-only display
                         <div className={`input input-sm input-num grade-computed`}
                           style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", height: 31 }}>
-                          {calc.pct.toFixed(1)}%
+                          {calc.pct.toFixed(2)}%
                         </div>
                       ) : (
                         <input
@@ -837,7 +862,23 @@ function Sandbox({ classes, settings, analyzerState }) {
   const [sandboxGrades, setSandboxGrades] = useState({});
   const [seededFor, setSeededFor]         = useState(null);
   const [floatVisible, setFloatVisible]   = useState(false);
+  const [targetGradeInput, setTargetGradeInput] = useState("");
+  const [solverFeedback, setSolverFeedback] = useState("");
+  const [pendingSolveTarget, setPendingSolveTarget] = useState(null);
   const liveGradeRef = useRef(null);
+
+  function clampSandboxGrade(rawVal, fallback = 0) {
+    const parsed = parseFloat(rawVal);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.min(100, Math.max(0, parsed));
+  }
+
+  function formatSandboxGrade(val) {
+    if (val === null || !Number.isFinite(val)) return "—";
+    return `${val.toFixed(2).replace(/\.?0+$/, "")}%`;
+  }
+
+  function clamp01(v) { return Math.min(100, Math.max(0, v)); }
 
   // Show floating bar when the live grade card scrolls out of view
   useEffect(() => {
@@ -857,11 +898,11 @@ function Sandbox({ classes, settings, analyzerState }) {
     cls.categories.forEach(cat => {
       const entry = classEntries[cat.id] || { grade: "", mode: "known" };
       const calc  = calcAssignmentGrade(entry.assignments || []);
-      const effectiveGrade = calc !== null ? calc.pct : parseFloat(entry.grade) || 0;
+      const effectiveGrade = calc !== null ? calc.pct : clampSandboxGrade(entry.grade, 0);
       if (entry.mode === "analyze") {
-        seeds[cat.id] = settings.worstCaseFill;
+        seeds[cat.id] = clampSandboxGrade(settings.worstCaseFill, 0);
       } else if (entry.mode === "estimated") {
-        seeds[cat.id] = effectiveGrade;
+        seeds[cat.id] = clampSandboxGrade(effectiveGrade, 0);
       }
     });
     setSandboxGrades(seeds);
@@ -869,7 +910,11 @@ function Sandbox({ classes, settings, analyzerState }) {
   }, [selectedClassId, cls]);
 
   function setGrade(catId, val) {
-    setSandboxGrades(g => ({ ...g, [catId]: parseFloat(val) }));
+    setSandboxGrades(g => {
+      const prev = g[catId] ?? 0;
+      return { ...g, [catId]: clampSandboxGrade(val, prev) };
+    });
+    setSolverFeedback("");
   }
 
   function computeAvgKnownEst() {
@@ -899,10 +944,180 @@ function Sandbox({ classes, settings, analyzerState }) {
       const next = { ...prev };
       cls.categories.forEach(cat => {
         const mode = classEntries[cat.id]?.mode ?? "known";
-        if (mode === "analyze") next[cat.id] = parseFloat(val);
+        if (mode === "analyze") next[cat.id] = clampSandboxGrade(val, next[cat.id] ?? 0);
       });
       return next;
     });
+    setSolverFeedback("");
+  }
+
+  const analyzeCategories = cls
+    ? cls.categories.filter(cat => (classEntries[cat.id]?.mode ?? "known") === "analyze")
+    : [];
+
+  const solveOptions = [
+    {
+      id: "equal_avg",
+      label: "1) All share same average",
+      desc: "Every Analyze category gets the same percentage value.",
+    },
+    {
+      id: "min_heaviest",
+      label: "2) Minimize the heaviest percentage",
+      desc: "Keep the heaviest-weight Analyze category as low as possible.",
+    },
+    {
+      id: "min_lightest",
+      label: "3) Minimize the lightest percentage",
+      desc: "Keep the lightest-weight Analyze category as low as possible.",
+    },
+    {
+      id: "least_effort_weighted",
+      label: "4) Weight-efficient (least effort)",
+      desc: "Prioritize heavier Analyze categories first to minimize total raw percentage effort.",
+    },
+  ];
+
+  function computeFixedContribution() {
+    if (!cls) return 0;
+    return cls.categories.reduce((sum, cat) => {
+      const entry = classEntries[cat.id] || { grade: "", mode: "known" };
+      if (entry.mode === "analyze") return sum;
+      const calc = calcAssignmentGrade(entry.assignments || []);
+      if (entry.mode === "known") {
+        const knownGrade = calc !== null ? calc.pct : (entry.grade !== "" ? parseFloat(entry.grade) : null);
+        return sum + (knownGrade !== null ? (cat.weight / 100) * knownGrade : 0);
+      }
+      const estGrade = clampSandboxGrade(sandboxGrades[cat.id] ?? 0, 0);
+      return sum + (cat.weight / 100) * estGrade;
+    }, 0);
+  }
+
+  function distributeByStrategy(targetGrade, strategyId) {
+    if (!cls) return { ok: false, message: "No class selected." };
+    const analyze = analyzeCategories.map(cat => ({ ...cat, w: cat.weight / 100 }));
+    if (analyze.length === 0) return { ok: false, message: "No Analyze categories to solve." };
+
+    const fixed = computeFixedContribution();
+    const analyzeWeightSum = analyze.reduce((s, c) => s + c.w, 0);
+    const minReachable = fixed;
+    const maxReachable = fixed + analyzeWeightSum * 100;
+    const eps = 1e-7;
+
+    if (targetGrade < minReachable - eps) {
+      return {
+        ok: false,
+        message: `Target ${targetGrade.toFixed(2)}% is below minimum reachable ${minReachable.toFixed(2)}% (with Analyze at 0%).`,
+      };
+    }
+    if (targetGrade > maxReachable + eps) {
+      return {
+        ok: false,
+        message: `Target ${targetGrade.toFixed(2)}% is above maximum reachable ${maxReachable.toFixed(2)}% (with Analyze at 100%).`,
+      };
+    }
+
+    const needed = targetGrade - fixed;
+    const result = {};
+    analyze.forEach(c => { result[c.id] = 0; });
+
+    if (analyzeWeightSum <= eps) {
+      return { ok: true, values: result, message: "Analyze weights are 0%, so target is unchanged by Analyze sliders." };
+    }
+
+    function setEqualAcross(cats, neededContribution) {
+      const wSum = cats.reduce((s, c) => s + c.w, 0);
+      if (wSum <= eps) return;
+      const g = neededContribution / wSum;
+      cats.forEach(c => { result[c.id] = clamp01(g); });
+    }
+
+    function solveMinimizePicked(pickFn) {
+      const positive = analyze.filter(c => c.w > eps);
+      if (positive.length === 0) return;
+      const picked = pickFn(positive);
+      const others = analyze.filter(c => c.id !== picked.id);
+      const othersW = others.reduce((s, c) => s + c.w, 0);
+
+      if (othersW > eps && needed <= othersW * 100 + eps) {
+        result[picked.id] = 0;
+        setEqualAcross(others, needed);
+        return;
+      }
+
+      others.forEach(c => { result[c.id] = c.w > eps ? 100 : 0; });
+      const remain = needed - others.reduce((s, c) => s + c.w * result[c.id], 0);
+      result[picked.id] = picked.w > eps ? clamp01(remain / picked.w) : 0;
+    }
+
+    if (strategyId === "equal_avg") {
+      setEqualAcross(analyze, needed);
+    } else if (strategyId === "min_heaviest") {
+      solveMinimizePicked(pos => pos.reduce((a, b) => (b.w > a.w ? b : a)));
+    } else if (strategyId === "min_lightest") {
+      solveMinimizePicked(pos => pos.reduce((a, b) => (b.w < a.w ? b : a)));
+    } else if (strategyId === "least_effort_weighted") {
+      const sorted = [...analyze].sort((a, b) => b.w - a.w);
+      let remaining = needed;
+      sorted.forEach(c => {
+        if (c.w <= eps || remaining <= eps) {
+          result[c.id] = 0;
+          return;
+        }
+        const maxContribution = c.w * 100;
+        const use = Math.min(maxContribution, remaining);
+        result[c.id] = clamp01(use / c.w);
+        remaining -= use;
+      });
+    } else {
+      setEqualAcross(analyze, needed);
+    }
+
+    const solvedContribution = analyze.reduce((s, c) => s + c.w * clamp01(result[c.id] ?? 0), 0);
+    const drift = needed - solvedContribution;
+    if (Math.abs(drift) > 1e-5) {
+      const adjustable = analyze.find(c => c.w > eps);
+      if (adjustable) {
+        result[adjustable.id] = clamp01((result[adjustable.id] ?? 0) + drift / adjustable.w);
+      }
+    }
+
+    const precise = {};
+    analyze.forEach(c => { precise[c.id] = clamp01(result[c.id] ?? 0); });
+    return { ok: true, values: precise };
+  }
+
+  function applySolvedAnalyze(targetGrade, strategyId) {
+    const solved = distributeByStrategy(targetGrade, strategyId);
+    if (!solved.ok) {
+      setSolverFeedback(solved.message);
+      return;
+    }
+    setSandboxGrades(prev => {
+      const next = { ...prev };
+      Object.keys(solved.values).forEach(catId => { next[catId] = solved.values[catId]; });
+      return next;
+    });
+    setSolverFeedback(`Applied target ${targetGrade.toFixed(2)}% using: ${solveOptions.find(o => o.id === strategyId)?.label ?? "custom"}.`);
+  }
+
+  function requestSolveTarget() {
+    const parsed = parseFloat(targetGradeInput);
+    if (!Number.isFinite(parsed)) {
+      setSolverFeedback("Enter a valid target final grade (0-100).");
+      return;
+    }
+    if (analyzeCategories.length === 0) {
+      setSolverFeedback("No Analyze categories found for this class.");
+      return;
+    }
+    const target = clampSandboxGrade(parsed, 0);
+    if (analyzeCategories.length === 1) {
+      applySolvedAnalyze(target, "equal_avg");
+      return;
+    }
+    setPendingSolveTarget(target);
+    setSolverFeedback("");
   }
 
   // Final sandbox grade = sum of weighted grades for all categories
@@ -1023,6 +1238,36 @@ function Sandbox({ classes, settings, analyzerState }) {
         </div>
       )}
 
+      {analyzeCategories.length > 0 && (
+        <div className="card">
+          <div className="card-title" style={{ marginBottom: 12 }}>Target Final Grade Solver</div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ minWidth: 220 }}>
+              <label className="label">Target final grade %</label>
+              <input
+                className="input input-num"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={targetGradeInput}
+                onChange={e => setTargetGradeInput(e.target.value)}
+                placeholder="e.g. 92.35"
+              />
+            </div>
+            <button className="btn btn-primary" style={{ marginTop: 20 }} onClick={requestSolveTarget}>
+              Set Analyze Sliders
+            </button>
+          </div>
+          <div style={{ color: "#7a7890", fontSize: 12, marginTop: 8 }}>
+            Uses current Known + Estimated values as fixed, then solves Analyze categories to hit your target.
+          </div>
+          {solverFeedback && (
+            <div style={{ color: "#f5a623", fontSize: 12, marginTop: 10 }}>{solverFeedback}</div>
+          )}
+        </div>
+      )}
+
       {/* Category sliders */}
       <div className="card">
         <div className="card-title" style={{ marginBottom: 16 }}>Categories</div>
@@ -1033,11 +1278,11 @@ function Sandbox({ classes, settings, analyzerState }) {
 
           let displayVal, sliderVal;
           if (locked) {
-            displayVal = entry.grade !== "" ? parseFloat(entry.grade) : null;
-            sliderVal  = displayVal ?? 0;
+            displayVal = entry.grade !== "" ? clampSandboxGrade(entry.grade, 0) : null;
+            sliderVal  = displayVal !== null ? Math.round(displayVal) : 0;
           } else {
-            displayVal = sandboxGrades[cat.id] ?? 0;
-            sliderVal  = displayVal;
+            displayVal = clampSandboxGrade(sandboxGrades[cat.id] ?? 0, 0);
+            sliderVal  = Math.round(displayVal);
           }
 
           const modeColor = mode === "known" ? "#7a7890" : mode === "analyze" ? "#ffd166" : "#3ecf8e";
@@ -1062,22 +1307,50 @@ function Sandbox({ classes, settings, analyzerState }) {
                     {mode}
                   </span>
                   <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 22, fontWeight: 600, color: modeColor, minWidth: 60, textAlign: "right" }}>
-                    {displayVal !== null ? Math.round(displayVal) + "%" : "—"}
+                    {formatSandboxGrade(displayVal)}
                   </span>
                 </div>
               </div>
               <input
-                type="range" min="0" max="100" step="0.5"
+                type="range" min="0" max="100" step="1"
                 className="range-input"
                 value={sliderVal}
                 disabled={locked}
                 onChange={e => setGrade(cat.id, e.target.value)}
                 style={{ opacity: locked ? 0.2 : 1, cursor: locked ? "not-allowed" : "pointer" }}
               />
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+                <div className="setting-input-wrap">
+                  <input
+                    className="input input-sm input-num"
+                    style={{ width: 90 }}
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={displayVal ?? ""}
+                    disabled={locked}
+                    onChange={e => setGrade(cat.id, e.target.value)}
+                  />
+                  <span style={{ color: "#7a7890", fontSize: 13 }}>%</span>
+                </div>
+              </div>
             </div>
           );
         })}
       </div>
+
+      {pendingSolveTarget !== null && (
+        <ScenarioSolveModal
+          targetGrade={pendingSolveTarget}
+          options={solveOptions}
+          onCancel={() => setPendingSolveTarget(null)}
+          onPick={(scenarioId) => {
+            applySolvedAnalyze(pendingSolveTarget, scenarioId);
+            setPendingSolveTarget(null);
+          }}
+        />
+      )}
     </div>
   );
 }
