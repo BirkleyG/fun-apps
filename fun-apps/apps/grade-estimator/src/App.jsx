@@ -246,12 +246,55 @@ const css = `
   }
   .assignment-row {
     display: grid;
-    grid-template-columns: 1fr 80px 16px 80px 32px;
+    grid-template-columns: 1fr 74px 14px 74px 70px 32px;
     gap: 6px;
     align-items: center;
     margin-bottom: 6px;
   }
   .assignment-sep { font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #4a4860; text-align: center; }
+  .assignment-pct {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: #7a7890;
+    text-align: right;
+    padding-right: 2px;
+  }
+  .scoring-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .scoring-toggle input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .scoring-toggle .box {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    border: 1px solid #353548;
+    background: #0f0f13;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #0f0f13;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    transition: all 0.15s;
+  }
+  .scoring-toggle input:checked + .box {
+    background: #f5a623;
+    border-color: #f5a623;
+    color: #0f0f13;
+  }
+  .scoring-toggle .text {
+    color: #7a7890;
+    font-size: 11px;
+  }
   .pts-result {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 12px; color: #7a7890;
@@ -572,12 +615,17 @@ function ClassBuilder({ classes, setClasses }) {
 }
 
 // ─── Assignment grade calculator ─────────────────────────────────────────────
-function calcAssignmentGrade(assignments) {
+function calcAssignmentGrade(assignments, scoringMode = "pooled") {
   const valid = assignments.filter(a => parseFloat(a.total) > 0);
   if (valid.length === 0) return null;
+  const mode = scoringMode === "average" ? "average" : "pooled";
+  if (mode === "average") {
+    const pctSum = valid.reduce((s, a) => s + (((parseFloat(a.earned) || 0) / parseFloat(a.total)) * 100), 0);
+    return { pct: pctSum / valid.length, mode, count: valid.length };
+  }
   const totalEarned   = valid.reduce((s, a) => s + (parseFloat(a.earned) || 0), 0);
   const totalPossible = valid.reduce((s, a) => s + parseFloat(a.total), 0);
-  return { pct: (totalEarned / totalPossible) * 100, earned: totalEarned, possible: totalPossible };
+  return { pct: (totalEarned / totalPossible) * 100, earned: totalEarned, possible: totalPossible, mode, count: valid.length };
 }
 
 // ─── PAGE: Grade Analyzer ─────────────────────────────────────────────────────
@@ -587,7 +635,7 @@ function GradeAnalyzer({ classes, settings, analyzerState, setAnalyzerState }) {
   const cls = classes.find(c => c.id === selectedClassId);
   const [expandedCatId, setExpandedCatId] = useState(null);
 
-  const BLANK_ENTRY = { grade: "", mode: "known", assignments: [] };
+  const BLANK_ENTRY = { grade: "", mode: "known", scoringMode: "pooled", assignments: [] };
 
   // Seed missing entries
   useEffect(() => {
@@ -597,8 +645,19 @@ function GradeAnalyzer({ classes, settings, analyzerState, setAnalyzerState }) {
       let changed = false;
       const updated = {};
       cls.categories.forEach(cat => {
-        if (!existing[cat.id]) { updated[cat.id] = { ...BLANK_ENTRY }; changed = true; }
-        else updated[cat.id] = existing[cat.id];
+        const cur = existing[cat.id];
+        if (!cur) {
+          updated[cat.id] = { ...BLANK_ENTRY };
+          changed = true;
+          return;
+        }
+        const normalizedMode = cur.scoringMode === "average" ? "average" : "pooled";
+        if (cur.scoringMode !== normalizedMode) {
+          updated[cat.id] = { ...cur, scoringMode: normalizedMode };
+          changed = true;
+        } else {
+          updated[cat.id] = cur;
+        }
       });
       if (!changed) return prev;
       return { ...prev, entries: { ...prev.entries, [cls.id]: { ...existing, ...updated } } };
@@ -638,7 +697,7 @@ function GradeAnalyzer({ classes, settings, analyzerState, setAnalyzerState }) {
     const cur = clsEntries[catId] || { ...BLANK_ENTRY };
     const assignments = (cur.assignments || []).map(a => a.id === aId ? { ...a, [field]: val } : a);
     // Recompute grade from assignments
-    const calc = calcAssignmentGrade(assignments);
+    const calc = calcAssignmentGrade(assignments, cur.scoringMode);
     patchEntry(catId, { assignments, grade: calc !== null ? String(calc.pct) : cur.grade });
   }
 
@@ -646,7 +705,7 @@ function GradeAnalyzer({ classes, settings, analyzerState, setAnalyzerState }) {
     const clsEntries = entries[selectedClassId] || {};
     const cur = clsEntries[catId] || { ...BLANK_ENTRY };
     const assignments = (cur.assignments || []).filter(a => a.id !== aId);
-    const calc = calcAssignmentGrade(assignments);
+    const calc = calcAssignmentGrade(assignments, cur.scoringMode);
     patchEntry(catId, { assignments, grade: calc !== null ? String(calc.pct) : "" });
   }
 
@@ -655,7 +714,7 @@ function GradeAnalyzer({ classes, settings, analyzerState, setAnalyzerState }) {
   // Build categories with effective grade (from assignments if available)
   const analyzeCategories = cls ? cls.categories.map(c => {
     const entry = classEntries[c.id] || { ...BLANK_ENTRY };
-    const calc = calcAssignmentGrade(entry.assignments || []);
+    const calc = calcAssignmentGrade(entry.assignments || [], entry.scoringMode);
     const effectiveGrade = calc !== null ? String(calc.pct) : entry.grade;
     return { ...c, grade: effectiveGrade, mode: entry.mode };
   }) : [];
@@ -690,7 +749,7 @@ function GradeAnalyzer({ classes, settings, analyzerState, setAnalyzerState }) {
             {cls.categories.map(cat => {
               const entry       = classEntries[cat.id] || { ...BLANK_ENTRY };
               const assignments = entry.assignments || [];
-              const calc        = calcAssignmentGrade(assignments);
+              const calc        = calcAssignmentGrade(assignments, entry.scoringMode);
               const isExpanded  = expandedCatId === cat.id;
               const hasAssign   = assignments.length > 0;
 
@@ -763,7 +822,20 @@ function GradeAnalyzer({ classes, settings, analyzerState, setAnalyzerState }) {
                   {isExpanded && (
                     <div className="assignment-panel">
                       <div className="assignment-panel-header">
-                        <span className="assignment-panel-title">Assignments</span>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          <span className="assignment-panel-title">Assignments</span>
+                          <label className="scoring-toggle" onClick={e => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={(entry.scoringMode === "average")}
+                              onChange={e => patchEntry(cat.id, { scoringMode: e.target.checked ? "average" : "pooled" })}
+                            />
+                            <span className="box">✓</span>
+                            <span className="text">
+                              Average assignment percentages (unchecked = pooled points)
+                            </span>
+                          </label>
+                        </div>
                         <button className="btn btn-ghost btn-sm" style={{ fontSize: 12 }}
                           onClick={() => addAssignment(cat.id)}>
                           + Add
@@ -777,11 +849,12 @@ function GradeAnalyzer({ classes, settings, analyzerState, setAnalyzerState }) {
                       ) : (
                         <>
                           {/* Column headers */}
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 16px 80px 32px", gap: 6, marginBottom: 4 }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 74px 14px 74px 70px 32px", gap: 6, marginBottom: 4 }}>
                             <span className="label" style={{ marginBottom: 0 }}>Name</span>
                             <span className="label" style={{ marginBottom: 0, textAlign: "right" }}>Earned</span>
                             <span></span>
                             <span className="label" style={{ marginBottom: 0, textAlign: "right" }}>Total</span>
+                            <span className="label" style={{ marginBottom: 0, textAlign: "right" }}>%</span>
                             <span></span>
                           </div>
 
@@ -812,6 +885,9 @@ function GradeAnalyzer({ classes, settings, analyzerState, setAnalyzerState }) {
                                   placeholder="100"
                                   type="number" min="0"
                                 />
+                                <div className="assignment-pct">
+                                  {pct !== null ? `${pct.toFixed(2)}%` : "—"}
+                                </div>
                                 <button className="btn btn-danger btn-sm" style={{ padding: "4px 7px", fontSize: 11 }}
                                   onClick={() => removeAssignment(cat.id, a.id)}>
                                   ✕
@@ -825,7 +901,9 @@ function GradeAnalyzer({ classes, settings, analyzerState, setAnalyzerState }) {
                             <div className="pts-result">
                               <span className="computed-grade">{calc.pct.toFixed(2)}%</span>
                               <span className="pts-fraction">
-                                {calc.earned % 1 === 0 ? calc.earned : calc.earned.toFixed(2)} / {calc.possible} pts
+                                {calc.mode === "average"
+                                  ? `Avg of ${calc.count} assignment${calc.count === 1 ? "" : "s"}`
+                                  : `${calc.earned % 1 === 0 ? calc.earned : calc.earned.toFixed(2)} / ${calc.possible} pts`}
                               </span>
                             </div>
                           )}
@@ -862,7 +940,8 @@ function Sandbox({ classes, settings, analyzerState }) {
   const [sandboxGrades, setSandboxGrades] = useState({});
   const [seededFor, setSeededFor]         = useState(null);
   const [floatVisible, setFloatVisible]   = useState(false);
-  const [targetGradeInput, setTargetGradeInput] = useState("");
+  const [editingTarget, setEditingTarget] = useState(false);
+  const [targetEditValue, setTargetEditValue] = useState("");
   const [solverFeedback, setSolverFeedback] = useState("");
   const [pendingSolveTarget, setPendingSolveTarget] = useState(null);
   const liveGradeRef = useRef(null);
@@ -896,8 +975,8 @@ function Sandbox({ classes, settings, analyzerState }) {
     if (!cls || cls.id === seededFor) return;
     const seeds = {};
     cls.categories.forEach(cat => {
-      const entry = classEntries[cat.id] || { grade: "", mode: "known" };
-      const calc  = calcAssignmentGrade(entry.assignments || []);
+      const entry = classEntries[cat.id] || { grade: "", mode: "known", scoringMode: "pooled" };
+      const calc  = calcAssignmentGrade(entry.assignments || [], entry.scoringMode);
       const effectiveGrade = calc !== null ? calc.pct : clampSandboxGrade(entry.grade, 0);
       if (entry.mode === "analyze") {
         seeds[cat.id] = clampSandboxGrade(settings.worstCaseFill, 0);
@@ -925,14 +1004,14 @@ function Sandbox({ classes, settings, analyzerState }) {
     });
     const withGrades = knownEst.filter(cat => {
       const e = classEntries[cat.id];
-      const calc = calcAssignmentGrade(e.assignments || []);
+      const calc = calcAssignmentGrade(e.assignments || [], e.scoringMode);
       return calc !== null || e.grade !== "";
     });
     const wSum = withGrades.reduce((s, c) => s + c.weight, 0);
     if (wSum === 0) return settings.worstCaseFill;
     return withGrades.reduce((s, c) => {
       const e = classEntries[c.id];
-      const calc = calcAssignmentGrade(e.assignments || []);
+      const calc = calcAssignmentGrade(e.assignments || [], e.scoringMode);
       const g = calc !== null ? calc.pct : parseFloat(e.grade);
       return s + (c.weight / wSum) * g;
     }, 0);
@@ -981,9 +1060,9 @@ function Sandbox({ classes, settings, analyzerState }) {
   function computeFixedContribution() {
     if (!cls) return 0;
     return cls.categories.reduce((sum, cat) => {
-      const entry = classEntries[cat.id] || { grade: "", mode: "known" };
+      const entry = classEntries[cat.id] || { grade: "", mode: "known", scoringMode: "pooled" };
       if (entry.mode === "analyze") return sum;
-      const calc = calcAssignmentGrade(entry.assignments || []);
+      const calc = calcAssignmentGrade(entry.assignments || [], entry.scoringMode);
       if (entry.mode === "known") {
         const knownGrade = calc !== null ? calc.pct : (entry.grade !== "" ? parseFloat(entry.grade) : null);
         return sum + (knownGrade !== null ? (cat.weight / 100) * knownGrade : 0);
@@ -1101,30 +1180,48 @@ function Sandbox({ classes, settings, analyzerState }) {
     setSolverFeedback(`Applied target ${targetGrade.toFixed(2)}% using: ${solveOptions.find(o => o.id === strategyId)?.label ?? "custom"}.`);
   }
 
-  function requestSolveTarget() {
-    const parsed = parseFloat(targetGradeInput);
+  function solveFromRawTarget(rawTarget) {
+    const parsed = parseFloat(rawTarget);
     if (!Number.isFinite(parsed)) {
       setSolverFeedback("Enter a valid target final grade (0-100).");
-      return;
+      return false;
     }
     if (analyzeCategories.length === 0) {
       setSolverFeedback("No Analyze categories found for this class.");
-      return;
+      return false;
     }
     const target = clampSandboxGrade(parsed, 0);
     if (analyzeCategories.length === 1) {
       applySolvedAnalyze(target, "equal_avg");
-      return;
+      return true;
     }
     setPendingSolveTarget(target);
     setSolverFeedback("");
+    return true;
+  }
+
+  function beginTargetEdit() {
+    if (analyzeCategories.length === 0 || totalGrade === null) return;
+    setTargetEditValue(totalGrade.toFixed(2));
+    setEditingTarget(true);
+    setSolverFeedback("");
+  }
+
+  function submitTargetEdit() {
+    const ok = solveFromRawTarget(targetEditValue);
+    if (ok) setEditingTarget(false);
+  }
+
+  function cancelTargetEdit() {
+    setEditingTarget(false);
+    setTargetEditValue("");
   }
 
   // Final sandbox grade = sum of weighted grades for all categories
   const totalGrade = cls
     ? cls.categories.reduce((sum, cat) => {
-        const entry = classEntries[cat.id] || { grade: "", mode: "known" };
-        const calc  = calcAssignmentGrade(entry.assignments || []);
+        const entry = classEntries[cat.id] || { grade: "", mode: "known", scoringMode: "pooled" };
+        const calc  = calcAssignmentGrade(entry.assignments || [], entry.scoringMode);
         const knownGrade = calc !== null ? calc.pct : (entry.grade !== "" ? parseFloat(entry.grade) : null);
         if (entry.mode === "known") {
           return sum + (knownGrade !== null ? (cat.weight / 100) * knownGrade : 0);
@@ -1182,6 +1279,42 @@ function Sandbox({ classes, settings, analyzerState }) {
               : "bad"}`}>
               {totalGrade.toFixed(2)}%
             </div>
+            {analyzeCategories.length > 0 && (
+              <div style={{ marginTop: 6 }}>
+                {editingTarget ? (
+                  <input
+                    className="input input-sm input-num"
+                    style={{ width: 120 }}
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={targetEditValue}
+                    autoFocus
+                    onChange={e => setTargetEditValue(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") submitTargetEdit();
+                      if (e.key === "Escape") cancelTargetEdit();
+                    }}
+                    onBlur={submitTargetEdit}
+                  />
+                ) : (
+                  <span
+                    style={{
+                      color: "#7a7890",
+                      fontSize: 11,
+                      fontFamily: "'IBM Plex Mono',monospace",
+                      borderBottom: "1px dotted #4a4860",
+                      cursor: "text"
+                    }}
+                    onClick={beginTargetEdit}
+                    title="Click to type target grade and auto-set Analyze sliders"
+                  >
+                    click to set target grade
+                  </span>
+                )}
+              </div>
+            )}
           </div>
           <div>
             <div className="stat-label">vs A ({settings.aThreshold}%)</div>
@@ -1238,34 +1371,8 @@ function Sandbox({ classes, settings, analyzerState }) {
         </div>
       )}
 
-      {analyzeCategories.length > 0 && (
-        <div className="card">
-          <div className="card-title" style={{ marginBottom: 12 }}>Target Final Grade Solver</div>
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-            <div style={{ minWidth: 220 }}>
-              <label className="label">Target final grade %</label>
-              <input
-                className="input input-num"
-                type="number"
-                min="0"
-                max="100"
-                step="0.01"
-                value={targetGradeInput}
-                onChange={e => setTargetGradeInput(e.target.value)}
-                placeholder="e.g. 92.35"
-              />
-            </div>
-            <button className="btn btn-primary" style={{ marginTop: 20 }} onClick={requestSolveTarget}>
-              Set Analyze Sliders
-            </button>
-          </div>
-          <div style={{ color: "#7a7890", fontSize: 12, marginTop: 8 }}>
-            Uses current Known + Estimated values as fixed, then solves Analyze categories to hit your target.
-          </div>
-          {solverFeedback && (
-            <div style={{ color: "#f5a623", fontSize: 12, marginTop: 10 }}>{solverFeedback}</div>
-          )}
-        </div>
+      {solverFeedback && (
+        <div style={{ color: "#f5a623", fontSize: 12, margin: "4px 0 12px" }}>{solverFeedback}</div>
       )}
 
       {/* Category sliders */}
