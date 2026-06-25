@@ -10,3 +10,197 @@ body,
   margin: 0;
   min-height: 100%;
 }
+
+:root {
+  color-scheme: dark;
+  --ca-premium-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body {
+  background:
+    radial-gradient(circle at 8% 12%, rgba(201, 168, 76, 0.18), transparent 30rem),
+    radial-gradient(circle at 86% 10%, rgba(60, 130, 170, 0.16), transparent 28rem),
+    #04101a;
+  font-family: "Aptos", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+}
+
+.ca {
+  --bg: #06111b !important;
+  --sur: rgba(13, 28, 41, 0.94) !important;
+  --sur2: rgba(19, 39, 56, 0.9) !important;
+  --sur3: rgba(47, 75, 96, 0.72) !important;
+  --gold: #d7b45e !important;
+  --goldl: #f1d99c !important;
+  --goldd: rgba(215, 180, 94, 0.15) !important;
+  --goldb: rgba(215, 180, 94, 0.32) !important;
+  --txt: #f5efd9 !important;
+  --muted: #8fa9ba !important;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 12% 6%, rgba(215, 180, 94, 0.16), transparent 26rem),
+    linear-gradient(145deg, #06111b, #0c1b29 60%, #050d15) !important;
+}
+
+.ca::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.08;
+  background-image:
+    linear-gradient(90deg, rgba(255,255,255,0.2) 1px, transparent 1px),
+    linear-gradient(rgba(255,255,255,0.16) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(circle at center, black, transparent 74%);
+}
+
+.ca-hdr {
+  padding-inline: 18px !important;
+  background: linear-gradient(180deg, rgba(4, 12, 20, 0.9), rgba(4, 12, 20, 0)) !important;
+}
+
+.ca-title,
+.ca-mttl,
+.ca-dttl {
+  letter-spacing: 0 !important;
+}
+
+.ca-pbadge,
+.ca-chip,
+.ca-nbtn,
+.ca-fab,
+.ca-btn,
+.ca-btn2,
+.ca-addbtn,
+.ca-tgl,
+.ca-citem,
+.ca-msi,
+.ca-xbtn,
+.ca-bkbtn,
+button,
+input,
+select {
+  transition:
+    transform 420ms var(--ca-premium-ease),
+    background 420ms var(--ca-premium-ease),
+    border-color 420ms var(--ca-premium-ease),
+    color 420ms var(--ca-premium-ease),
+    box-shadow 420ms var(--ca-premium-ease),
+    opacity 420ms var(--ca-premium-ease) !important;
+}
+
+.ca-chip:hover,
+.ca-nbtn:hover,
+.ca-btn:hover,
+.ca-btn2:hover,
+.ca-addbtn:hover,
+.ca-tgl:hover,
+.ca-citem:hover,
+.ca-msi:hover,
+.ca-bkbtn:hover {
+  transform: translateY(-1px);
+}
+
+.ca-chip:active,
+.ca-nbtn:active,
+.ca-btn:active,
+.ca-btn2:active,
+.ca-addbtn:active,
+.ca-tgl:active,
+.ca-citem:active,
+.ca-msi:active,
+.ca-fab:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+.ca-map {
+  margin: 8px 10px 0 !important;
+  border: 1px solid rgba(215, 180, 94, 0.18) !important;
+  border-radius: 24px !important;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(17, 46, 68, 0.72), #040d15 72%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    inset 0 0 80px rgba(0,0,0,0.42),
+    0 26px 70px rgba(0,0,0,0.35) !important;
+}
+
+.ca-filters,
+.ca-bnav {
+  margin-inline: 10px !important;
+  border: 1px solid rgba(215, 180, 94, 0.14) !important;
+  background: rgba(10, 24, 36, 0.86) !important;
+  backdrop-filter: blur(16px) saturate(140%);
+}
+
+.ca-filters {
+  border-radius: 18px 18px 0 0 !important;
+  border-bottom: 0 !important;
+}
+
+.ca-bnav {
+  border-radius: 0 0 22px 22px !important;
+  margin-bottom: 10px !important;
+}
+
+.ca-fab {
+  border-radius: 18px !important;
+  background: linear-gradient(135deg, var(--gold), #f1d99c) !important;
+  box-shadow: 0 18px 38px rgba(215, 180, 94, 0.28) !important;
+}
+
+.ca-modal {
+  background: rgba(3, 8, 13, 0.72) !important;
+  backdrop-filter: blur(18px) saturate(135%) !important;
+}
+
+.ca-sheet {
+  border: 1px solid rgba(215, 180, 94, 0.2) !important;
+  border-bottom: 0 !important;
+  border-radius: 28px 28px 0 0 !important;
+  background:
+    linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)),
+    rgba(11, 25, 38, 0.98) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 -28px 70px rgba(0,0,0,0.46) !important;
+  animation: ca-sheet-in 540ms var(--ca-premium-ease) both;
+}
+
+.ca-inp,
+.ca-sel,
+.ca-file,
+.ca-irow,
+.ca-scard,
+.ca-ient {
+  border-color: rgba(215, 180, 94, 0.16) !important;
+  border-radius: 16px !important;
+  background: rgba(6, 18, 29, 0.78) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.07) !important;
+}
+
+.ca-inp:focus,
+.ca-sel:focus {
+  border-color: rgba(215, 180, 94, 0.58) !important;
+  box-shadow: 0 0 0 4px rgba(215, 180, 94, 0.12), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+}
+
+@keyframes ca-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(38px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

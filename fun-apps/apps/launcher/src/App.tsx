@@ -1,140 +1,183 @@
+import type { CSSProperties } from "react";
+
+const getAppUrl = (envUrl: string | undefined, productionPath: string, devPort: number) => {
+  if (envUrl && envUrl.trim().length > 0) return envUrl;
+  return import.meta.env.DEV ? `http://localhost:${devPort}/` : productionPath;
+};
+
 const getBibleUrl = () => {
   const envUrl = import.meta.env.VITE_BIBLE_APP_URL as string | undefined;
-  return envUrl && envUrl.trim().length > 0 ? envUrl : "./bible-tracker/";
+  return getAppUrl(envUrl, "./bible-tracker/", 5174);
 };
 
 const getGradeEstimatorUrl = () => {
   const envUrl = import.meta.env.VITE_GRADE_ESTIMATOR_URL as string | undefined;
-  return envUrl && envUrl.trim().length > 0 ? envUrl : "./grade-estimator/";
+  return getAppUrl(envUrl, "./grade-estimator/", 5175);
 };
 
 const getCoinAtlasUrl = () => {
   const envUrl = import.meta.env.VITE_COIN_ATLAS_URL as string | undefined;
-  return envUrl && envUrl.trim().length > 0 ? envUrl : "./coin-atlas/";
+  return getAppUrl(envUrl, "./coin-atlas/", 5176);
 };
 
 const getBobsBooksUrl = () => {
   const envUrl = import.meta.env.VITE_BOBS_BOOKS_URL as string | undefined;
-  return envUrl && envUrl.trim().length > 0 ? envUrl : "./bobs-books/";
+  return getAppUrl(envUrl, "./bobs-books/", 5177);
 };
 
 const getEmojiBattleUrl = () => {
   const envUrl = import.meta.env.VITE_EMOJI_BATTLE_URL as string | undefined;
-  return envUrl && envUrl.trim().length > 0 ? envUrl : "./emoji-battle/";
+  return getAppUrl(envUrl, "./emoji-battle/", 5178);
 };
 
 const getTimeLoopCyoaUrl = () => {
   const envUrl = import.meta.env.VITE_TIME_LOOP_CYOA_URL as string | undefined;
-  return envUrl && envUrl.trim().length > 0 ? envUrl : "./time-loop-cyoa/";
+  return getAppUrl(envUrl, "./time-loop-cyoa/", 5179);
 };
 
 const getMuseumMasterpiecesUrl = () => {
   const envUrl = import.meta.env.VITE_MUSEUM_MASTERPIECES_URL as string | undefined;
-  return envUrl && envUrl.trim().length > 0 ? envUrl : "./museum-masterpieces/";
+  return getAppUrl(envUrl, "./museum-masterpieces/", 5180);
 };
 
 const getWorldOfFacesUrl = () => {
   const envUrl = import.meta.env.VITE_WORLD_OF_FACES_URL as string | undefined;
-  return envUrl && envUrl.trim().length > 0 ? envUrl : "./world-of-faces/";
+  return getAppUrl(envUrl, "./world-of-faces/", 5181);
+};
+
+type AppTile = {
+  title: string;
+  subtitle: string;
+  signal: string;
+  meta: string;
+  href: string;
+  accent: string;
 };
 
 export default function App() {
-  const bibleUrl = getBibleUrl();
-  const gradeEstimatorUrl = getGradeEstimatorUrl();
-  const coinAtlasUrl = getCoinAtlasUrl();
-  const bobsBooksUrl = getBobsBooksUrl();
-  const emojiBattleUrl = getEmojiBattleUrl();
-  const timeLoopCyoaUrl = getTimeLoopCyoaUrl();
-  const museumMasterpiecesUrl = getMuseumMasterpiecesUrl();
-  const worldOfFacesUrl = getWorldOfFacesUrl();
+  const apps: AppTile[] = [
+    {
+      title: "Bible Tracker",
+      subtitle: "Reading plans, progress, cadence, and chapter-level momentum.",
+      signal: "BT",
+      meta: "Devotional focus",
+      href: getBibleUrl(),
+      accent: "#b46b48",
+    },
+    {
+      title: "Grade Estimator",
+      subtitle: "Scenario analysis for category weights, thresholds, and final outcomes.",
+      signal: "GE",
+      meta: "Academic cockpit",
+      href: getGradeEstimatorUrl(),
+      accent: "#47a3ff",
+    },
+    {
+      title: "Coin Atlas",
+      subtitle: "A cartographic collection map for world coins, bills, and history.",
+      signal: "CA",
+      meta: "Collector map",
+      href: getCoinAtlasUrl(),
+      accent: "#d1ad55",
+    },
+    {
+      title: "Bob's Books",
+      subtitle: "A quiet personal archive for books, sessions, and reading goals.",
+      signal: "BB",
+      meta: "Literary archive",
+      href: getBobsBooksUrl(),
+      accent: "#b98566",
+    },
+    {
+      title: "Emoji Battle",
+      subtitle: "Fast strategy battles with decks, lobbies, and sharp turn feedback.",
+      signal: "EB",
+      meta: "Arcade tactics",
+      href: getEmojiBattleUrl(),
+      accent: "#ffd23f",
+    },
+    {
+      title: "Time Loop CYOA",
+      subtitle: "A cinematic branching-story editor for timelines, nodes, and memory.",
+      signal: "TL",
+      meta: "Narrative engine",
+      href: getTimeLoopCyoaUrl(),
+      accent: "#a98cff",
+    },
+    {
+      title: "Museum Masterpieces",
+      subtitle: "Gallery-grade tracking for paintings, journeys, ratings, and notes.",
+      signal: "MM",
+      meta: "Art field guide",
+      href: getMuseumMasterpiecesUrl(),
+      accent: "#c9a84c",
+    },
+    {
+      title: "World of Faces",
+      subtitle: "A humane field recorder for interviews, consent, and saved voices.",
+      signal: "WF",
+      meta: "Documentary tool",
+      href: getWorldOfFacesUrl(),
+      accent: "#db4a3f",
+    },
+  ];
 
   return (
     <div className="page">
+      <div className="grain" aria-hidden="true" />
       <header className="hero">
-        <div className="hero__accent" />
-        <div>
-          <h1>Fun Apps</h1>
-          <p>Thoughtfully built, small tools for everyday focus.</p>
+        <div className="hero__copy">
+          <div className="hero__kicker">Fun Apps Studio</div>
+          <h1>Small tools, treated like serious software.</h1>
+          <p>
+            A polished suite of focused utilities with expressive motion, tactile controls,
+            and distinct product personalities.
+          </p>
+        </div>
+        <div className="hero__panel" aria-hidden="true">
+          <div className="orb orb--one" />
+          <div className="orb orb--two" />
+          <div className="hero__metric">
+            <span>9</span>
+            <small>apps in the suite</small>
+          </div>
+          <div className="hero__rail">
+            {apps.slice(0, 5).map((app) => (
+              <span key={app.title} style={{ "--accent": app.accent } as CSSProperties}>
+                {app.signal}
+              </span>
+            ))}
+          </div>
         </div>
       </header>
 
-      <section className="library">
-        <h2>App Library</h2>
-        <div className="grid">
-          <button
-            className="tile"
-            onClick={() => {
-              window.location.href = bibleUrl;
-            }}
-          >
-            <div className="tile__title">Bible Tracker</div>
-            <div className="tile__subtitle">Reading plan, progress, and analytics</div>
-          </button>
-          <button
-            className="tile"
-            onClick={() => {
-              window.location.href = gradeEstimatorUrl;
-            }}
-          >
-            <div className="tile__title">Grade Estimator</div>
-            <div className="tile__subtitle">Class builder, analyzer, and scenario sandbox</div>
-          </button>
-          <button
-            className="tile"
-            onClick={() => {
-              window.location.href = coinAtlasUrl;
-            }}
-          >
-            <div className="tile__title">Coin Atlas</div>
-            <div className="tile__subtitle">Track world coin and bill collection progress</div>
-          </button>
-          <button
-            className="tile"
-            onClick={() => {
-              window.location.href = bobsBooksUrl;
-            }}
-          >
-            <div className="tile__title">Bob's Books</div>
-            <div className="tile__subtitle">Personal library tracker, sessions, and reading goals</div>
-          </button>
-          <button
-            className="tile"
-            onClick={() => {
-              window.location.href = emojiBattleUrl;
-            }}
-          >
-            <div className="tile__title">Emoji Battle</div>
-            <div className="tile__subtitle">Multiplayer emoji strategy battles</div>
-          </button>
-          <button
-            className="tile"
-            onClick={() => {
-              window.location.href = timeLoopCyoaUrl;
-            }}
-          >
-            <div className="tile__title">Time Loop CYOA</div>
-            <div className="tile__subtitle">Shared time-loop story editor</div>
-          </button>
-          <button
-            className="tile"
-            onClick={() => {
-              window.location.href = museumMasterpiecesUrl;
-            }}
-          >
-            <div className="tile__title">Museum Masterpieces</div>
-            <div className="tile__subtitle">Personal art tracker across museums</div>
-          </button>
-          <button
-            className="tile"
-            onClick={() => {
-              window.location.href = worldOfFacesUrl;
-            }}
-          >
-            <div className="tile__title">World of Faces</div>
-            <div className="tile__subtitle">Offline interview recorder & story archive</div>
-          </button>
+      <main className="library" aria-labelledby="library-title">
+        <div className="library__header">
+          <h2 id="library-title">App library</h2>
+          <p>Each tile opens a dedicated app, keeping existing GitHub Pages routes intact.</p>
         </div>
-      </section>
+        <div className="grid">
+          {apps.map((app, index) => (
+            <button
+              key={app.title}
+              className="tile"
+              style={{ "--accent": app.accent, "--i": index } as CSSProperties}
+              onClick={() => {
+                window.location.href = app.href;
+              }}
+            >
+              <span className="tile__shine" aria-hidden="true" />
+              <span className="tile__top">
+                <span className="tile__signal">{app.signal}</span>
+                <span className="tile__meta">{app.meta}</span>
+              </span>
+              <span className="tile__title">{app.title}</span>
+              <span className="tile__subtitle">{app.subtitle}</span>
+              <span className="tile__action">Open app</span>
+            </button>
+          ))}
+        </div>
+      </main>
     </div>
   );
 }

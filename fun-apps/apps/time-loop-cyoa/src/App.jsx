@@ -331,6 +331,15 @@ const AUTHOR_REMAP = {
 
 const NODES_COL = collection(db, "time-loop-cyoa-nodes");
 
+function buildStoryFallback() {
+  const fallback = {};
+  Object.entries(STORY_SEED).forEach(([id, node]) => {
+    const createdBy = AUTHOR_REMAP[node.createdBy] || node.createdBy || AUTHORS[0];
+    fallback[id] = normalizeNode({ ...node, id, createdBy });
+  });
+  return fallback;
+}
+
 /* ═══ SHARED COMPONENTS (top-level to avoid remount) ════════════════════ */
 function Field({ label, children }) {
   return (
@@ -2096,7 +2105,7 @@ function AuthorView({ nodes, setNodes, sel, setSel, editNode, setEditNode, q, se
 /* ═══ ROOT APP ═══════════════════════════════════════════════════════════ */
 export default function App() {
   const [mode,         setMode]         = useState('reader');
-  const [nodes,        setNodes]        = useState({});
+  const [nodes,        setNodes]        = useState(() => buildStoryFallback());
   const [nodeId,       setNodeId]       = useState('start');
   const [found,        setFound]        = useState(new Set());
   const [loopN,        setLoopN]        = useState(1);
@@ -2174,6 +2183,10 @@ export default function App() {
 
   useEffect(() => {
     const unsub = onSnapshot(NODES_COL, (snap) => {
+      if (snap.empty) {
+        setNodes(buildStoryFallback());
+        return;
+      }
       const map = {};
       snap.forEach((docSnap) => {
         const data = docSnap.data() || {};
@@ -2181,6 +2194,8 @@ export default function App() {
         map[docSnap.id] = normalizeNode({ ...data, id: docSnap.id, createdBy });
       });
       setNodes(map);
+    }, () => {
+      setNodes((current) => Object.keys(current).length ? current : buildStoryFallback());
     });
     return () => unsub();
   }, []);
@@ -2349,7 +2364,6 @@ export default function App() {
     </div>
   );
 }
-
 
 
 

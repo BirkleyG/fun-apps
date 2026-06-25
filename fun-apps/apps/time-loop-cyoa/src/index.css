@@ -2,3 +2,161 @@ html, body, #root {
   height: 100%;
   margin: 0;
 }
+
+:root {
+  color-scheme: dark;
+  --tl-bg: #08070a;
+  --tl-surface: rgba(23, 18, 31, 0.9);
+  --tl-line: rgba(196, 144, 58, 0.18);
+  --tl-gold: #d5aa5b;
+  --tl-violet: #9b86ff;
+  --tl-blue: #64b5f6;
+  --tl-green: #77d49c;
+  --tl-text: #f1e9db;
+  --tl-muted: #958875;
+  --tl-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body {
+  background:
+    radial-gradient(circle at 14% 12%, rgba(155, 134, 255, 0.18), transparent 28rem),
+    radial-gradient(circle at 86% 8%, rgba(213, 170, 91, 0.18), transparent 30rem),
+    linear-gradient(145deg, #08070a, #15101d 60%, #08070a);
+  color: var(--tl-text);
+  overflow: hidden;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  pointer-events: none;
+  opacity: 0.08;
+  background-image:
+    linear-gradient(90deg, rgba(255,255,255,0.18) 1px, transparent 1px),
+    linear-gradient(rgba(255,255,255,0.14) 1px, transparent 1px);
+  background-size: 52px 52px;
+  mask-image: radial-gradient(circle at 50% 42%, black, transparent 78%);
+}
+
+#root > div {
+  background:
+    radial-gradient(circle at 12% 10%, rgba(155, 134, 255, 0.16), transparent 28rem),
+    linear-gradient(145deg, #08070a, #15101d 58%, #08070a) !important;
+}
+
+button,
+input,
+select,
+textarea,
+[style*="cursor:'pointer'"],
+[style*="cursor: 'pointer'"],
+[style*="cursor:pointer"] {
+  transition:
+    transform 360ms var(--tl-ease),
+    border-color 360ms var(--tl-ease),
+    background 360ms var(--tl-ease),
+    color 360ms var(--tl-ease),
+    opacity 360ms var(--tl-ease),
+    box-shadow 360ms var(--tl-ease) !important;
+}
+
+button:hover,
+[style*="cursor:'pointer'"]:hover,
+[style*="cursor: 'pointer'"]:hover,
+[style*="cursor:pointer"]:hover {
+  transform: translateY(-1px);
+}
+
+button:active,
+[style*="cursor:'pointer'"]:active,
+[style*="cursor: 'pointer'"]:active,
+[style*="cursor:pointer"]:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(213, 170, 91, 0.38) !important;
+  outline-offset: 3px !important;
+}
+
+input,
+select,
+textarea {
+  border-color: rgba(213, 170, 91, 0.16) !important;
+  border-radius: 12px !important;
+  background:
+    linear-gradient(145deg, rgba(255,255,255,0.06), rgba(255,255,255,0.018)),
+    rgba(8, 7, 10, 0.72) !important;
+  color: var(--tl-text) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08) !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: rgba(213, 170, 91, 0.58) !important;
+  box-shadow: 0 0 0 4px rgba(213, 170, 91, 0.12), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+}
+
+[style*="border"] {
+  border-color: rgba(213, 170, 91, 0.16) !important;
+}
+
+[style*="borderRadius:7"],
+[style*="borderRadius: 7"],
+[style*="borderRadius:6"],
+[style*="borderRadius: 6"],
+[style*="borderRadius:5"],
+[style*="borderRadius: 5"],
+[style*="borderRadius:4"],
+[style*="borderRadius: 4"] {
+  border-radius: 14px !important;
+}
+
+[style*="background:'rgba(255,255,255,0.03)'"],
+[style*="background: 'rgba(255,255,255,0.03)'"],
+[style*="background:'rgba(255,255,255,0.05)'"],
+[style*="background: 'rgba(255,255,255,0.05)'"] {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)),
+    var(--tl-surface) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 20px 54px rgba(0,0,0,0.22) !important;
+}
+
+[style*="overflowY:'auto'"],
+[style*="overflowY: 'auto'"],
+[style*="overflow-y:auto"] {
+  scrollbar-color: rgba(213, 170, 91, 0.5) rgba(255,255,255,0.04);
+  scrollbar-width: thin;
+}
+
+[style*="padding:'22px'"],
+[style*="padding: '22px'"] {
+  animation: tl-panel-in 640ms var(--tl-ease) both;
+}
+
+@keyframes tl-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
