@@ -1,38 +1,55 @@
-﻿import React, { useState, useEffect, useRef } from "react";
-import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
+import React, { useState, useEffect, useRef } from "react";
+import {
+  BookOpenText,
+  Books,
+  ChartLineUp,
+  CheckCircle,
+  GearSix,
+  MagnifyingGlass,
+  Palette,
+  PencilSimple,
+  Plus,
+  SignOut,
+  SlidersHorizontal,
+  Tag as TagIcon,
+  Target,
+  Trash,
+  X,
+} from "@phosphor-icons/react";
+import { getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from "firebase/auth";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db, provider } from "./firebase";
 
 const genId = () => Math.random().toString(36).slice(2, 10);
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
-// ─── Colors ──────────────────────────────────────────────────────────────────
+// --- Colors ------------------------------------------------------------------
 const C = {
-  bg:"#0d0905", surface:"#16100a", card:"#201508", cardHover:"#2a1d0c",
-  accent:"#d4903e", accentLight:"#e8b56a", accentDim:"rgba(212,144,62,0.14)",
-  text:"#f0dfc0", muted:"#8a6f50", border:"#3a2a18", borderLight:"#4d3820",
-  red:"#b85050", green:"#5a9e6a", blue:"#5a9ab8",
-  shelfWood:"linear-gradient(180deg,#6b3d15 0%,#4a2808 60%,#3a1e06 100%)",
-  shelfPlank:"linear-gradient(180deg,#7a4820 0%,#5a3010 40%,#3a1e08 100%)",
+  bg:"#f6efe2", surface:"#fff9ef", card:"#fffaf2", cardHover:"#f0e4d1",
+  accent:"#315f43", accentLight:"#6f9f78", accentDim:"rgba(49,95,67,0.12)",
+  text:"#2b251b", muted:"#756a58", border:"#ded0bb", borderLight:"#cdbfa8",
+  red:"#a85648", green:"#315f43", blue:"#4d7b84",
+  shelfWood:"linear-gradient(180deg,#b88953 0%,#8c5d2f 58%,#70451e 100%)",
+  shelfPlank:"linear-gradient(180deg,#c79a62 0%,#9f6d3c 42%,#765028 100%)",
 };
 
-// ─── Genre & Tag Defaults ─────────────────────────────────────────────────────
+// --- Genre & Tag Defaults -----------------------------------------------------
 const DEFAULT_GENRES = [
-  { name:"Fantasy",         color:"#5e3a8a", font:"'Cinzel',serif" },
-  { name:"Science Fiction", color:"#1a5f80", font:"'Orbitron',sans-serif" },
-  { name:"Horror",          color:"#7a1a2a", font:"'Creepster',cursive" },
-  { name:"Mystery",         color:"#2d3454", font:"'Special Elite',cursive" },
-  { name:"Romance",         color:"#8a3560", font:"'Cormorant Garamond',serif" },
-  { name:"Historical",      color:"#6b4e1a", font:"'Playfair Display',serif" },
-  { name:"Thriller",        color:"#3a2010", font:"'Oswald',sans-serif" },
-  { name:"Literary",        color:"#2a4a4a", font:"'Cormorant Garamond',serif" },
-  { name:"Non-fiction",     color:"#1e4a2a", font:"'Lora',serif" },
-  { name:"Biography",       color:"#4a3520", font:"'Lora',serif" },
-  { name:"Self-Help",       color:"#2a5040", font:"'Josefin Sans',sans-serif" },
-  { name:"Young Adult",     color:"#3a2a6a", font:"'Nunito',sans-serif" },
-  { name:"Children's",      color:"#7a3a10", font:"'Patrick Hand',cursive" },
-  { name:"Poetry",          color:"#5a2a5a", font:"'Cormorant Garamond',serif" },
-  { name:"Graphic Novel",   color:"#1a3a6a", font:"'Bangers',cursive" },
+  { name:"Fantasy",         color:"#5e3a8a", font:"'Newsreader Variable',serif" },
+  { name:"Science Fiction", color:"#1a5f80", font:"'Plus Jakarta Sans Variable',sans-serif" },
+  { name:"Horror",          color:"#7a1a2a", font:"'Newsreader Variable',serif" },
+  { name:"Mystery",         color:"#2d3454", font:"'Newsreader Variable',serif" },
+  { name:"Romance",         color:"#8a3560", font:"'Newsreader Variable',serif" },
+  { name:"Historical",      color:"#6b4e1a", font:"'Newsreader Variable',serif" },
+  { name:"Thriller",        color:"#3a2010", font:"'Plus Jakarta Sans Variable',sans-serif" },
+  { name:"Literary",        color:"#2a4a4a", font:"'Newsreader Variable',serif" },
+  { name:"Non-fiction",     color:"#1e4a2a", font:"'Newsreader Variable',serif" },
+  { name:"Biography",       color:"#4a3520", font:"'Newsreader Variable',serif" },
+  { name:"Self-Help",       color:"#2a5040", font:"'Plus Jakarta Sans Variable',sans-serif" },
+  { name:"Young Adult",     color:"#3a2a6a", font:"'Plus Jakarta Sans Variable',sans-serif" },
+  { name:"Children's",      color:"#7a3a10", font:"'Newsreader Variable',serif" },
+  { name:"Poetry",          color:"#5a2a5a", font:"'Newsreader Variable',serif" },
+  { name:"Graphic Novel",   color:"#1a3a6a", font:"'Plus Jakarta Sans Variable',sans-serif" },
 ];
 const DEFAULT_TAGS = ["favorite","re-read","borrowed","gift","audiobook-only","DNF","classics","page-turner","slow-burn","recommended"];
 const DEFAULT_GOAL_STATS = {
@@ -42,6 +59,13 @@ const DEFAULT_GOAL_STATS = {
 
 const APP_DOC_ID = "bobs-books";
 const getAppDocRef = (uid) => doc(db, "users", uid, "apps", APP_DOC_ID);
+const getLegacyAppDocRefs = (uid) => [
+  doc(db, "users", uid, "apps", "bobsBooks"),
+  doc(db, "users", uid, "bobs-books", "data"),
+  doc(db, "users", uid, "bobsBooks", "data"),
+  doc(db, "bobs-books", uid),
+  doc(db, "bobsBooks", uid),
+];
 const getCacheKey = (uid) => `bobs-books-cache-${uid}`;
 
 function loadLocalCache(uid) {
@@ -60,9 +84,41 @@ function saveLocalCache(uid, payload) {
   } catch {}
 }
 
+function formatAuthError(error) {
+  const code = error?.code || "";
+  if (code === "auth/unauthorized-domain") {
+    return "This domain is not allowed in Firebase Auth yet. Add the demo domain in Firebase Authentication, then try again.";
+  }
+  if (code === "auth/popup-blocked") {
+    return "Your browser blocked the Google window. I will try the full-page sign-in flow instead.";
+  }
+  if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+    return "Google sign-in was closed before it finished.";
+  }
+  if (code === "auth/network-request-failed") {
+    return "Google sign-in could not reach Firebase. Check the connection and try again.";
+  }
+  return "Google sign-in could not start. Please try again.";
+}
+
+function shouldTryRedirectSignIn(error) {
+  return [
+    "auth/popup-blocked",
+    "auth/popup-closed-by-user",
+    "auth/cancelled-popup-request",
+    "auth/operation-not-supported-in-this-environment",
+  ].includes(error?.code);
+}
+
 async function loadAppData(uid) {
-  const snapshot = await getDoc(getAppDocRef(uid));
-  return snapshot.exists() ? snapshot.data() : null;
+  const refs = [getAppDocRef(uid), ...getLegacyAppDocRefs(uid)];
+  for (const ref of refs) {
+    const snapshot = await getDoc(ref);
+    if (!snapshot.exists()) continue;
+    const normalized = normalizeAppData(snapshot.data());
+    if (normalized) return normalized;
+  }
+  return null;
 }
 
 async function saveAppData(uid, payload) {
@@ -80,9 +136,81 @@ const STAT_LABELS = {
   showProjections:"Projections & Forecast", showTimePatterns:"Time Patterns & Streaks",
   showBookBreakdown:"Book Breakdown", showMotivation:"Highlights & Records",
 };
-const BOOK_EMOJIS = ["📚","📖","🔮","⚔️","🚀","💀","💕","🔍","🏰","🌍","🧙","🎭","🧬","🌊","🦋","🌙","⭐","🔥","💎","🗡️","🧪","🌹","🎪","🦁","🐉","🕵️","🎵","🍵","🌿","🦅","🗺️","🏔️","🌌","🎯","🔑","🕯️","⚡","🌸","🧠","🌋","🏺","👁️","🌀","🎩","🌺","🦉","📜","🎆"];
+function normalizeAppData(data) {
+  const source = data?.books || data?.sessions || data?.goals ? data : data?.state || data?.library || data?.data;
+  if (!source || typeof source !== "object") return null;
+  return {
+    books: Array.isArray(source.books) ? source.books.map(normalizeBookRecord) : [],
+    sessions: Array.isArray(source.sessions) ? source.sessions : [],
+    goals: Array.isArray(source.goals) ? source.goals : [],
+    settings: source.settings && typeof source.settings === "object" ? source.settings : null,
+  };
+}
 
-// ─── Color Helpers ────────────────────────────────────────────────────────────
+const DEFAULT_BOOK_ICON = "open-book";
+const BOOK_ICONS = [
+  { id:"open-book", label:"Open book", tone:"#315f43" },
+  { id:"stack", label:"Stack", tone:"#7a5a35" },
+  { id:"bookmark", label:"Bookmark", tone:"#9f5b4a" },
+  { id:"moon", label:"Moon", tone:"#536878" },
+  { id:"spark", label:"Spark", tone:"#b88953" },
+  { id:"map", label:"Map", tone:"#4d7b84" },
+  { id:"castle", label:"Castle", tone:"#6d5c8d" },
+  { id:"planet", label:"Planet", tone:"#3f7280" },
+  { id:"leaf", label:"Leaf", tone:"#567d4d" },
+  { id:"heart", label:"Heart", tone:"#a85665" },
+  { id:"key", label:"Key", tone:"#8c6a31" },
+  { id:"lamp", label:"Lamp", tone:"#b1783f" },
+  { id:"wave", label:"Wave", tone:"#3d758a" },
+  { id:"crown", label:"Crown", tone:"#9a7435" },
+  { id:"flask", label:"Flask", tone:"#5f7b76" },
+  { id:"compass", label:"Compass", tone:"#6c7041" },
+];
+const BOOK_ICON_IDS = new Set(BOOK_ICONS.map(icon => icon.id));
+
+function normalizeIconId(value) {
+  if (BOOK_ICON_IDS.has(value)) return value;
+  return DEFAULT_BOOK_ICON;
+}
+
+function normalizeBookRecord(book) {
+  if (!book || typeof book !== "object") return book;
+  return { ...book, icon: normalizeIconId(book.icon || book.emoji) };
+}
+
+function getBookIconId(book) {
+  return normalizeIconId(book?.icon || book?.emoji);
+}
+
+function BookMarkIcon({id,size=34}) {
+  const icon = BOOK_ICONS.find(item => item.id === normalizeIconId(id)) || BOOK_ICONS[0];
+  const common = { fill:"none", stroke:"currentColor", strokeWidth:"1.8", strokeLinecap:"round", strokeLinejoin:"round" };
+  const shapes = {
+    "open-book": <><path {...common} d="M7 9.5c4.2-.7 7.2.1 9 2.4 1.8-2.3 4.8-3.1 9-2.4v16.2c-4.2-.7-7.2.1-9 2.4-1.8-2.3-4.8-3.1-9-2.4V9.5Z"/><path {...common} d="M16 11.9v16.2"/></>,
+    stack: <><path {...common} d="M9 10.5h15a2 2 0 0 1 2 2v2H11a2 2 0 0 1-2-2v-2Z"/><path {...common} d="M7 15h16a2 2 0 0 1 2 2v2H9a2 2 0 0 1-2-2v-2Z"/><path {...common} d="M10 19.5h15v4H10a2 2 0 0 1 0-4Z"/></>,
+    bookmark: <><path {...common} d="M10 7.5h12a2 2 0 0 1 2 2v17l-8-4.5-8 4.5v-17a2 2 0 0 1 2-2Z"/><path {...common} d="M13 12h6"/></>,
+    moon: <><path {...common} d="M22.5 24.5A10.5 10.5 0 0 1 11.5 8a12 12 0 1 0 11 16.5Z"/><path {...common} d="M20 8.5v4M18 10.5h4"/></>,
+    spark: <><path {...common} d="M16 5.5l2.8 7.7 7.7 2.8-7.7 2.8-2.8 7.7-2.8-7.7-7.7-2.8 7.7-2.8L16 5.5Z"/><path {...common} d="M25 6.5v4M23 8.5h4"/></>,
+    map: <><path {...common} d="M8 9.5l6-2.5 6 2.5 5-2v17l-5 2-6-2.5-6 2.5-1-.5v-17l1 .5Z"/><path {...common} d="M14 7v17M20 9.5v17"/></>,
+    castle: <><path {...common} d="M8 27V11l3 2 3-2 3 2 3-2 3 2 3-2v16"/><path {...common} d="M6 27h22"/><path {...common} d="M13 27v-6a3 3 0 0 1 6 0v6"/><path {...common} d="M10 16h4M20 16h4"/></>,
+    planet: <><circle {...common} cx="16" cy="16" r="7"/><path {...common} d="M5.5 20c3 2.4 9.1 1.8 15.1-1.5s9.7-7.7 8.2-10.4c-.8-1.4-3-1.8-5.8-1.2"/><path {...common} d="M26.5 12c-2.8-2.2-8.4-1.8-14 1.2-6.1 3.3-9.8 7.9-8.3 10.6.8 1.5 3.3 1.8 6.3.9"/></>,
+    leaf: <><path {...common} d="M25.5 7.5C15 7.7 8.5 12.7 8.5 20a5.5 5.5 0 0 0 5.5 5.5c7.2 0 11.4-7.1 11.5-18Z"/><path {...common} d="M21 12c-4.8 2.2-8 5.8-10 10.5"/></>,
+    heart: <><path {...common} d="M16 26s-9-5.4-9-12a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 6.6-9 12-9 12Z"/></>,
+    key: <><circle {...common} cx="11" cy="16" r="4.5"/><path {...common} d="M15.5 16H27l-2 2 2 2-2 2"/></>,
+    lamp: <><path {...common} d="M12 7h8l3 10H9l3-10Z"/><path {...common} d="M16 17v10M11 27h10M16 4v3"/></>,
+    wave: <><path {...common} d="M5 20c3.6-5.2 7.2-5.2 10.8 0 3.6 5.2 7.2 5.2 10.8 0"/><path {...common} d="M5 14c3.6-5.2 7.2-5.2 10.8 0 3.6 5.2 7.2 5.2 10.8 0"/></>,
+    crown: <><path {...common} d="M7 24h18l1-12-6 5-4-8-4 8-6-5 1 12Z"/><path {...common} d="M9 27h14"/></>,
+    flask: <><path {...common} d="M13 6h6M15 6v7l-6.5 11A2 2 0 0 0 10.2 27h11.6a2 2 0 0 0 1.7-3L17 13V6"/><path {...common} d="M11 22h10"/></>,
+    compass: <><circle {...common} cx="16" cy="16" r="10"/><path {...common} d="M20.5 11.5l-2.2 6.8-6.8 2.2 2.2-6.8 6.8-2.2Z"/></>,
+  };
+  return (
+    <span className="bb-custom-icon" style={{"--book-icon-tone":icon.tone,width:size,height:size}} title={icon.label}>
+      <svg viewBox="0 0 32 32" aria-hidden="true">{shapes[icon.id] || shapes[DEFAULT_BOOK_ICON]}</svg>
+    </span>
+  );
+}
+
+// --- Color Helpers ------------------------------------------------------------
 function hexToRgb(hex) {
   const h = hex.replace("#","");
   return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
@@ -98,14 +226,14 @@ function getSpineColor(genreName, genres, bookId) {
   return rgbToHex(r+seed, bv+Math.round(seed*0.7), bl+Math.round(seed*0.5));
 }
 function getGenreFont(genreName, genres) {
-  return genres.find(g=>g.name===genreName)?.font || "'Crimson Pro',serif";
+  return genres.find(g=>g.name===genreName)?.font || "'Newsreader Variable',serif";
 }
 function needsDarkText(hex) {
   const [r,g,b] = hexToRgb(hex);
   return (0.299*r+0.587*g+0.114*b)/255 > 0.42;
 }
 
-// ─── Sound ────────────────────────────────────────────────────────────────────
+// --- Sound --------------------------------------------------------------------
 function playFanfare() {
   try {
     const ctx = new (window.AudioContext||window.webkitAudioContext)();
@@ -123,7 +251,7 @@ function playFanfare() {
   } catch(e){}
 }
 
-// ─── Core Computed ────────────────────────────────────────────────────────────
+// --- Core Computed ------------------------------------------------------------
 function getBookProgress(book,sessions){
   const total=book.format==="paged"?(book.totalPages||0):(book.totalMinutes||0);
   const bs=sessions.filter(s=>s.bookId===book.id);
@@ -169,9 +297,9 @@ function getBookProjection(book,sessions,settings){
   const finishDate=new Date(now+(total-current)/rate*86400000);
   return{finishDate:finishDate.toISOString().slice(0,10),ratePerDay:Math.round(rate)};
 }
-function formatMinutes(m){if(!m&&m!==0)return"—";const h=Math.floor(m/60);return h>0?`${h}h ${m%60}m`:`${m}m`;}
+function formatMinutes(m){if(!m&&m!==0)return"-";const h=Math.floor(m/60);return h>0?`${h}h ${m%60}m`:`${m}m`;}
 
-// ─── Librarian Says ───────────────────────────────────────────────────────────
+// --- Librarian Says -----------------------------------------------------------
 function librarianSays(aheadBy, consistencyScore, goalId) {
   const seed = goalId ? goalId.charCodeAt(0) % 4 : 0;
   if (aheadBy >= 0.1) {
@@ -185,7 +313,7 @@ function librarianSays(aheadBy, consistencyScore, goalId) {
   if (aheadBy >= -0.05) {
     return [
       "Librarian Says: \"Hmm. Technically on track. Don't get complacent.\"",
-      "Librarian Says: \"You're like a bookmark — technically still in the game.\"",
+      "Librarian Says: \"You're like a bookmark, technically still in the game.\"",
       "Librarian Says: \"Not bad. Not great. Solidly bookish.\"",
       "Librarian Says: \"The shelves are cautiously optimistic about you.\"",
     ][seed];
@@ -206,43 +334,42 @@ function librarianSays(aheadBy, consistencyScore, goalId) {
   ][seed];
 }
 
-// ─── Shared UI ────────────────────────────────────────────────────────────────
+// --- Shared UI ----------------------------------------------------------------
 function ProgressBar({percent,h=4}){
-  return <div style={{background:C.border,borderRadius:4,height:h,overflow:"hidden"}}><div style={{width:`${percent}%`,background:percent>=100?C.green:C.accent,height:"100%",borderRadius:4,transition:"width .4s"}}/></div>;
+  return <div className="bb-progress-track" style={{height:h}}><div className="bb-progress-fill" style={{width:`${percent}%`,background:percent>=100?C.green:C.accent}}/></div>;
 }
 function Modal({onClose,children,wide,full}){
   return(
-    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.88)",zIndex:200,display:"flex",alignItems:full?"stretch":"center",justifyContent:"center",padding:full?0:16}}>
-      <div onClick={e=>e.stopPropagation()} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:full?0:10,width:"100%",maxWidth:full?"100%":wide?680:480,maxHeight:full?"100%":"92vh",overflowY:"auto",padding:full?0:28}}>
+    <div className={`bb-modal-backdrop ${full?"bb-modal-backdrop-full":""}`} onClick={onClose}>
+      <div className={`bb-modal-panel ${wide?"bb-modal-wide":""} ${full?"bb-modal-full":""}`} onClick={e=>e.stopPropagation()}>
         {children}
       </div>
     </div>
   );
 }
-function ModalTitle({children}){return<h2 style={{fontFamily:"'Playfair Display',serif",fontSize:22,color:C.accent,marginBottom:20}}>{children}</h2>;}
-function Field({label,children}){return<div style={{marginBottom:14}}><label style={{display:"block",fontSize:11,textTransform:"uppercase",letterSpacing:".08em",color:C.muted,marginBottom:5}}>{label}</label>{children}</div>;}
-function Input({style,...props}){return<input style={{width:"100%",background:C.bg,border:`1px solid ${C.border}`,color:C.text,padding:"8px 12px",borderRadius:4,fontSize:14,outline:"none",...style}}{...props}/>;}
-function Textarea({style,...props}){return<textarea style={{width:"100%",background:C.bg,border:`1px solid ${C.border}`,color:C.text,padding:"8px 12px",borderRadius:4,fontSize:14,outline:"none",resize:"vertical",minHeight:72,...style}}{...props}/>;}
-function Btn({variant="primary",onClick,children,style}){
-  const s={
-    primary:{background:C.accent,color:C.bg,padding:"8px 18px",borderRadius:4,fontWeight:700,fontSize:14,cursor:"pointer",border:"none",fontFamily:"inherit"},
-    ghost:{background:"none",border:`1px solid ${C.border}`,color:C.muted,padding:"7px 16px",borderRadius:4,fontSize:13,cursor:"pointer",fontFamily:"inherit"},
-    danger:{background:"none",border:"1px solid #7a2a2a",color:"#c07070",padding:"7px 16px",borderRadius:4,fontSize:13,cursor:"pointer",fontFamily:"inherit"},
-    small:{background:"none",border:`1px solid ${C.border}`,color:C.muted,padding:"4px 10px",borderRadius:3,fontSize:12,cursor:"pointer",fontFamily:"inherit"},
-  };
-  return<button onClick={onClick} style={{...s[variant],...style}}>{children}</button>;
+function ModalTitle({children}){return<h2 className="bb-modal-title">{children}</h2>;}
+function Field({label,children}){return<div className="bb-field"><label>{label}</label>{children}</div>;}
+function Input({style,className="",...props}){return<input className={`bb-control ${className}`} style={style}{...props}/>;}
+function Textarea({style,className="",...props}){return<textarea className={`bb-control bb-textarea ${className}`} style={style}{...props}/>;}
+function Btn({variant="primary",onClick,children,style,icon:Icon,type="button",className="",disabled=false}){
+  return(
+    <button type={type} onClick={onClick} disabled={disabled} className={`bb-btn bb-btn-${variant} ${className}`} style={style}>
+      {Icon&&<Icon size={16} weight="duotone" aria-hidden="true"/>}
+      <span>{children}</span>
+    </button>
+  );
 }
-function Tag({children}){return<span style={{display:"inline-block",background:C.accentDim,color:C.accent,borderRadius:12,padding:"2px 10px",fontSize:12,margin:"2px"}}>{children}</span>;}
+function Tag({children}){return<span className="bb-tag">{children}</span>;}
 function FlipCard({front,back,height=104}){
   const[f,setF]=useState(false);
   return(
-    <div onClick={()=>setF(x=>!x)} style={{perspective:900,cursor:"pointer",height,position:"relative"}} title="Click to flip ↻">
+    <div onClick={()=>setF(x=>!x)} style={{perspective:900,cursor:"pointer",height,position:"relative"}} title="Click to flip">
       <div style={{transition:"transform .42s cubic-bezier(.4,0,.2,1)",transformStyle:"preserve-3d",transform:f?"rotateY(180deg)":"rotateY(0)",width:"100%",height:"100%",position:"relative"}}>
         <div style={{backfaceVisibility:"hidden",WebkitBackfaceVisibility:"hidden",position:"absolute",inset:0,background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:14}}>
-          {front}<span style={{position:"absolute",top:6,right:8,fontSize:10,color:C.border}}>↻</span>
+          {front}
         </div>
         <div style={{backfaceVisibility:"hidden",WebkitBackfaceVisibility:"hidden",transform:"rotateY(180deg)",position:"absolute",inset:0,background:C.cardHover,border:`1px solid ${C.accentDim}`,borderRadius:6,padding:14}}>
-          {back}<span style={{position:"absolute",top:6,right:8,fontSize:10,color:C.accentDim}}>↻</span>
+          {back}
         </div>
       </div>
     </div>
@@ -250,41 +377,50 @@ function FlipCard({front,back,height=104}){
 }
 function StatCard({label,value,sub,color}){
   return(
-    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:14}}>
-      <div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:6}}>{label}</div>
-      <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,color:color||C.accent,lineHeight:1}}>{value??"—"}</div>
-      {sub&&<div style={{fontSize:12,color:C.muted,marginTop:4}}>{sub}</div>}
+    <div className="bb-stat-card">
+      <div className="bb-stat-label">{label}</div>
+      <div className="bb-stat-value" style={{color:color||C.accent}}>{value??"-"}</div>
+      {sub&&<div className="bb-stat-sub">{sub}</div>}
     </div>
   );
 }
-function SectionHead({children}){return<div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".1em",borderBottom:`1px solid ${C.border}`,paddingBottom:6,marginBottom:12,marginTop:22}}>{children}</div>;}
+function SectionHead({children}){return<div className="bb-section-head">{children}</div>;}
 function StarPicker({value,onChange,size=26}){
   const[hover,setHover]=useState(0);
   return(
     <div style={{display:"flex",gap:4}}>
       {[1,2,3,4,5].map(n=>(
         <span key={n} onMouseEnter={()=>setHover(n)} onMouseLeave={()=>setHover(0)} onClick={()=>onChange(n)}
-          style={{fontSize:size,cursor:"pointer",color:n<=(hover||value)?C.accent:C.border,transition:"color .1s",lineHeight:1}}>★</span>
+          style={{fontSize:size,cursor:"pointer",color:n<=(hover||value)?C.accent:C.border,transition:"color .1s",lineHeight:1}}>{n<=(hover||value)?"★":"☆"}</span>
       ))}
     </div>
   );
 }
 
-// ─── Emoji Picker ─────────────────────────────────────────────────────────────
-function EmojiPicker({value,onChange}){
+// --- Custom Icon Picker -------------------------------------------------------
+function BookIconPicker({value,onChange}){
   const[open,setOpen]=useState(false);
+  const selected = normalizeIconId(value);
   return(
-    <div style={{position:"relative"}}>
-      <button onClick={()=>setOpen(o=>!o)} style={{fontSize:28,background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 14px",cursor:"pointer",minWidth:60}}>
-        {value||"📖"}
+    <div className="bb-icon-picker">
+      <button type="button" className="bb-icon-picker-trigger" onClick={()=>setOpen(o=>!o)} aria-expanded={open} aria-label="Choose book icon">
+        <BookMarkIcon id={selected} size={38}/>
       </button>
       {open&&(
-        <div style={{position:"absolute",top:"100%",left:0,zIndex:100,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:8,display:"grid",gridTemplateColumns:"repeat(8,1fr)",gap:4,width:280,boxShadow:"0 8px 24px rgba(0,0,0,.6)"}}>
-          {BOOK_EMOJIS.map(e=>(
-            <button key={e} onClick={()=>{onChange(e);setOpen(false);}} style={{fontSize:20,background:value===e?C.accentDim:"none",border:"none",borderRadius:6,padding:4,cursor:"pointer",transition:"background .1s"}}
-              onMouseEnter={ev=>ev.currentTarget.style.background=C.accentDim}
-              onMouseLeave={ev=>ev.currentTarget.style.background=value===e?C.accentDim:"none"}
-            >{e}</button>
+        <div className="bb-icon-picker-popover" role="listbox" aria-label="Book icons">
+          {BOOK_ICONS.map(icon=>(
+            <button
+              key={icon.id}
+              type="button"
+              className={`bb-icon-choice ${selected===icon.id?"is-selected":""}`}
+              onClick={()=>{onChange(icon.id);setOpen(false);}}
+              role="option"
+              aria-selected={selected===icon.id}
+              title={icon.label}
+            >
+              <BookMarkIcon id={icon.id} size={36}/>
+              <span>{icon.label}</span>
+            </button>
           ))}
         </div>
       )}
@@ -292,71 +428,44 @@ function EmojiPicker({value,onChange}){
   );
 }
 
-// ─── BookSpine ────────────────────────────────────────────────────────────────
+// --- BookSpine ----------------------------------------------------------------
 function BookSpine({book,sessions,genres,onClick,height=136,dimmed=false}){
   const progress=getBookProgress(book,sessions);
   const status=getBookStatus(book,sessions);
   const sc=getSpineColor(book.genre,genres,book.id);
-  const font=getGenreFont(book.genre,genres);
-  const textColor=needsDarkText(sc)?"#1a0f05":"#f5e8d0";
-  const width=32;
   const isFinished=status==="finished";
-  const [hov,setHov]=useState(false);
-
   const ratingStars = isFinished && book.rating ? Math.round(book.rating) : 0;
-  const badgeText =
-    isFinished && ratingStars
-      ? `★${ratingStars}`
-      : status === "reading"
-        ? `${progress.percent}%`
-        : "";
+  const iconId = getBookIconId(book);
+  const statusLabels={want:"Want to read",reading:"Reading",finished:"Finished"};
 
   return(
-    <div onClick={onClick}
-      onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
-      title={`${book.title} by ${book.author}${isFinished&&book.rating?` · ★${book.rating}`:""}${status==="reading"?` · ${progress.percent}%`:""}`}
-      style={{
-        width,height,
-        background:sc,
-        borderRadius:"2px 3px 3px 2px",
-        boxShadow:hov?"3px 0 14px rgba(0,0,0,.8), inset -2px 0 4px rgba(0,0,0,.3)":"1px 0 5px rgba(0,0,0,.5), inset -2px 0 4px rgba(0,0,0,.3)",
-        cursor:"pointer",
-        flexShrink:0,
-        position:"relative",
-        display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
-        overflow:"hidden",
-        transform:hov?"translateY(-10px) scale(1.01)":"translateY(0)",
-        transition:"transform .18s, box-shadow .18s",
-        opacity:dimmed?0.55:1,
-      }}>
-      {/* Progress fill for reading */}
-      {status==="reading"&&progress.total>0&&(
-        <div style={{position:"absolute",bottom:0,left:0,right:0,height:`${progress.percent}%`,background:"rgba(255,255,255,.12)",borderTop:"1px solid rgba(255,255,255,.18)"}}/>
-      )}
-      {/* Gold spine groove */}
-      <div style={{position:"absolute",top:8,left:3,right:3,height:1,background:"rgba(255,255,255,.15)",borderRadius:1}}/>
-      <div style={{position:"absolute",bottom:8,left:3,right:3,height:1,background:"rgba(255,255,255,.15)",borderRadius:1}}/>
-      {/* Spine text */}
-      <div style={{
-        writingMode:"vertical-rl",textOrientation:"mixed",transform:"rotate(180deg)",
-        fontFamily:font,fontSize:10,color:textColor,
-        padding:"6px 2px",maxHeight:height-24,overflow:"hidden",
-        textAlign:"center",lineHeight:1.25,fontWeight:600,
-        letterSpacing:".02em",textShadow:"0 1px 2px rgba(0,0,0,.5)",
-        display:"flex",flexDirection:"column",alignItems:"center",gap:2,
-      }}>
-        {book.emoji&&<span style={{fontSize:9}}>{book.emoji}</span>}
-        <span>{book.title}</span>
+    <button
+      type="button"
+      className={`bb-book-tile ${dimmed?"is-dimmed":""}`}
+      onClick={onClick}
+      title={`${book.title} by ${book.author}${isFinished&&book.rating?` - ${book.rating}/5`:""}${status==="reading"?` - ${progress.percent}%`:""}`}
+      style={{"--book-tone":sc}}
+    >
+      <span className="bb-book-tile-cover">
+        <BookMarkIcon id={iconId} size={46}/>
+        <span className="bb-book-tile-shine"/>
+      </span>
+      <span className="bb-book-tile-body">
+        <strong>{book.title}</strong>
+        <small>{book.author || "Unknown author"}</small>
+      </span>
+      <span className="bb-book-tile-meta">
+        <span>{statusLabels[status]}</span>
+        {isFinished&&ratingStars? <span>{ratingStars}/5</span> : status==="reading" ? <span>{progress.percent}%</span> : <span>{book.genre || "Queued"}</span>}
+      </span>
+      <div className="bb-book-tile-progress" aria-hidden="true">
+        <span style={{width:`${progress.percent}%`}}/>
       </div>
-      {/* Bottom badge */}
-      <div style={{position:"absolute",bottom:4,left:0,right:0,textAlign:"center",fontSize:9,color:textColor,opacity:.85,fontFamily:"'Crimson Pro',serif",letterSpacing:".04em"}}>
-        {badgeText}
-      </div>
-    </div>
+    </button>
   );
 }
 
-// ─── Confetti (Canvas) ────────────────────────────────────────────────────────
+// --- Confetti (Canvas) --------------------------------------------------------
 function Confetti({onDone}){
   const ref=useRef(null);
   useEffect(()=>{
@@ -396,7 +505,7 @@ function Confetti({onDone}){
   return<canvas ref={ref} style={{position:"fixed",inset:0,zIndex:9998,pointerEvents:"none",width:"100%",height:"100%"}}/>;
 }
 
-// ─── Finish Celebration Modal ─────────────────────────────────────────────────
+// --- Finish Celebration Modal -------------------------------------------------
 function FinishCelebrationModal({book,sessions,genres,onSave,onSkip}){
   const[rating,setRating]=useState(book.rating||0);
   const[review,setReview]=useState(book.review||"");
@@ -407,10 +516,10 @@ function FinishCelebrationModal({book,sessions,genres,onSave,onSkip}){
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.92)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
       <div style={{background:C.card,border:`2px solid ${C.accent}`,borderRadius:12,padding:36,maxWidth:520,width:"100%",textAlign:"center"}}>
-        <div style={{fontSize:48,marginBottom:8}}>🎉</div>
-        <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:28,color:C.accent,marginBottom:6}}>You finished it!</h2>
-        <h3 style={{fontFamily:font,fontSize:20,color:C.text,marginBottom:4}}>{book.emoji||"📖"} {book.title}</h3>
-        <p style={{color:C.muted,fontSize:14,marginBottom:20}}>{book.author}{days?` · took ${days} days`:""}</p>
+        <div style={{display:"flex",justifyContent:"center",marginBottom:10}}><BookMarkIcon id={getBookIconId(book)} size={54}/></div>
+        <h2 style={{fontFamily:"'Newsreader Variable',serif",fontSize:28,color:C.accent,marginBottom:6}}>You finished it!</h2>
+        <h3 style={{fontFamily:font,fontSize:20,color:C.text,marginBottom:4}}>{book.title}</h3>
+        <p style={{color:C.muted,fontSize:14,marginBottom:20}}>{book.author}{days?` - took ${days} days`:""}</p>
         <div style={{marginBottom:20}}>
           <p style={{fontSize:13,color:C.muted,marginBottom:10}}>Rate this book</p>
           <div style={{display:"flex",justifyContent:"center"}}><StarPicker value={rating} onChange={setRating} size={36}/></div>
@@ -421,14 +530,14 @@ function FinishCelebrationModal({book,sessions,genres,onSave,onSkip}){
         </div>
         <div style={{display:"flex",gap:10,justifyContent:"center"}}>
           <Btn variant="ghost" onClick={onSkip}>Skip</Btn>
-          <Btn onClick={()=>onSave({rating,review})}>Save Review ✓</Btn>
+          <Btn onClick={()=>onSave({rating,review})}>Save Review</Btn>
         </div>
       </div>
     </div>
   );
 }
 
-// ─── Finished Book Review Modal ───────────────────────────────────────────────
+// --- Finished Book Review Modal -----------------------------------------------
 function FinishedBookReviewModal({book,sessions,genres,onClose,onEditReview}){
   const dates=getBookDates(book,sessions);
   const days=dates.startedAt&&dates.finishedAt?Math.round((new Date(dates.finishedAt)-new Date(dates.startedAt))/86400000):null;
@@ -438,28 +547,25 @@ function FinishedBookReviewModal({book,sessions,genres,onClose,onEditReview}){
   return(
     <Modal onClose={onClose} wide>
       <div style={{display:"flex",gap:24,alignItems:"flex-start"}}>
-        {/* Big spine */}
-        <div style={{background:sc,borderRadius:"4px 6px 6px 4px",width:60,height:200,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"4px 0 16px rgba(0,0,0,.7)"}}>
-          <div style={{writingMode:"vertical-rl",transform:"rotate(180deg)",fontFamily:font,fontSize:14,color:needsDarkText(sc)?"#1a0f05":"#f5e8d0",fontWeight:700,padding:8,textAlign:"center"}}>
-            {book.emoji} {book.title}
-          </div>
+        <div className="bb-detail-icon-card" style={{"--book-tone":sc}}>
+          <BookMarkIcon id={getBookIconId(book)} size={58}/>
         </div>
         <div style={{flex:1,minWidth:0}}>
-          <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:C.text,lineHeight:1.2,marginBottom:4}}>{book.title}</h2>
+          <h2 style={{fontFamily:"'Newsreader Variable',serif",fontSize:24,color:C.text,lineHeight:1.2,marginBottom:4}}>{book.title}</h2>
           <p style={{color:C.muted,fontSize:15,marginBottom:12}}>{book.author}</p>
           {book.rating?(
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
               <div style={{display:"flex",gap:2}}>
-                {[1,2,3,4,5].map(n=><span key={n} style={{fontSize:22,color:n<=Math.round(book.rating)?C.accent:C.border}}>★</span>)}
+                {[1,2,3,4,5].map(n=><span key={n} style={{fontSize:22,color:n<=Math.round(book.rating)?C.accent:C.border}}>{n<=Math.round(book.rating)?"★":"☆"}</span>)}
               </div>
               <span style={{color:C.accent,fontSize:16,fontWeight:700}}>{book.rating}/5</span>
             </div>
           ):<div style={{color:C.muted,fontSize:13,marginBottom:12,fontStyle:"italic"}}>No rating yet</div>}
           <div style={{display:"flex",gap:10,fontSize:12,color:C.muted,marginBottom:16,flexWrap:"wrap"}}>
-            {dates.finishedAt&&<span>✅ Finished {dates.finishedAt}</span>}
-            {days&&<span>⏱ {days} days</span>}
-            {book.genre&&<span>📂 {book.genre}</span>}
-            {book.format&&<span>{book.format==="paged"?"📖 Print":"🎧 Audio"}</span>}
+            {dates.finishedAt&&<span>Finished {dates.finishedAt}</span>}
+            {days&&<span>{days} days</span>}
+            {book.genre&&<span>{book.genre}</span>}
+            {book.format&&<span>{book.format==="paged"?"Print":"Audio"}</span>}
           </div>
           {tags.length>0&&<div style={{marginBottom:12}}>{tags.map(t=><Tag key={t}>{t}</Tag>)}</div>}
         </div>
@@ -478,7 +584,7 @@ function FinishedBookReviewModal({book,sessions,genres,onClose,onEditReview}){
   );
 }
 
-// ─── Finished Shelf Modal ─────────────────────────────────────────────────────
+// --- Finished Shelf Modal -----------------------------------------------------
 function FinishedShelfModal({books,sessions,genres,onClose,onBookClick}){
   const[sort,setSort]=useState("date");
   const[filterRating,setFilterRating]=useState(0);
@@ -494,17 +600,17 @@ function FinishedShelfModal({books,sessions,genres,onClose,onBookClick}){
     <Modal onClose={onClose} full>
       <div style={{height:"100dvh",display:"flex",flexDirection:"column",background:C.bg}}>
         <div style={{background:C.surface,borderBottom:`1px solid ${C.border}`,padding:"16px 24px",display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
-          <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:C.accent}}>✅ Finished Books ({finished.length})</h2>
+          <h2 style={{fontFamily:"'Newsreader Variable',serif",fontSize:20,color:C.accent}}>Finished Books ({finished.length})</h2>
           <div style={{display:"flex",gap:8,marginLeft:"auto",alignItems:"center",flexWrap:"wrap"}}>
-            <span style={{fontSize:12,color:C.muted}}>Filter ★≥</span>
+            <span style={{fontSize:12,color:C.muted}}>Filter rating at least</span>
             {[0,1,2,3,4,5].map(r=>(
-              <button key={r} onClick={()=>setFilterRating(r)} style={{background:filterRating===r?C.accent:C.card,color:filterRating===r?C.bg:C.muted,border:`1px solid ${C.border}`,borderRadius:4,padding:"4px 8px",cursor:"pointer",fontSize:12,fontFamily:"inherit"}}>{r===0?"All":`${r}★`}</button>
+              <button key={r} onClick={()=>setFilterRating(r)} style={{background:filterRating===r?C.accent:C.card,color:filterRating===r?C.bg:C.muted,border:`1px solid ${C.border}`,borderRadius:4,padding:"4px 8px",cursor:"pointer",fontSize:12,fontFamily:"inherit"}}>{r===0?"All":`${r}+`}</button>
             ))}
             <span style={{fontSize:12,color:C.muted,marginLeft:8}}>Sort:</span>
             {[["date","Date"],["rating","Rating"],["title","Title"]].map(([k,l])=>(
               <button key={k} onClick={()=>setSort(k)} style={{background:sort===k?C.accentDim:C.card,color:sort===k?C.accent:C.muted,border:`1px solid ${sort===k?C.accent:C.border}`,borderRadius:4,padding:"4px 10px",cursor:"pointer",fontSize:12,fontFamily:"inherit"}}>{l}</button>
             ))}
-            <Btn variant="ghost" onClick={onClose} style={{marginLeft:8}}>✕ Close</Btn>
+            <Btn variant="ghost" icon={X} onClick={onClose} style={{marginLeft:8}}>Close</Btn>
           </div>
         </div>
         <div style={{flex:1,overflowY:"auto",padding:24}}>
@@ -518,16 +624,14 @@ function FinishedShelfModal({books,sessions,genres,onClose,onBookClick}){
                 <div key={book.id} onClick={()=>onBookClick(book)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden",cursor:"pointer",transition:"border-color .2s"}}
                   onMouseEnter={e=>e.currentTarget.style.borderColor=C.accent}
                   onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
-                  <div style={{height:80,background:sc,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                    <div style={{writingMode:"vertical-rl",transform:"rotate(180deg)",fontFamily:font,fontSize:13,color:needsDarkText(sc)?"#1a0f05":"#f5e8d0",fontWeight:700,padding:"4px 0",textAlign:"center",maxHeight:76,overflow:"hidden"}}>
-                      {book.emoji||"📖"} {book.title}
-                    </div>
+                  <div style={{height:96,background:`linear-gradient(145deg, ${sc}22, ${sc}08)`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    <BookMarkIcon id={getBookIconId(book)} size={48}/>
                   </div>
                   <div style={{padding:12}}>
-                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:14,color:C.text,marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{book.title}</div>
+                    <div style={{fontFamily:"'Newsreader Variable',serif",fontSize:14,color:C.text,marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{book.title}</div>
                     <div style={{fontSize:12,color:C.muted,marginBottom:6}}>{book.author}</div>
                     <div style={{display:"flex",gap:1,marginBottom:4}}>
-                      {book.rating?[1,2,3,4,5].map(n=><span key={n} style={{fontSize:13,color:n<=Math.round(book.rating)?C.accent:C.border}}>★</span>):<span style={{fontSize:12,color:C.muted,fontStyle:"italic"}}>unrated</span>}
+                      {book.rating?[1,2,3,4,5].map(n=><span key={n} style={{fontSize:13,color:n<=Math.round(book.rating)?C.accent:C.border}}>{n<=Math.round(book.rating)?"★":"☆"}</span>):<span style={{fontSize:12,color:C.muted,fontStyle:"italic"}}>unrated</span>}
                     </div>
                     {dates.finishedAt&&<div style={{fontSize:11,color:C.muted}}>{dates.finishedAt}</div>}
                     {book.review&&<div style={{fontSize:11,color:C.muted,fontStyle:"italic",marginTop:4,overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>"{book.review}"</div>}
@@ -542,12 +646,12 @@ function FinishedShelfModal({books,sessions,genres,onClose,onBookClick}){
   );
 }
 
-// ─── Shelf Expand Modal ───────────────────────────────────────────────────────
+// --- Shelf Expand Modal -------------------------------------------------------
 function ShelfExpandModal({shelfName,books,sessions,genres,onClose,onBookClick}){
   return(
     <Modal onClose={onClose} wide>
-      <ModalTitle>{shelfName} — All Books ({books.length})</ModalTitle>
-      <div style={{display:"flex",flexWrap:"wrap",gap:4,padding:"12px 0",justifyContent:"flex-start",alignItems:"flex-end"}}>
+      <ModalTitle>{shelfName} - All Books ({books.length})</ModalTitle>
+      <div className="bb-book-tile-grid bb-modal-book-grid">
         {books.map(book=>(
           <BookSpine key={book.id} book={book} sessions={sessions} genres={genres} onClick={()=>{onBookClick(book);onClose();}} height={130}/>
         ))}
@@ -556,11 +660,23 @@ function ShelfExpandModal({shelfName,books,sessions,genres,onClose,onBookClick})
   );
 }
 
-// ─── Book Form Modal ──────────────────────────────────────────────────────────
+// --- Book Form Modal ----------------------------------------------------------
 function BookFormModal({title,initial,settings,onSave,onClose}){
   const genres=settings.genres||DEFAULT_GENRES;
   const allTags=settings.tags||DEFAULT_TAGS;
-  const[f,setF]=useState({title:"",author:"",genre:"",emoji:"📖",format:"paged",totalPages:"",totalMinutes:"",rating:"",review:"",...initial,tags:initial?.tags||""});
+  const[f,setF]=useState({
+    title:"",
+    author:"",
+    genre:"",
+    format:"paged",
+    totalPages:"",
+    totalMinutes:"",
+    rating:"",
+    review:"",
+    ...initial,
+    icon:normalizeIconId(initial?.icon || initial?.emoji),
+    tags:initial?.tags||"",
+  });
   const set=(k,v)=>setF(p=>({...p,[k]:v}));
   const[tagOpen,setTagOpen]=useState(false);
   const selectedTags=f.tags?f.tags.split(",").map(t=>t.trim()).filter(Boolean):[];
@@ -573,7 +689,7 @@ function BookFormModal({title,initial,settings,onSave,onClose}){
     if(!f.title.trim()||!f.author.trim())return alert("Title and author required");
     if(f.format==="paged"&&!f.totalPages)return alert("Total pages required");
     if(f.format==="audible"&&!f.totalMinutes)return alert("Total minutes required");
-    onSave({...f,totalPages:parseInt(f.totalPages)||0,totalMinutes:parseInt(f.totalMinutes)||0,rating:f.rating?parseFloat(f.rating):null});
+    onSave({...f,icon:normalizeIconId(f.icon),emoji:"",totalPages:parseInt(f.totalPages)||0,totalMinutes:parseInt(f.totalMinutes)||0,rating:f.rating?parseFloat(f.rating):null});
   };
   return(
     <Modal onClose={onClose}>
@@ -582,7 +698,7 @@ function BookFormModal({title,initial,settings,onSave,onClose}){
         <div style={{gridColumn:"1/-1",display:"flex",gap:12,alignItems:"flex-start"}}>
           <div>
             <label style={{display:"block",fontSize:11,textTransform:"uppercase",letterSpacing:".08em",color:C.muted,marginBottom:5}}>Icon</label>
-            <EmojiPicker value={f.emoji} onChange={v=>set("emoji",v)}/>
+            <BookIconPicker value={f.icon} onChange={v=>set("icon",v)}/>
           </div>
           <div style={{flex:1}}>
             <Field label="Title *"><Input value={f.title} onChange={e=>set("title",e.target.value)} placeholder="Book title"/></Field>
@@ -592,18 +708,18 @@ function BookFormModal({title,initial,settings,onSave,onClose}){
         <Field label="Genre">
           <select value={f.genre} onChange={e=>set("genre",e.target.value)}
             style={{width:"100%",background:C.bg,border:`1px solid ${C.border}`,color:f.genre?C.text:C.muted,padding:"8px 12px",borderRadius:4,fontSize:14,outline:"none"}}>
-            <option value="">— Select genre —</option>
+            <option value="">Select genre</option>
             {genres.map(g=><option key={g.name} value={g.name}>{g.name}</option>)}
           </select>
         </Field>
-        <Field label="Rating (0–5)">
+        <Field label="Rating (0-5)">
           <Input type="number" min="0" max="5" step="0.5" value={f.rating} onChange={e=>set("rating",e.target.value)} placeholder="Optional"/>
         </Field>
         <div style={{gridColumn:"1/-1"}}>
           <label style={{display:"block",fontSize:11,textTransform:"uppercase",letterSpacing:".08em",color:C.muted,marginBottom:5}}>Tags</label>
           <div style={{position:"relative"}}>
             <button onClick={()=>setTagOpen(o=>!o)} style={{width:"100%",background:C.bg,border:`1px solid ${C.border}`,color:C.text,padding:"8px 12px",borderRadius:4,fontSize:13,cursor:"pointer",textAlign:"left",fontFamily:"inherit"}}>
-              {selectedTags.length?selectedTags.join(", "):<span style={{color:C.muted}}>— Select tags —</span>}
+              {selectedTags.length?selectedTags.join(", "):<span style={{color:C.muted}}>Select tags</span>}
             </button>
             {tagOpen&&(
               <div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:50,background:C.card,border:`1px solid ${C.border}`,borderRadius:4,padding:8,boxShadow:"0 4px 16px rgba(0,0,0,.5)"}}>
@@ -625,7 +741,7 @@ function BookFormModal({title,initial,settings,onSave,onClose}){
             <div style={{display:"flex",gap:8}}>
               {["paged","audible"].map(fmt=>(
                 <button key={fmt} onClick={()=>set("format",fmt)} style={{flex:1,padding:"8px",background:f.format===fmt?C.accent:C.bg,color:f.format===fmt?C.bg:C.muted,border:`1px solid ${f.format===fmt?C.accent:C.border}`,borderRadius:4,cursor:"pointer",fontFamily:"inherit",fontSize:14}}>
-                  {fmt==="paged"?"📖 Paged":"🎧 Audible"}
+                  {fmt==="paged"?"Paged":"Audible"}
                 </button>
               ))}
             </div>
@@ -642,7 +758,7 @@ function BookFormModal({title,initial,settings,onSave,onClose}){
   );
 }
 
-// ─── Session Form Modal ───────────────────────────────────────────────────────
+// --- Session Form Modal -------------------------------------------------------
 function SessionFormModal({books,prefillBook,initial,sessions,onSave,onClose}){
   const[bookId,setBookId]=useState(initial?.bookId||prefillBook?.id||books[0]?.id||"");
   const[date,setDate]=useState(initial?.date?.slice(0,16)||new Date().toISOString().slice(0,16));
@@ -665,8 +781,8 @@ function SessionFormModal({books,prefillBook,initial,sessions,onSave,onClose}){
       <ModalTitle>{initial?"Edit Session":"Log Reading Session"}</ModalTitle>
       <Field label="Book">
         <select value={bookId} onChange={e=>setBookId(e.target.value)} style={{width:"100%",background:C.bg,border:`1px solid ${C.border}`,color:C.text,padding:"8px 12px",borderRadius:4,fontSize:14,outline:"none"}}>
-          <option value="">— Select book —</option>
-          {books.map(b=><option key={b.id} value={b.id}>{b.emoji||"📖"} {b.title} {b.format==="audible"?"🎧":""}</option>)}
+          <option value="">Select book</option>
+          {books.map(b=><option key={b.id} value={b.id}>{b.title}{b.format==="audible"?" (Audio)":""}</option>)}
         </select>
       </Field>
       {selBook&&progress&&(
@@ -694,7 +810,7 @@ function SessionFormModal({books,prefillBook,initial,sessions,onSave,onClose}){
   );
 }
 
-// ─── Book Detail Modal ────────────────────────────────────────────────────────
+// --- Book Detail Modal --------------------------------------------------------
 function BookDetailModal({book,sessions,settings,genres,getProgress,onClose,onEdit,onDelete,onAddSession,onEditSession,onDeleteSession,onEditReview}){
   const[confirm,setConfirm]=useState(false);
   const[confirmSessId,setConfirmSessId]=useState(null);
@@ -714,14 +830,12 @@ function BookDetailModal({book,sessions,settings,genres,getProgress,onClose,onEd
   return(
     <Modal onClose={onClose} wide>
       <div style={{display:"flex",gap:20,marginBottom:20,alignItems:"flex-start"}}>
-        <div style={{width:52,height:160,background:sc,borderRadius:"3px 5px 5px 3px",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"3px 0 12px rgba(0,0,0,.6)"}}>
-          <div style={{writingMode:"vertical-rl",transform:"rotate(180deg)",fontFamily:font,fontSize:11,color:needsDarkText(sc)?"#1a0f05":"#f5e8d0",fontWeight:700,padding:4,textAlign:"center",maxHeight:150,overflow:"hidden"}}>
-            {book.emoji} {book.title}
-          </div>
+        <div className="bb-detail-icon-card" style={{"--book-tone":sc}}>
+          <BookMarkIcon id={getBookIconId(book)} size={54}/>
         </div>
         <div style={{flex:1,minWidth:0}}>
           <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8,marginBottom:4}}>
-            <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:22,color:C.text,lineHeight:1.2}}>{book.emoji} {book.title}</h2>
+            <h2 style={{fontFamily:"'Newsreader Variable',serif",fontSize:22,color:C.text,lineHeight:1.2}}>{book.title}</h2>
             <span style={{background:statusColors[status]+"30",color:statusColors[status],borderRadius:12,padding:"3px 12px",fontSize:12,whiteSpace:"nowrap",border:`1px solid ${statusColors[status]}40`}}>{statusLabels[status]}</span>
           </div>
           <p style={{color:C.muted,fontSize:15,marginBottom:8}}>{book.author}</p>
@@ -729,7 +843,7 @@ function BookDetailModal({book,sessions,settings,genres,getProgress,onClose,onEd
           {tags.map(t=><Tag key={t}>{t}</Tag>)}
           {isFinished&&book.rating&&(
             <div style={{marginTop:8,display:"flex",alignItems:"center",gap:6}}>
-              {[1,2,3,4,5].map(n=><span key={n} style={{fontSize:18,color:n<=Math.round(book.rating)?C.accent:C.border}}>★</span>)}
+              {[1,2,3,4,5].map(n=><span key={n} style={{fontSize:18,color:n<=Math.round(book.rating)?C.accent:C.border}}>{n<=Math.round(book.rating)?"★":"☆"}</span>)}
               <span style={{color:C.muted,fontSize:13,marginLeft:2}}>{book.rating}/5</span>
             </div>
           )}
@@ -762,14 +876,14 @@ function BookDetailModal({book,sessions,settings,genres,getProgress,onClose,onEd
       </div>
 
       <div style={{marginBottom:16}}>
-        <div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:10}}>📖 Reading Log ({bookSessions.length})</div>
+        <div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:10}}>Reading Log ({bookSessions.length})</div>
         {bookSessions.length===0&&<p style={{color:C.muted,fontSize:13,fontStyle:"italic"}}>No sessions yet.</p>}
         <div style={{maxHeight:180,overflowY:"auto"}}>
           {bookSessions.map(s=>(
             <div key={s.id} style={{display:"flex",gap:8,alignItems:"center",padding:"7px 0",borderBottom:`1px solid ${C.border}`}}>
               <div style={{flex:1,fontSize:13,color:C.muted}}>
                 <span style={{color:C.text}}>{s.date.slice(0,10)}</span>
-                <span style={{marginLeft:8}}>→ {isAudio?formatMinutes(s.endValue):`p.${s.endValue}`}</span>
+                <span style={{marginLeft:8}}>{isAudio?formatMinutes(s.endValue):`p.${s.endValue}`}</span>
                 {s.durationMinutes&&<span style={{marginLeft:6}}>({s.durationMinutes}min)</span>}
                 {s.isCorrection&&<span style={{color:C.red,marginLeft:6}}>[correction]</span>}
               </div>
@@ -777,7 +891,7 @@ function BookDetailModal({book,sessions,settings,genres,getProgress,onClose,onEd
               {confirmSessId===s.id?(
                 <><Btn variant="danger" style={{padding:"3px 8px",fontSize:11}} onClick={()=>{onDeleteSession(s.id);setConfirmSessId(null);}}>Del</Btn>
                 <Btn variant="small" onClick={()=>setConfirmSessId(null)}>No</Btn></>
-              ):<Btn variant="small" style={{color:C.red}} onClick={()=>setConfirmSessId(s.id)}>×</Btn>}
+              ):<Btn variant="small" style={{color:C.red}} onClick={()=>setConfirmSessId(s.id)}>Remove</Btn>}
             </div>
           ))}
         </div>
@@ -797,8 +911,8 @@ function BookDetailModal({book,sessions,settings,genres,getProgress,onClose,onEd
   );
 }
 
-// ─── Bookshelf Page ───────────────────────────────────────────────────────────
-const MAX_SHELF = 22;
+// --- Bookshelf Page -----------------------------------------------------------
+const MAX_SHELF = 8;
 
 function BookshelfPage({books,sessions,genres,searchQuery,getProgress,onAddBook,onBookClick}){
   const[expandShelf,setExpandShelf]=useState(null);
@@ -809,8 +923,8 @@ function BookshelfPage({books,sessions,genres,searchQuery,getProgress,onAddBook,
   const filtered=q?books.filter(b=>[b.title,b.author,b.genre,b.tags].some(f=>f?.toLowerCase().includes(q))):books;
 
   const shelves=[
-    {key:"want",  label:"Want to Read 🔖",  emptyMsg:"Add books you want to read"},
-    {key:"reading",label:"Currently Reading 📖",emptyMsg:"Start a session to move books here"},
+    {key:"want",  label:"Want to Read",  emptyMsg:"Add books you want to read"},
+    {key:"reading",label:"Currently Reading",emptyMsg:"Start a session to move books here"},
   ];
 
   const sortBooks=(bs,key)=>{
@@ -822,13 +936,28 @@ function BookshelfPage({books,sessions,genres,searchQuery,getProgress,onAddBook,
     return[...bs].sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||""));
   };
 
+  const statusCounts = {
+    want: filtered.filter(b=>getBookStatus(b,sessions)==="want").length,
+    reading: filtered.filter(b=>getBookStatus(b,sessions)==="reading").length,
+    finished: filtered.filter(b=>getBookStatus(b,sessions)==="finished").length,
+  };
+
   return(
-    <div>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24}}>
-        <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:C.text}}>
-          My Library <span style={{color:C.muted,fontSize:16}}>({books.length} books)</span>
-        </h2>
-        <Btn onClick={onAddBook}>+ Add Book</Btn>
+    <div className="bb-library-page bb-page-reveal">
+      <div className="bb-library-hero">
+        <div>
+          <p className="bb-kicker">Bookshelf</p>
+          <h2>Your reading room.</h2>
+          <p>Browse what is queued, in progress, and finished without the old cramped shelf rails.</p>
+        </div>
+        <div className="bb-library-hero-actions">
+          <div className="bb-library-mini-stats">
+            <span><strong>{books.length}</strong> books</span>
+            <span><strong>{statusCounts.reading}</strong> reading</span>
+            <span><strong>{statusCounts.finished}</strong> finished</span>
+          </div>
+          <Btn icon={Plus} onClick={onAddBook}>Add Book</Btn>
+        </div>
       </div>
 
       {shelves.map(shelf=>{
@@ -836,31 +965,34 @@ function BookshelfPage({books,sessions,genres,searchQuery,getProgress,onAddBook,
         const visible=shelfBooks.slice(0,MAX_SHELF);
         const hiddenCount=shelfBooks.length-MAX_SHELF;
         return(
-          <div key={shelf.key} style={{marginBottom:32}}>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:0}}>
-              <button onClick={()=>setExpandShelf(shelf.key)} style={{fontFamily:"'Playfair Display',serif",fontSize:16,color:C.text,background:"none",border:"none",cursor:"pointer",padding:"8px 0",display:"flex",alignItems:"center",gap:8}}>
-                {shelf.label}
-                <span style={{background:C.accentDim,color:C.accent,borderRadius:12,padding:"1px 10px",fontSize:12}}>{shelfBooks.length}</span>
-              </button>
+          <section key={shelf.key} className="bb-shelf-section">
+            <div className="bb-shelf-header">
+              <div>
+                <h3>{shelf.label}</h3>
+                <p>{shelfBooks.length ? `${shelfBooks.length} books` : shelf.emptyMsg}</p>
+              </div>
+              {shelfBooks.length>MAX_SHELF&&<Btn variant="ghost" onClick={()=>setExpandShelf(shelf.key)}>View all</Btn>}
             </div>
-            {/* The shelf */}
-            <div style={{background:C.shelfWood,borderRadius:"4px 4px 0 0",padding:"10px 16px 0 16px",minHeight:shelfBooks.length?168:100,position:"relative"}}>
-              <div style={{display:"flex",gap:3,alignItems:"flex-end",overflowX:"hidden",paddingBottom:2}}>
-                {shelfBooks.length===0?(
-                  <p style={{color:C.muted,fontSize:13,fontStyle:"italic",padding:"24px 0",textAlign:"center",width:"100%"}}>{shelf.emptyMsg}</p>
-                ):visible.map(book=>(
+            {shelfBooks.length===0?(
+              <div className="bb-shelf-empty">
+                <BookOpenText size={34} weight="duotone"/>
+                <span>{shelf.emptyMsg}</span>
+              </div>
+            ):(
+              <div className="bb-book-tile-grid">
+                {visible.map(book=>(
                   <BookSpine key={book.id} book={book} sessions={sessions} genres={genres} onClick={()=>onBookClick(book)} height={140}/>
                 ))}
                 {hiddenCount>0&&(
-                  <button onClick={()=>setExpandShelf(shelf.key)} style={{width:32,height:140,background:"rgba(255,255,255,.06)",border:`1px dashed ${C.border}`,borderRadius:"2px 3px 3px 2px",color:C.muted,fontSize:10,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,flexShrink:0,fontFamily:"inherit"}}>
-                    <span style={{fontSize:14}}>+</span><span>{hiddenCount}</span>
+                  <button className="bb-more-books-card" onClick={()=>setExpandShelf(shelf.key)}>
+                    <Plus size={24} weight="duotone"/>
+                    <strong>{hiddenCount} more</strong>
+                    <span>Open shelf</span>
                   </button>
                 )}
               </div>
-            </div>
-            {/* Shelf plank */}
-            <div style={{background:C.shelfPlank,height:14,borderRadius:"0 0 4px 4px",boxShadow:"0 4px 16px rgba(0,0,0,.5)"}}/>
-          </div>
+            )}
+          </section>
         );
       })}
 
@@ -870,30 +1002,34 @@ function BookshelfPage({books,sessions,genres,searchQuery,getProgress,onAddBook,
         const visible = finishedBooks.slice(0, MAX_SHELF);
         const hiddenCount = finishedBooks.length - MAX_SHELF;
         return (
-          <div style={{marginBottom:32}}>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:0}}>
-              <button onClick={()=>setShowFinished(true)} style={{fontFamily:"'Playfair Display',serif",fontSize:16,color:C.green,background:"none",border:"none",cursor:"pointer",padding:"8px 0",display:"flex",alignItems:"center",gap:8}}>
-                Finished ✅
-                <span style={{background:"rgba(90,158,106,.15)",color:C.green,borderRadius:12,padding:"1px 10px",fontSize:12}}>{finishedBooks.length}</span>
-                <span style={{fontSize:12,color:C.muted,fontFamily:"'Crimson Pro',serif"}}>· Click to browse</span>
-              </button>
+          <section className="bb-shelf-section bb-shelf-section-finished">
+            <div className="bb-shelf-header">
+              <div>
+                <h3>Finished</h3>
+                <p>{finishedBooks.length ? `${finishedBooks.length} completed books` : "Finish a book to see it here"}</p>
+              </div>
+              {finishedBooks.length>0&&<Btn variant="ghost" onClick={()=>setShowFinished(true)}>Browse finished</Btn>}
             </div>
-            <div style={{background:"linear-gradient(180deg,#1a3a14 0%,#0e2008 60%,#0a1806 100%)",borderRadius:"4px 4px 0 0",padding:"10px 16px 0 16px",minHeight:finishedBooks.length?168:80,position:"relative"}}>
-              <div style={{display:"flex",gap:3,alignItems:"flex-end",overflowX:"hidden",paddingBottom:2}}>
-                {finishedBooks.length===0?(
-                  <p style={{color:"#3a6a3a",fontSize:13,fontStyle:"italic",padding:"24px 0",textAlign:"center",width:"100%"}}>Finish a book to see it here</p>
-                ):visible.map(book=>(
+            {finishedBooks.length===0?(
+              <div className="bb-shelf-empty">
+                <CheckCircle size={34} weight="duotone"/>
+                <span>Finish a book to see it here</span>
+              </div>
+            ):(
+              <div className="bb-book-tile-grid">
+                {visible.map(book=>(
                   <BookSpine key={book.id} book={book} sessions={sessions} genres={genres} onClick={()=>setFinishedBook(book)} height={140}/>
                 ))}
                 {hiddenCount>0&&(
-                  <button onClick={()=>setShowFinished(true)} style={{width:32,height:140,background:"rgba(255,255,255,.06)",border:`1px dashed ${C.border}`,borderRadius:"2px 3px 3px 2px",color:C.muted,fontSize:10,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,flexShrink:0,fontFamily:"inherit"}}>
-                    <span style={{fontSize:14}}>+</span><span>{hiddenCount}</span>
+                  <button className="bb-more-books-card" onClick={()=>setShowFinished(true)}>
+                    <Plus size={24} weight="duotone"/>
+                    <strong>{hiddenCount} more</strong>
+                    <span>Browse finished</span>
                   </button>
                 )}
               </div>
-            </div>
-            <div style={{background:"linear-gradient(180deg,#2a5a20 0%,#1a3a12 40%,#0e2208 100%)",height:14,borderRadius:"0 0 4px 4px",boxShadow:"0 4px 16px rgba(0,0,0,.5)"}}/>
-          </div>
+            )}
+          </section>
         );
       })()}
 
@@ -926,7 +1062,7 @@ function BookshelfPage({books,sessions,genres,searchQuery,getProgress,onAddBook,
   );
 }
 
-// ─── Main / Dashboard ─────────────────────────────────────────────────────────
+// --- Main / Dashboard ---------------------------------------------------------
 function MainPage({books,sessions,settings,getProgress,getSessionDelta,getSessionPageEquiv,onAddSession,onEditSession,onDeleteSession,onBookClick}){
   const[confirmSessId,setConfirmSessId]=useState(null);
   const todayISO=todayStr();
@@ -944,20 +1080,20 @@ function MainPage({books,sessions,settings,getProgress,getSessionDelta,getSessio
   return(
     <div>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
-        <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:C.text}}>Dashboard</h2>
+        <h2 style={{fontFamily:"'Newsreader Variable',serif",fontSize:24,color:C.text}}>Dashboard</h2>
         <Btn onClick={onAddSession}>+ Log Session</Btn>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:12,marginBottom:24}}>
-        {[{num:todayPages,label:"Pages Today"},{num:weekPages,label:"Pages This Week"},{num:`${streak}🔥`,label:"Day Streak"},{num:`${finishedBooks}/${books.length}`,label:"Books Finished"}].map(({num,label})=>(
+        {[{num:todayPages,label:"Pages Today"},{num:weekPages,label:"Pages This Week"},{num:streak,label:"Day Streak"},{num:`${finishedBooks}/${books.length}`,label:"Books Finished"}].map(({num,label})=>(
           <div key={label} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:16}}>
-            <div style={{fontFamily:"'Playfair Display',serif",fontSize:28,color:C.accent,lineHeight:1}}>{num}</div>
+            <div style={{fontFamily:"'Newsreader Variable',serif",fontSize:28,color:C.accent,lineHeight:1}}>{num}</div>
             <div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".06em",marginTop:5}}>{label}</div>
           </div>
         ))}
       </div>
       {readingNow.length>0&&(
         <div style={{marginBottom:24}}>
-          <h3 style={{fontFamily:"'Playfair Display',serif",fontSize:17,color:C.muted,marginBottom:12}}>Currently Reading</h3>
+          <h3 style={{fontFamily:"'Newsreader Variable',serif",fontSize:17,color:C.muted,marginBottom:12}}>Currently Reading</h3>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:10}}>
             {readingNow.map(book=>{
               const prog=getProgress(book);
@@ -966,9 +1102,9 @@ function MainPage({books,sessions,settings,getProgress,getSessionDelta,getSessio
                 <div key={book.id} onClick={()=>onBookClick(book)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:14,cursor:"pointer",display:"flex",gap:12}}
                   onMouseEnter={e=>e.currentTarget.style.borderColor=C.accent}
                   onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
-                  <div style={{fontSize:28,lineHeight:1}}>{book.emoji||"📖"}</div>
+                  <BookMarkIcon id={getBookIconId(book)} size={34}/>
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:14,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{book.title}</div>
+                    <div style={{fontFamily:"'Newsreader Variable',serif",fontSize:14,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{book.title}</div>
                     <div style={{fontSize:12,color:C.muted,marginBottom:5}}>{book.author}</div>
                     <ProgressBar percent={prog.percent} h={3}/>
                     <div style={{display:"flex",justifyContent:"space-between",marginTop:3,fontSize:12}}>
@@ -982,7 +1118,7 @@ function MainPage({books,sessions,settings,getProgress,getSessionDelta,getSessio
           </div>
         </div>
       )}
-      <h3 style={{fontFamily:"'Playfair Display',serif",fontSize:17,color:C.muted,marginBottom:12}}>📖 Reading Log</h3>
+      <h3 style={{fontFamily:"'Newsreader Variable',serif",fontSize:17,color:C.muted,marginBottom:12}}>Reading Log</h3>
       {recent.length===0&&<p style={{color:C.muted,fontSize:13,fontStyle:"italic"}}>No sessions yet!</p>}
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,overflow:"hidden"}}>
         {recent.map((s,i)=>{
@@ -992,11 +1128,11 @@ function MainPage({books,sessions,settings,getProgress,getSessionDelta,getSessio
           const isAudio=book?.format==="audible";
           return(
             <div key={s.id} style={{display:"flex",gap:12,alignItems:"center",padding:"11px 16px",borderBottom:i<recent.length-1?`1px solid ${C.border}`:"none"}}>
-              <div style={{fontSize:20}}>{book?.emoji||"📖"}</div>
+              <BookMarkIcon id={getBookIconId(book)} size={30}/>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontFamily:"'Playfair Display',serif",fontSize:13,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{book?.title||"Unknown"}</div>
+                <div style={{fontFamily:"'Newsreader Variable',serif",fontSize:13,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{book?.title||"Unknown"}</div>
                 <div style={{fontSize:12,color:C.muted}}>
-                  {s.date.slice(0,10)} · {isAudio?`${formatMinutes(s.endValue)} elapsed`:`page ${s.endValue}`}
+                  {s.date.slice(0,10)} - {isAudio?`${formatMinutes(s.endValue)} elapsed`:`page ${s.endValue}`}
                   {delta>0&&<span style={{color:C.accent,marginLeft:6}}>+{isAudio?formatMinutes(delta):`${delta}pg`}</span>}
                   {s.durationMinutes&&<span style={{marginLeft:6}}>({s.durationMinutes}min)</span>}
                 </div>
@@ -1007,7 +1143,7 @@ function MainPage({books,sessions,settings,getProgress,getSessionDelta,getSessio
                 {confirmSessId===s.id?(<>
                   <Btn variant="danger" style={{padding:"3px 8px",fontSize:11}} onClick={()=>{onDeleteSession(s.id);setConfirmSessId(null);}}>Del</Btn>
                   <Btn variant="small" onClick={()=>setConfirmSessId(null)}>No</Btn>
-                </>):<Btn variant="small" style={{color:C.red}} onClick={()=>setConfirmSessId(s.id)}>×</Btn>}
+                </>):<Btn variant="small" style={{color:C.red}} onClick={()=>setConfirmSessId(s.id)}>Remove</Btn>}
               </div>
             </div>
           );
@@ -1017,7 +1153,7 @@ function MainPage({books,sessions,settings,getProgress,getSessionDelta,getSessio
   );
 }
 
-// ─── SVG Line Chart ───────────────────────────────────────────────────────────
+// --- SVG Line Chart -----------------------------------------------------------
 function CumulativeLineChart({goal,goalSessions,getSessionPageEquiv,overallRate}){
   const W=560,H=160,ML=44,MB=28,MR=12,MT=12;
   const PW=W-ML-MR,PH=H-MT-MB;
@@ -1094,7 +1230,7 @@ function CumulativeLineChart({goal,goalSessions,getSessionPageEquiv,overallRate}
   );
 }
 
-// ─── 12-Segment Bar Chart ─────────────────────────────────────────────────────
+// --- 12-Segment Bar Chart -----------------------------------------------------
 function SegmentBarChart({goal,goalSessions,getSessionPageEquiv,overallRate}){
   const W=560,H=180,ML=44,MB=40,MR=12,MT=16;
   const PW=W-ML-MR,PH=H-MT-MB;
@@ -1180,7 +1316,7 @@ function SegmentBarChart({goal,goalSessions,getSessionPageEquiv,overallRate}){
   );
 }
 
-// ─── Day-of-Week Bar ──────────────────────────────────────────────────────────
+// --- Day-of-Week Bar ----------------------------------------------------------
 function DayOfWeekBar({totals}){
   const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const max=Math.max(...totals,1);
@@ -1196,7 +1332,7 @@ function DayOfWeekBar({totals}){
   );
 }
 
-// ─── Dual Donut Wheel ─────────────────────────────────────────────────────────
+// --- Dual Donut Wheel ---------------------------------------------------------
 function DualDonut({outerPct,innerPct,statusLabel,statusColor,size=180}){
   const cx=size/2,cy=size/2,outerR=size*.41,innerR=size*.28,sw=size*.09;
   const dash=(r,pct)=>{const c=2*Math.PI*r,f=Math.min(Math.max(pct,0),100)/100*c;return{da:`${f} ${c}`,off:-(c/4)};};
@@ -1212,14 +1348,14 @@ function DualDonut({outerPct,innerPct,statusLabel,statusColor,size=180}){
       </svg>
       <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1}}>
         {lines.map((l,i)=>(
-          <div key={i} style={{fontSize:size*.073,fontWeight:700,color:statusColor,textAlign:"center",fontFamily:"'Playfair Display',serif",lineHeight:1.2}}>{l}</div>
+          <div key={i} style={{fontSize:size*.073,fontWeight:700,color:statusColor,textAlign:"center",fontFamily:"'Newsreader Variable',serif",lineHeight:1.2}}>{l}</div>
         ))}
       </div>
     </div>
   );
 }
 
-// ─── Goal Analytics ───────────────────────────────────────────────────────────
+// --- Goal Analytics -----------------------------------------------------------
 function GoalAnalytics({goal,books,sessions,settings,getSessionPageEquiv}){
   const now=new Date(),start=new Date(goal.startDate),end=new Date(goal.endDate);
   const totalDays=Math.max(1,(end-start)/86400000);
@@ -1259,7 +1395,7 @@ function GoalAnalytics({goal,books,sessions,settings,getSessionPageEquiv}){
   const bestWeek=weekValues.length?Math.max(...weekValues):0;
   const worstWeek=weekValues.length?Math.min(...weekValues):0;
   const avgWeekly=weekValues.length?Math.round(weekValues.reduce((a,b)=>a+b,0)/weekValues.length):0;
-  const sessPerWeek=weekValues.length?(goalSessions.length/weekValues.length).toFixed(1):"—";
+  const sessPerWeek=weekValues.length?(goalSessions.length/weekValues.length).toFixed(1):"-";
   const bestWeekDate=Object.entries(weeklyTotals).find(([,v])=>v===bestWeek)?.[0];
   const worstWeekDate=Object.entries(weeklyTotals).find(([,v])=>v===worstWeek)?.[0];
 
@@ -1299,7 +1435,7 @@ function GoalAnalytics({goal,books,sessions,settings,getSessionPageEquiv}){
   const projEndPct=goal.target>0?Math.min(200,Math.round((projEndTotal/goal.target)*100)):0;
   const minDailyNeeded=remainingDays>0?(remaining/remainingDays).toFixed(1):"0";
   const momentumRatio=prior7Total>0?last7Total/prior7Total:(last7Total>0?2:1);
-  const momentum=momentumRatio>=1.1?"Increasing 📈":momentumRatio<=0.9?"Declining 📉":"Flat ➡️";
+  const momentum=momentumRatio>=1.1?"Increasing":momentumRatio<=0.9?"Declining":"Flat";
   const momentumColor=momentumRatio>=1.1?C.green:momentumRatio<=0.9?C.red:C.muted;
   const confidence=goalSessions.length>=15&&consistencyScore>=50?"High":goalSessions.length>=5?"Medium":"Low";
   const confColor=confidence==="High"?C.green:confidence==="Medium"?C.accent:C.red;
@@ -1320,14 +1456,14 @@ function GoalAnalytics({goal,books,sessions,settings,getSessionPageEquiv}){
 
   const RateCard=(label,rate,color)=>(
     <FlipCard height={104}
-      front={<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:5}}>{label}</div><div style={{fontFamily:"'Playfair Display',serif",fontSize:24,color,lineHeight:1}}>{isFinite(rate)?rate.toFixed(1):"—"}</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>{unit}/day</div></>}
-      back={<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:5}}>{label}</div><div style={{fontFamily:"'Playfair Display',serif",fontSize:24,color,lineHeight:1}}>{isFinite(rate)?Math.round(rate*7):"—"}</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>{unit}/week</div></>}
+      front={<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:5}}>{label}</div><div style={{fontFamily:"'Newsreader Variable',serif",fontSize:24,color,lineHeight:1}}>{isFinite(rate)?rate.toFixed(1):"-"}</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>{unit}/day</div></>}
+      back={<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:5}}>{label}</div><div style={{fontFamily:"'Newsreader Variable',serif",fontSize:24,color,lineHeight:1}}>{isFinite(rate)?Math.round(rate*7):"-"}</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>{unit}/week</div></>}
     />
   );
 
   return(
     <div>
-      {/* ── CORE METRICS ── */}
+      {/* -- CORE METRICS -- */}
       {gs.showCoreMetrics!==false&&(
         <>
           <div style={{display:"flex",gap:20,alignItems:"center",marginBottom:16,flexWrap:"wrap"}}>
@@ -1346,11 +1482,11 @@ function GoalAnalytics({goal,books,sessions,settings,getSessionPageEquiv}){
             <div style={{flex:1,minWidth:200,display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
               <StatCard label="Done" value={completed} sub={`of ${goal.target} ${unit}`}/>
               <FlipCard height={94}
-                front={<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:5}}>Remaining</div><div style={{fontFamily:"'Playfair Display',serif",fontSize:22,color:C.muted,lineHeight:1}}>{remaining}</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>{unit} left</div></>}
-                back={<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:5}}>Remaining</div><div style={{fontFamily:"'Playfair Display',serif",fontSize:22,color:C.blue,lineHeight:1}}>{Math.round(remainingDays)}</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>days left</div></>}
+                front={<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:5}}>Remaining</div><div style={{fontFamily:"'Newsreader Variable',serif",fontSize:22,color:C.muted,lineHeight:1}}>{remaining}</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>{unit} left</div></>}
+                back={<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:5}}>Remaining</div><div style={{fontFamily:"'Newsreader Variable',serif",fontSize:22,color:C.blue,lineHeight:1}}>{Math.round(remainingDays)}</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>days left</div></>}
               />
               <div style={{gridColumn:"1/-1",background:healthColor+"18",border:`1px solid ${healthColor}40`,borderRadius:6,padding:"12px 14px"}}>
-                <div style={{fontSize:12,color:healthColor,fontFamily:"'Playfair Display',serif",lineHeight:1.4}}>
+                <div style={{fontSize:12,color:healthColor,fontFamily:"'Newsreader Variable',serif",lineHeight:1.4}}>
                   {librarianSays(aheadBy,consistencyScore,goal.id)}
                 </div>
               </div>
@@ -1359,29 +1495,29 @@ function GoalAnalytics({goal,books,sessions,settings,getSessionPageEquiv}){
         </>
       )}
 
-      {/* ── RATE CARDS ── */}
+      {/* -- RATE CARDS -- */}
       {gs.showRateStats!==false&&goalSessions.length>0&&(
         <>
-          <SectionHead>Rate & Sessions <span style={{fontStyle:"italic",textTransform:"none",letterSpacing:0,fontSize:10}}>· click to flip day↔week</span></SectionHead>
+          <SectionHead>Rate & Sessions <span style={{fontStyle:"italic",textTransform:"none",letterSpacing:0,fontSize:10}}>click cards to flip day/week</span></SectionHead>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(155px,1fr))",gap:10,marginBottom:12}}>
             {RateCard("Current Rate (7d)",last7Total/7,C.accent)}
             {RateCard("Goal Rate",goalRate,C.blue)}
             {RateCard("Needed Rate",neededRate,neededRate<=overallRate?C.green:C.red)}
             <FlipCard height={104}
-              front={<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:5}}>Avg Session</div><div style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:C.accent,lineHeight:1}}>{avgSession}</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>{unit}</div></>}
-              back={<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:5}}>Median Session</div><div style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:C.accent,lineHeight:1}}>{medianSession}</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>{unit}</div></>}
+              front={<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:5}}>Avg Session</div><div style={{fontFamily:"'Newsreader Variable',serif",fontSize:24,color:C.accent,lineHeight:1}}>{avgSession}</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>{unit}</div></>}
+              back={<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:5}}>Median Session</div><div style={{fontFamily:"'Newsreader Variable',serif",fontSize:24,color:C.accent,lineHeight:1}}>{medianSession}</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>{unit}</div></>}
             />
             <FlipCard height={104}
-              front={<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:5}}>Best Week</div><div style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:C.green,lineHeight:1}}>{bestWeek}</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>{bestWeekDate||"—"}</div></>}
-              back={<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:5}}>Worst Week</div><div style={{fontFamily:"'Playfair Display',serif",fontSize:24,color:C.red,lineHeight:1}}>{worstWeek}</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>{worstWeekDate||"—"}</div></>}
+              front={<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:5}}>Best Week</div><div style={{fontFamily:"'Newsreader Variable',serif",fontSize:24,color:C.green,lineHeight:1}}>{bestWeek}</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>{bestWeekDate||"-"}</div></>}
+              back={<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:5}}>Worst Week</div><div style={{fontFamily:"'Newsreader Variable',serif",fontSize:24,color:C.red,lineHeight:1}}>{worstWeek}</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>{worstWeekDate||"-"}</div></>}
             />
             <StatCard label="Avg Weekly" value={avgWeekly} sub={`${sessPerWeek} sess/wk`}/>
-            <StatCard label="Longest Session" value={longestSession} sub={longestSessionDate||"—"}/>
+            <StatCard label="Longest Session" value={longestSession} sub={longestSessionDate||"-"}/>
           </div>
         </>
       )}
 
-      {/* ── PROJECTIONS ── */}
+      {/* -- PROJECTIONS -- */}
       {gs.showProjections!==false&&(
         <>
           <SectionHead>Projections & Forecast</SectionHead>
@@ -1393,7 +1529,7 @@ function GoalAnalytics({goal,books,sessions,settings,getSessionPageEquiv}){
           </div>
           {projFinish&&(
             <div style={{background:onTrack?C.green+"15":C.red+"15",border:`1px solid ${onTrack?C.green:C.red}40`,borderRadius:6,padding:14,marginBottom:10}}>
-              <div style={{fontSize:13,color:onTrack?C.green:C.red,fontWeight:600}}>{onTrack?"✓ On Track":"⚠ Behind Pace"}</div>
+              <div style={{fontSize:13,color:onTrack?C.green:C.red,fontWeight:600}}>{onTrack?"On Track":"Behind Pace"}</div>
               <div style={{fontSize:13,color:C.muted,marginTop:4}}>At current pace: <span style={{color:C.text}}>{projFinish}</span>{earlyLate!==null&&<span style={{color:earlyLate>=0?C.green:C.red,marginLeft:6}}>({earlyLate>=0?`${earlyLate}d early`:`${Math.abs(earlyLate)}d late`})</span>}</div>
             </div>
           )}
@@ -1414,18 +1550,18 @@ function GoalAnalytics({goal,books,sessions,settings,getSessionPageEquiv}){
         </>
       )}
 
-      {/* ── TIME PATTERNS ── */}
+      {/* -- TIME PATTERNS -- */}
       {gs.showTimePatterns!==false&&goalSessions.length>0&&(
         <>
           <SectionHead>Time Patterns & Streaks</SectionHead>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(155px,1fr))",gap:10,marginBottom:10}}>
             <FlipCard height={104}
-              front={<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:5}}>Current Streak</div><div style={{fontFamily:"'Playfair Display',serif",fontSize:28,color:C.accent,lineHeight:1}}>{curStreak}</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>days 🔥</div></>}
-              back={<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:5}}>Best Streak</div><div style={{fontFamily:"'Playfair Display',serif",fontSize:28,color:C.green,lineHeight:1}}>{longestStreak}</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>days in goal</div></>}
+              front={<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:5}}>Current Streak</div><div style={{fontFamily:"'Newsreader Variable',serif",fontSize:28,color:C.accent,lineHeight:1}}>{curStreak}</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>days</div></>}
+              back={<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:5}}>Best Streak</div><div style={{fontFamily:"'Newsreader Variable',serif",fontSize:28,color:C.green,lineHeight:1}}>{longestStreak}</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>days in goal</div></>}
             />
             <FlipCard height={104}
-              front={<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:5}}>Consistency</div><div style={{fontFamily:"'Playfair Display',serif",fontSize:28,color:consistencyScore>=60?C.green:consistencyScore>=30?C.accent:C.red,lineHeight:1}}>{consistencyScore}%</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>{activeDaySet.size} of {totalElapsedInt} days</div></>}
-              back={<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:5}}>Zero Days</div><div style={{fontFamily:"'Playfair Display',serif",fontSize:28,color:C.muted,lineHeight:1}}>{zeroDays}</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>days skipped</div></>}
+              front={<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:5}}>Consistency</div><div style={{fontFamily:"'Newsreader Variable',serif",fontSize:28,color:consistencyScore>=60?C.green:consistencyScore>=30?C.accent:C.red,lineHeight:1}}>{consistencyScore}%</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>{activeDaySet.size} of {totalElapsedInt} days</div></>}
+              back={<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:5}}>Zero Days</div><div style={{fontFamily:"'Newsreader Variable',serif",fontSize:28,color:C.muted,lineHeight:1}}>{zeroDays}</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>days skipped</div></>}
             />
             <StatCard label="Avg/Active Day" value={avgPerActiveDay} sub="days you actually read"/>
             <StatCard label="Best Day of Week" value={DAYS[mostProductiveDow].slice(0,3)} sub={DAYS[mostProductiveDow]} color={C.green}/>
@@ -1438,7 +1574,7 @@ function GoalAnalytics({goal,books,sessions,settings,getSessionPageEquiv}){
         </>
       )}
 
-      {/* ── BOOK BREAKDOWN ── */}
+      {/* -- BOOK BREAKDOWN -- */}
       {gs.showBookBreakdown!==false&&finishedInGoal.length>0&&(
         <>
           <SectionHead>Book Breakdown</SectionHead>
@@ -1452,7 +1588,7 @@ function GoalAnalytics({goal,books,sessions,settings,getSessionPageEquiv}){
                 <div style={{height:5,background:C.border,borderRadius:3,overflow:"hidden",marginBottom:6}}>
                   <div style={{height:"100%",width:`${printPct}%`,background:C.accent,borderRadius:3}}/>
                 </div>
-                <div style={{fontSize:12,color:C.muted}}><span style={{color:C.accent}}>📖 {printPct}%</span> · <span style={{color:C.blue}}>🎧 {100-printPct}%</span></div>
+                <div style={{fontSize:12,color:C.muted}}><span style={{color:C.accent}}>Print {printPct}%</span> - <span style={{color:C.blue}}>Audio {100-printPct}%</span></div>
               </div>
             )}
           </div>
@@ -1460,22 +1596,22 @@ function GoalAnalytics({goal,books,sessions,settings,getSessionPageEquiv}){
             <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:14}}>
               <div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:10}}>Genre Distribution</div>
               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                {genreEntries.map(([g,c])=><div key={g} style={{background:C.accentDim,borderRadius:4,padding:"4px 10px",fontSize:12}}><span style={{color:C.accent}}>{g}</span> <span style={{color:C.muted}}>×{c}</span></div>)}
+                {genreEntries.map(([g,c])=><div key={g} style={{background:C.accentDim,borderRadius:4,padding:"4px 10px",fontSize:12}}><span style={{color:C.accent}}>{g}</span> <span style={{color:C.muted}}>x{c}</span></div>)}
               </div>
             </div>
           )}
         </>
       )}
 
-      {/* ── HIGHLIGHTS ── */}
+      {/* -- HIGHLIGHTS -- */}
       {gs.showMotivation!==false&&top3Days.length>0&&(
         <>
-          <SectionHead>📖 Reading Log Highlights</SectionHead>
+          <SectionHead>Reading Log Highlights</SectionHead>
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:16}}>
             <div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:12}}>Top 3 Most Productive Days</div>
             {top3Days.map(([date,pages],i)=>(
               <div key={date} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
-                <span style={{fontSize:16,width:22,textAlign:"center"}}>{["🥇","🥈","🥉"][i]}</span>
+                <span style={{fontSize:16,width:22,textAlign:"center"}}>{["1","2","3"][i]}</span>
                 <span style={{fontSize:13,color:C.muted,width:86,flexShrink:0}}>{date}</span>
                 <div style={{flex:1,height:5,background:C.border,borderRadius:2}}>
                   <div style={{height:"100%",width:`${(pages/top3Days[0][1])*100}%`,background:C.accent,borderRadius:2}}/>
@@ -1490,151 +1626,278 @@ function GoalAnalytics({goal,books,sessions,settings,getSessionPageEquiv}){
   );
 }
 
-// ─── Goals Page ───────────────────────────────────────────────────────────────
-function GoalsPage({goals,books,sessions,settings,selectedGoal,setSelectedGoal,getSessionPageEquiv,onAddGoal,onEditGoal,onDeleteGoal,onSettingsChange}){
-  const[confirmId,setConfirmId]=useState(null);
-  const[genreEditColor,setGenreEditColor]=useState(null);
-  const[newGenre,setNewGenre]=useState("");
-  const[newTag,setNewTag]=useState("");
+// --- Goals Dashboard ---------------------------------------------------------
+function getGoalSummary(goal, books, sessions, getSessionPageEquiv) {
+  const now = todayStr();
+  const start = new Date(goal.startDate);
+  const end = new Date(goal.endDate);
+  const totalDays = Math.max(1, (end - start) / 86400000);
+  const elapsedDays = Math.max(0, Math.min(totalDays, (new Date() - start) / 86400000));
+  const goalSessions = sessions.filter(s => {
+    const d = s.date.slice(0, 10);
+    return d >= goal.startDate && d <= goal.endDate && !s.isCorrection;
+  });
+  let completed = 0;
+  if (goal.type === "pages") {
+    completed = goalSessions.reduce((sum, session) => sum + getSessionPageEquiv(session), 0);
+  } else {
+    completed = books.filter(book => {
+      const dates = getBookDates(book, sessions);
+      return dates.finishedAt && dates.finishedAt >= goal.startDate && dates.finishedAt <= goal.endDate;
+    }).length;
+  }
+  const percent = goal.target > 0 ? Math.min(100, Math.round((completed / goal.target) * 100)) : 0;
+  const timePercent = Math.min(100, Math.round((elapsedDays / totalDays) * 100));
+  const aheadBy = goal.target > 0 ? (completed / goal.target) - (elapsedDays / totalDays) : 0;
+  const daysLeft = Math.max(0, Math.ceil((end - new Date()) / 86400000));
+  return {
+    completed,
+    percent,
+    timePercent,
+    remaining: Math.max(0, goal.target - completed),
+    unit: goal.type === "pages" ? "pages" : "books",
+    isActive: goal.endDate >= now,
+    daysLeft,
+    status: aheadBy >= 0.1 ? "Ahead" : aheadBy >= -0.05 ? "On track" : "Behind",
+    statusColor: aheadBy >= 0.1 ? C.green : aheadBy >= -0.05 ? C.accent : C.red,
+  };
+}
+
+function GoalPicker({goals,selectedGoal,setSelectedGoal,getGoalSummary,onAddGoal}){
   const now=todayStr();
   const activeGoals=goals.filter(g=>g.endDate>=now);
   const pastGoals=goals.filter(g=>g.endDate<now);
+  const GoalRow=({goal,muted=false})=>{
+    const summary=getGoalSummary(goal);
+    const active=selectedGoal?.id===goal.id;
+    return(
+      <button className={`bb-goal-row ${active?"is-active":""} ${muted?"is-muted":""}`} onClick={()=>setSelectedGoal(goal)}>
+        <span>
+          <strong>{goal.name}</strong>
+          <small>{summary.completed} of {goal.target} {summary.unit}</small>
+        </span>
+        <span className="bb-goal-row-percent">{summary.percent}%</span>
+      </button>
+    );
+  };
+  return(
+    <aside className="bb-goal-picker">
+      <div className="bb-panel-heading">
+        <div>
+          <h3>Goals</h3>
+          <p>{goals.length ? `${goals.length} reading plans` : "No plans yet"}</p>
+        </div>
+        <Btn icon={Plus} onClick={onAddGoal}>New</Btn>
+      </div>
+      <button className={`bb-goal-row ${!selectedGoal?"is-active":""}`} onClick={()=>setSelectedGoal(null)}>
+        <span>
+          <strong>All goals</strong>
+          <small>Overview and active plans</small>
+        </span>
+      </button>
+      {activeGoals.length>0&&<div className="bb-goal-group-label">Active</div>}
+      {activeGoals.map(goal=><GoalRow key={goal.id} goal={goal}/>)}
+      {pastGoals.length>0&&<div className="bb-goal-group-label">Past</div>}
+      {pastGoals.map(goal=><GoalRow key={goal.id} goal={goal} muted/>)}
+    </aside>
+  );
+}
+
+function GoalOverview({goals,books,sessions,getGoalSummary,onSelectGoal,onAddGoal}){
+  const activeGoals=goals.filter(goal=>getGoalSummary(goal).isActive);
+  const finishedBooks=books.filter(b=>getBookStatus(b,sessions)==="finished").length;
+  const avgProgress=goals.length?Math.round(goals.reduce((sum,goal)=>sum+getGoalSummary(goal).percent,0)/goals.length):0;
+  return(
+    <section className="bb-goal-overview">
+      <div className="bb-page-head bb-page-head-compact">
+        <div>
+          <p className="bb-kicker">Goals Dashboard</p>
+          <h2>Your reading plans, separated from settings.</h2>
+          <p>Track pace, confidence, and book momentum without digging through preferences.</p>
+        </div>
+        <Btn icon={Plus} onClick={onAddGoal}>New goal</Btn>
+      </div>
+      <div className="bb-overview-grid">
+        <StatCard label="Active goals" value={activeGoals.length}/>
+        <StatCard label="Average progress" value={`${avgProgress}%`}/>
+        <StatCard label="Finished books" value={finishedBooks}/>
+        <StatCard label="Total sessions" value={sessions.length}/>
+      </div>
+      {goals.length===0?(
+        <div className="bb-empty-state">
+          <Target size={42} weight="duotone"/>
+          <h3>Set a reading goal</h3>
+          <p>Choose pages or finished books, add a date range, and the dashboard will track pace automatically.</p>
+          <Btn icon={Plus} onClick={onAddGoal}>Create goal</Btn>
+        </div>
+      ):(
+        <div className="bb-goal-card-grid">
+          {goals.map(goal=>{
+            const summary=getGoalSummary(goal);
+            return(
+              <button key={goal.id} className="bb-goal-summary-card" onClick={()=>onSelectGoal(goal)}>
+                <div>
+                  <span className="bb-status-chip" style={{color:summary.statusColor,borderColor:summary.statusColor+"55",background:summary.statusColor+"12"}}>{summary.status}</span>
+                  <h3>{goal.name}</h3>
+                  <p>{goal.startDate} to {goal.endDate}</p>
+                </div>
+                <div className="bb-goal-card-meter">
+                  <strong>{summary.percent}%</strong>
+                  <ProgressBar percent={summary.percent} h={7}/>
+                  <span>{summary.completed} of {goal.target} {summary.unit}</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function GoalDetailPanel({goal,books,sessions,settings,getSessionPageEquiv,onEditGoal,onDeleteGoal}){
+  const[confirmId,setConfirmId]=useState(null);
+  const summary=getGoalSummary(goal,books,sessions,getSessionPageEquiv);
+  return(
+    <section className="bb-goal-detail">
+      <div className="bb-goal-detail-head">
+        <div>
+          <span className="bb-status-chip" style={{color:summary.statusColor,borderColor:summary.statusColor+"55",background:summary.statusColor+"12"}}>{summary.status}</span>
+          <h2>{goal.name}</h2>
+          <p>{goal.startDate} to {goal.endDate}. Target: {goal.target} {summary.unit}.</p>
+        </div>
+        <div className="bb-action-row">
+          <Btn variant="ghost" icon={PencilSimple} onClick={()=>onEditGoal(goal)}>Edit</Btn>
+          {confirmId===goal.id?(
+            <>
+              <Btn variant="danger" icon={Trash} onClick={()=>{onDeleteGoal(goal.id);setConfirmId(null);}}>Delete</Btn>
+              <Btn variant="ghost" icon={X} onClick={()=>setConfirmId(null)}>Cancel</Btn>
+            </>
+          ):<Btn variant="danger" icon={Trash} onClick={()=>setConfirmId(goal.id)}>Delete</Btn>}
+        </div>
+      </div>
+      <div className="bb-overview-grid bb-overview-grid-tight">
+        <StatCard label="Progress" value={`${summary.percent}%`} sub={`${summary.completed} of ${goal.target}`}/>
+        <StatCard label="Remaining" value={summary.remaining} sub={summary.unit}/>
+        <StatCard label="Time elapsed" value={`${summary.timePercent}%`}/>
+        <StatCard label="Days left" value={summary.daysLeft}/>
+      </div>
+      <div className="bb-analytics-shell">
+        <GoalAnalytics goal={goal} books={books} sessions={sessions} settings={settings} getSessionPageEquiv={getSessionPageEquiv}/>
+      </div>
+    </section>
+  );
+}
+
+function GoalsDashboardPage({goals,books,sessions,settings,selectedGoal,setSelectedGoal,getSessionPageEquiv,onAddGoal,onEditGoal,onDeleteGoal}){
+  const summaryForGoal=goal=>getGoalSummary(goal,books,sessions,getSessionPageEquiv);
+  return(
+    <div className="bb-page-reveal">
+      <div className="bb-goals-dashboard">
+        <GoalPicker goals={goals} selectedGoal={selectedGoal} setSelectedGoal={setSelectedGoal} getGoalSummary={summaryForGoal} onAddGoal={onAddGoal}/>
+        <main className="bb-goal-stage">
+          {selectedGoal?(
+            <GoalDetailPanel goal={selectedGoal} books={books} sessions={sessions} settings={settings} getSessionPageEquiv={getSessionPageEquiv} onEditGoal={onEditGoal} onDeleteGoal={onDeleteGoal}/>
+          ):(
+            <GoalOverview goals={goals} books={books} sessions={sessions} getGoalSummary={summaryForGoal} onSelectGoal={setSelectedGoal} onAddGoal={onAddGoal}/>
+          )}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+// --- Settings Page -----------------------------------------------------------
+function LibrarySettingsPage({books,sessions,settings,onSettingsChange}){
+  const[newGenre,setNewGenre]=useState("");
+  const[newTag,setNewTag]=useState("");
   const genres=settings.genres||DEFAULT_GENRES;
   const allTags=settings.tags||DEFAULT_TAGS;
   const gs={...DEFAULT_GOAL_STATS,...(settings.goalStats||{})};
   const toggleStat=key=>onSettingsChange(p=>({...p,goalStats:{...DEFAULT_GOAL_STATS,...(p.goalStats||{}),[key]:!(p.goalStats?.[key]??true)}}));
 
   const updateGenreColor=(name,color)=>onSettingsChange(p=>({...p,genres:(p.genres||DEFAULT_GENRES).map(g=>g.name===name?{...g,color}:g)}));
-  const addGenre=()=>{if(!newGenre.trim()||genres.find(g=>g.name===newGenre.trim()))return;onSettingsChange(p=>({...p,genres:[...(p.genres||DEFAULT_GENRES),{name:newGenre.trim(),color:"#4a3728",font:"'Crimson Pro',serif"}]}));setNewGenre("");};
+  const addGenre=()=>{if(!newGenre.trim()||genres.find(g=>g.name===newGenre.trim()))return;onSettingsChange(p=>({...p,genres:[...(p.genres||DEFAULT_GENRES),{name:newGenre.trim(),color:"#4a3728",font:"'Newsreader Variable',serif"}]}));setNewGenre("");};
   const removeGenre=name=>onSettingsChange(p=>({...p,genres:(p.genres||DEFAULT_GENRES).filter(g=>g.name!==name)}));
   const addTag=()=>{if(!newTag.trim()||allTags.includes(newTag.trim()))return;onSettingsChange(p=>({...p,tags:[...(p.tags||DEFAULT_TAGS),newTag.trim()]}));setNewTag("");};
   const removeTag=tag=>onSettingsChange(p=>({...p,tags:(p.tags||DEFAULT_TAGS).filter(t=>t!==tag)}));
 
   return(
-    <div className="bb-goals-layout">
-      <div className="bb-goals-sidebar">
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
-          <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:C.text}}>Goals</h2>
-          <Btn onClick={onAddGoal}>+</Btn>
+    <div className="bb-page-reveal">
+      <div className="bb-page-head">
+        <div>
+          <p className="bb-kicker">Settings</p>
+          <h2>Tune your library.</h2>
+          <p>Reading preferences, goal modules, genres, and tags live here now.</p>
         </div>
-        <div onClick={()=>setSelectedGoal(null)} style={{background:C.card,border:`1px solid ${!selectedGoal?C.accent:C.border}`,borderRadius:6,padding:12,cursor:"pointer",marginBottom:8,transition:"border-color .2s"}}>
-          <div style={{fontSize:13,color:C.text}}>⚙ Settings</div>
-        </div>
-        {goals.length===0&&<p style={{color:C.muted,fontSize:13,fontStyle:"italic"}}>No goals yet. Create one!</p>}
-        {activeGoals.length>0&&<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:6}}>Active</div>
-          {activeGoals.map(g=>(
-            <div key={g.id} onClick={()=>setSelectedGoal(g)} style={{background:C.card,border:`1px solid ${selectedGoal?.id===g.id?C.accent:C.border}`,borderRadius:6,padding:12,cursor:"pointer",marginBottom:8,transition:"border-color .2s"}}>
-              <div style={{fontFamily:"'Playfair Display',serif",fontSize:14,color:C.text,marginBottom:3}}>{g.name}</div>
-              <div style={{fontSize:12,color:C.muted}}>{g.type} · ends {g.endDate}</div>
-            </div>
-          ))}</>}
-        {pastGoals.length>0&&<><div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".07em",marginBottom:6,marginTop:8}}>Past</div>
-          {pastGoals.map(g=>(
-            <div key={g.id} onClick={()=>setSelectedGoal(g)} style={{background:C.card,border:`1px solid ${selectedGoal?.id===g.id?C.accent:C.border}`,borderRadius:6,padding:12,cursor:"pointer",marginBottom:8,opacity:.7,transition:"border-color .2s"}}>
-              <div style={{fontFamily:"'Playfair Display',serif",fontSize:14,color:C.text,marginBottom:3}}>{g.name}</div>
-              <div style={{fontSize:12,color:C.muted}}>{g.type} · ended {g.endDate}</div>
-            </div>
-          ))}</>}
       </div>
-
-      <div className="bb-goals-main">
-        {!selectedGoal?(
-          <div>
-            <h3 style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:C.text,marginBottom:18}}>Settings</h3>
-            {/* Reading prefs */}
-            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:20,marginBottom:14}}>
-              <h4 style={{fontSize:11,color:C.accent,letterSpacing:".1em",textTransform:"uppercase",marginBottom:14}}>Reading Preferences</h4>
-              <Field label={`Pages per Minute (audiobooks) — ${settings.pagesPerMinute}`}>
+      <div className="bb-settings-layout">
+        <section className="bb-settings-section">
+          <div className="bb-panel-title-row"><SlidersHorizontal size={20} weight="duotone"/><h3>Reading preferences</h3></div>
+              <Field label={`Pages per Minute (audiobooks) - ${settings.pagesPerMinute}`}>
                 <input type="range" min=".5" max="5" step=".5" value={settings.pagesPerMinute} onChange={e=>onSettingsChange(p=>({...p,pagesPerMinute:parseFloat(e.target.value)}))} style={{width:"100%",accentColor:C.accent}}/>
                 <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.muted}}><span>0.5</span><span>5.0</span></div>
               </Field>
-              <Field label={`Projection Window — last ${settings.projectionWindow} days`}>
+              <Field label={`Projection Window - last ${settings.projectionWindow} days`}>
                 <input type="range" min="3" max="30" step="1" value={settings.projectionWindow} onChange={e=>onSettingsChange(p=>({...p,projectionWindow:parseInt(e.target.value)}))} style={{width:"100%",accentColor:C.accent}}/>
                 <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.muted}}><span>3d</span><span>30d</span></div>
               </Field>
-            </div>
-            {/* Goal stats toggles */}
-            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:20,marginBottom:14}}>
-              <h4 style={{fontSize:11,color:C.accent,letterSpacing:".1em",textTransform:"uppercase",marginBottom:8}}>Goal Analytics Sections</h4>
+        </section>
+        <section className="bb-settings-section">
+          <div className="bb-panel-title-row"><Target size={20} weight="duotone"/><h3>Goal analytics sections</h3></div>
               {Object.entries(STAT_LABELS).map(([key,label])=>(
-                <div key={key} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0",borderBottom:`1px solid ${C.border}`}}>
-                  <span style={{fontSize:14,color:C.text}}>{label}</span>
-                  <div onClick={()=>toggleStat(key)} style={{width:40,height:22,borderRadius:11,background:gs[key]?C.accent:C.border,cursor:"pointer",transition:"background .2s",position:"relative",flexShrink:0}}>
-                    <div style={{position:"absolute",top:3,left:gs[key]?20:3,width:16,height:16,borderRadius:"50%",background:"#fff",transition:"left .2s"}}/>
-                  </div>
-                </div>
+                <button key={key} className="bb-toggle-row" onClick={()=>toggleStat(key)}>
+                  <span>{label}</span>
+                  <span className={`bb-switch ${gs[key]?"is-on":""}`}><span/></span>
+                </button>
               ))}
-            </div>
-            {/* Genre management */}
-            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:20,marginBottom:14}}>
-              <h4 style={{fontSize:11,color:C.accent,letterSpacing:".1em",textTransform:"uppercase",marginBottom:12}}>Manage Genres</h4>
+        </section>
+        <section className="bb-settings-section">
+          <div className="bb-panel-title-row"><Palette size={20} weight="duotone"/><h3>Genres</h3></div>
               <div style={{maxHeight:240,overflowY:"auto",marginBottom:10}}>
                 {genres.map(g=>(
-                  <div key={g.name} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:`1px solid ${C.border}`}}>
+                  <div key={g.name} className="bb-edit-row">
                     <input type="color" value={g.color} onChange={e=>updateGenreColor(g.name,e.target.value)} style={{width:24,height:24,borderRadius:4,border:"none",cursor:"pointer",background:"none",padding:0,flexShrink:0}}/>
-                    <div style={{width:8,height:8,borderRadius:"50%",background:g.color,flexShrink:0}}/>
                     <span style={{flex:1,fontSize:13,color:C.text,fontFamily:g.font}}>{g.name}</span>
-                    <button onClick={()=>removeGenre(g.name)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:14,padding:"0 4px"}}>×</button>
+                    <button className="bb-icon-button" onClick={()=>removeGenre(g.name)} aria-label={`Remove ${g.name}`}><X size={14}/></button>
                   </div>
                 ))}
               </div>
               <div style={{display:"flex",gap:8}}>
-                <input value={newGenre} onChange={e=>setNewGenre(e.target.value)} placeholder="New genre name" onKeyDown={e=>e.key==="Enter"&&addGenre()}
-                  style={{flex:1,background:C.bg,border:`1px solid ${C.border}`,color:C.text,padding:"7px 10px",borderRadius:4,fontSize:13,outline:"none",fontFamily:"inherit"}}/>
-                <Btn onClick={addGenre}>Add</Btn>
+                <Input value={newGenre} onChange={e=>setNewGenre(e.target.value)} placeholder="New genre name" onKeyDown={e=>e.key==="Enter"&&addGenre()} style={{flex:1}}/>
+                <Btn icon={Plus} onClick={addGenre}>Add</Btn>
               </div>
-            </div>
-            {/* Tag management */}
-            <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:20,marginBottom:14}}>
-              <h4 style={{fontSize:11,color:C.accent,letterSpacing:".1em",textTransform:"uppercase",marginBottom:12}}>Manage Tags</h4>
+        </section>
+        <section className="bb-settings-section">
+          <div className="bb-panel-title-row"><TagIcon size={20} weight="duotone"/><h3>Tags</h3></div>
               <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>
                 {allTags.map(t=>(
-                  <div key={t} style={{display:"flex",alignItems:"center",gap:4,background:C.accentDim,borderRadius:12,padding:"3px 8px 3px 10px",fontSize:12}}>
-                    <span style={{color:C.accent}}>{t}</span>
-                    <button onClick={()=>removeTag(t)} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:13,padding:0,lineHeight:1}}>×</button>
+                  <div key={t} className="bb-tag bb-tag-editable">
+                    <span>{t}</span>
+                    <button onClick={()=>removeTag(t)} aria-label={`Remove ${t}`}><X size={12}/></button>
                   </div>
                 ))}
               </div>
               <div style={{display:"flex",gap:8}}>
-                <input value={newTag} onChange={e=>setNewTag(e.target.value)} placeholder="New tag" onKeyDown={e=>e.key==="Enter"&&addTag()}
-                  style={{flex:1,background:C.bg,border:`1px solid ${C.border}`,color:C.text,padding:"7px 10px",borderRadius:4,fontSize:13,outline:"none",fontFamily:"inherit"}}/>
-                <Btn onClick={addTag}>Add</Btn>
+                <Input value={newTag} onChange={e=>setNewTag(e.target.value)} placeholder="New tag" onKeyDown={e=>e.key==="Enter"&&addTag()} style={{flex:1}}/>
+                <Btn icon={Plus} onClick={addTag}>Add</Btn>
               </div>
-            </div>
-            {/* Global stats */}
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:12}}>
-              {[{num:books.length,label:"Total Books"},{num:books.filter(b=>getBookStatus(b,sessions)==="finished").length,label:"Finished"},{num:books.filter(b=>getBookStatus(b,sessions)==="reading").length,label:"Reading Now"},{num:sessions.length,label:"Sessions"}].map(({num,label})=>(
-                <div key={label} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:16}}>
-                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:28,color:C.accent,lineHeight:1}}>{num}</div>
-                  <div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".06em",marginTop:4}}>{label}</div>
-                </div>
-              ))}
-            </div>
+        </section>
+        <section className="bb-settings-section bb-settings-section-wide">
+          <div className="bb-panel-title-row"><CheckCircle size={20} weight="duotone"/><h3>Library snapshot</h3></div>
+          <div className="bb-overview-grid">
+            <StatCard label="Total books" value={books.length}/>
+            <StatCard label="Finished" value={books.filter(b=>getBookStatus(b,sessions)==="finished").length}/>
+            <StatCard label="Reading now" value={books.filter(b=>getBookStatus(b,sessions)==="reading").length}/>
+            <StatCard label="Sessions" value={sessions.length}/>
           </div>
-        ):(
-          <div>
-            <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:20}}>
-              <div>
-                <h3 style={{fontFamily:"'Playfair Display',serif",fontSize:22,color:C.text}}>{selectedGoal.name}</h3>
-                <div style={{fontSize:13,color:C.muted,marginTop:3}}>{selectedGoal.startDate} → {selectedGoal.endDate} · Target: {selectedGoal.target} {selectedGoal.type}</div>
-              </div>
-              <div style={{display:"flex",gap:6,flexShrink:0}}>
-                <Btn variant="ghost" onClick={()=>onEditGoal(selectedGoal)}>Edit</Btn>
-                {confirmId===selectedGoal.id?(
-                  <><Btn variant="danger" style={{fontSize:12}} onClick={()=>{onDeleteGoal(selectedGoal.id);setConfirmId(null);}}>Delete</Btn>
-                  <Btn variant="ghost" onClick={()=>setConfirmId(null)}>No</Btn></>
-                ):<Btn variant="danger" onClick={()=>setConfirmId(selectedGoal.id)}>Delete</Btn>}
-              </div>
-            </div>
-            <GoalAnalytics goal={selectedGoal} books={books} sessions={sessions} settings={settings} getSessionPageEquiv={getSessionPageEquiv}/>
-          </div>
-        )}
+        </section>
       </div>
     </div>
   );
 }
 
-// ─── Goal Form Modal ──────────────────────────────────────────────────────────
+// --- Goal Form Modal ----------------------------------------------------------
 function GoalFormModal({initial,onSave,onClose}){
   const[f,setF]=useState({name:"",startDate:todayStr(),endDate:"",type:"pages",target:"",...initial});
   const set=(k,v)=>setF(p=>({...p,[k]:v}));
@@ -1663,7 +1926,7 @@ function GoalFormModal({initial,onSave,onClose}){
   );
 }
 
-// ─── App ──────────────────────────────────────────────────────────────────────
+// --- App ----------------------------------------------------------------------
 export default function App(){
   const[user,setUser]=useState(null);
   const[authReady,setAuthReady]=useState(false);
@@ -1674,7 +1937,10 @@ export default function App(){
   const[settings,setSettings]=useState({pagesPerMinute:1.5,projectionWindow:14,goalStats:DEFAULT_GOAL_STATS,genres:DEFAULT_GENRES,tags:DEFAULT_TAGS});
   const[loaded,setLoaded]=useState(false);
   const[saveState,setSaveState]=useState("idle");
+  const[authError,setAuthError]=useState("");
+  const[authBusy,setAuthBusy]=useState(false);
   const saveTimerRef=useRef(null);
+  const skipNextSaveRef=useRef(false);
   const[addBookOpen,setAddBookOpen]=useState(false);
   const[editBookData,setEditBookData]=useState(null);
   const[detailBookData,setDetailBookData]=useState(null);
@@ -1692,10 +1958,37 @@ export default function App(){
   useEffect(()=>{
     const unsubscribe=onAuthStateChanged(auth,nextUser=>{
       setUser(nextUser);
+      if(nextUser)setAuthError("");
       setAuthReady(true);
     });
     return()=>unsubscribe();
   },[]);
+
+  useEffect(()=>{
+    getRedirectResult(auth).catch(error=>setAuthError(formatAuthError(error)));
+  },[]);
+
+  const handleGoogleSignIn=async()=>{
+    setAuthError("");
+    setAuthBusy(true);
+    try{
+      await signInWithPopup(auth,provider);
+    }catch(error){
+      if(shouldTryRedirectSignIn(error)){
+        setAuthError(formatAuthError(error));
+        try{
+          await signInWithRedirect(auth,provider);
+          return;
+        }catch(redirectError){
+          setAuthError(formatAuthError(redirectError));
+        }
+      }else{
+        setAuthError(formatAuthError(error));
+      }
+    }finally{
+      setAuthBusy(false);
+    }
+  };
 
   useEffect(()=>{
     if(!authReady)return;
@@ -1706,6 +1999,7 @@ export default function App(){
       setGoals([]);
       setSettings({pagesPerMinute:1.5,projectionWindow:14,goalStats:DEFAULT_GOAL_STATS,genres:DEFAULT_GENRES,tags:DEFAULT_TAGS});
       setSaveState("idle");
+      skipNextSaveRef.current=false;
       return;
     }
     let cancelled=false;
@@ -1714,30 +2008,33 @@ export default function App(){
         const data=await loadAppData(user.uid);
         if(cancelled)return;
         if(data){
-          setBooks(Array.isArray(data?.books)?data.books:[]);
-          setSessions(Array.isArray(data?.sessions)?data.sessions:[]);
-          setGoals(Array.isArray(data?.goals)?data.goals:[]);
+          setBooks(data.books);
+          setSessions(data.sessions);
+          setGoals(data.goals);
           if(data?.settings)setSettings(p=>({...p,...data.settings}));
           saveLocalCache(user.uid, data);
         } else {
-          const local=loadLocalCache(user.uid);
+          const local=normalizeAppData(loadLocalCache(user.uid));
           if(local){
-            setBooks(Array.isArray(local?.books)?local.books:[]);
-            setSessions(Array.isArray(local?.sessions)?local.sessions:[]);
-            setGoals(Array.isArray(local?.goals)?local.goals:[]);
+            setBooks(local.books);
+            setSessions(local.sessions);
+            setGoals(local.goals);
             if(local?.settings)setSettings(p=>({...p,...local.settings}));
           }
         }
       }catch(e){
-        const local=loadLocalCache(user.uid);
+        const local=normalizeAppData(loadLocalCache(user.uid));
         if(local){
-          setBooks(Array.isArray(local?.books)?local.books:[]);
-          setSessions(Array.isArray(local?.sessions)?local.sessions:[]);
-          setGoals(Array.isArray(local?.goals)?local.goals:[]);
+          setBooks(local.books);
+          setSessions(local.sessions);
+          setGoals(local.goals);
           if(local?.settings)setSettings(p=>({...p,...local.settings}));
         }
       }finally{
-        if(!cancelled)setLoaded(true);
+        if(!cancelled){
+          skipNextSaveRef.current=true;
+          setLoaded(true);
+        }
       }
     })();
     return()=>{cancelled=true;};
@@ -1745,6 +2042,10 @@ export default function App(){
 
   useEffect(()=>{
     if(!loaded||!user)return;
+    if(skipNextSaveRef.current){
+      skipNextSaveRef.current=false;
+      return;
+    }
     if(saveTimerRef.current)clearTimeout(saveTimerRef.current);
     setSaveState("saving");
     saveLocalCache(user.uid,{books,sessions,goals,settings});
@@ -1784,32 +2085,33 @@ export default function App(){
 
   if(!authReady)return(
     <div style={{background:C.bg,height:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12}}>
-      <div style={{fontFamily:"'Playfair Display',Georgia,serif",fontSize:32,color:C.accent,letterSpacing:".04em"}}>Bob's Books</div>
+      <div style={{fontFamily:"Newsreader Variable, Georgia, serif",fontSize:32,color:C.accent,letterSpacing:"-.03em"}}>Bob's Books</div>
       <div style={{fontSize:14,color:C.muted}}>Checking sign-in...</div>
     </div>
   );
 
   if(!user)return(
-    <div style={{background:C.bg,height:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
-      <div style={{maxWidth:520,width:"100%",background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:28}}>
-        <div style={{fontFamily:"'Playfair Display',Georgia,serif",fontSize:32,color:C.accent,letterSpacing:".04em",marginBottom:8}}>Bob's Books</div>
+    <div className="bb-auth-shell">
+      <div className="bb-auth-card">
+        <BookOpenText size={42} weight="duotone"/>
+        <div style={{fontFamily:"Newsreader Variable, Georgia, serif",fontSize:34,color:C.accent,letterSpacing:"-.04em",marginBottom:8}}>Bob's Books</div>
         <div style={{fontSize:14,color:C.muted,marginBottom:20}}>Sign in with Google to sync your library with Firebase.</div>
-        <Btn onClick={()=>signInWithPopup(auth,provider).catch(()=>undefined)}>Sign in with Google</Btn>
+        {authError&&<div className="bb-auth-error" role="alert">{authError}</div>}
+        <Btn onClick={handleGoogleSignIn} disabled={authBusy}>{authBusy?"Opening Google...":"Sign in with Google"}</Btn>
       </div>
     </div>
   );
 
   if(!loaded)return(
     <div style={{background:C.bg,height:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12}}>
-      <div style={{fontFamily:"'Playfair Display',Georgia,serif",fontSize:32,color:C.accent,letterSpacing:".04em"}}>📚 Bob's Books</div>
+      <div style={{fontFamily:"Newsreader Variable, Georgia, serif",fontSize:32,color:C.accent,letterSpacing:"-.03em"}}>Bob's Books</div>
       <div style={{fontSize:14,color:C.muted}}>Opening your library...</div>
     </div>
   );
 
   return(
-    <div style={{background:C.bg,minHeight:"100dvh",fontFamily:"'Crimson Pro',Georgia,serif",color:C.text,display:"flex",flexDirection:"column",overflowX:"hidden"}}>
+    <div style={{background:C.bg,minHeight:"100dvh",fontFamily:"Plus Jakarta Sans Variable, system-ui, sans-serif",color:C.text,display:"flex",flexDirection:"column",overflowX:"hidden"}}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Crimson+Pro:wght@300;400;500;600&family=Cinzel:wght@400;600&family=Orbitron:wght@400;700&family=Creepster&family=Special+Elite&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Lora:wght@400;600&family=Josefin+Sans:wght@400;600&family=Nunito:wght@400;700&family=Patrick+Hand&family=Bangers&family=Oswald:wght@400;600&display=swap');
         *{box-sizing:border-box;margin:0;padding:0;}
         :root{--safe-top:env(safe-area-inset-top,0px);--safe-bottom:env(safe-area-inset-bottom,0px);}
         body{overflow-x:hidden;}
@@ -1820,21 +2122,14 @@ export default function App(){
         .bb-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
         .bb-search{flex:1 1 220px;min-width:160px;}
         .bb-tabs{flex-wrap:wrap;}
-        .bb-goals-layout{display:grid;grid-template-columns:256px 1fr;gap:24;}
-        .bb-goals-sidebar,.bb-goals-main{min-width:0;}
         @media (max-width:820px){
           .bb-topbar{flex-direction:column;align-items:stretch;}
           .bb-actions{width:100%;justify-content:space-between;}
           .bb-search{width:100%;}
         }
-        @media (max-width:900px){
-          .bb-goals-layout{grid-template-columns:1fr;gap:16px;}
-          .bb-goals-sidebar{order:2;}
-          .bb-goals-main{order:1;}
-        }
         @media (max-width:520px){
           .bb-actions{gap:6px;}
-          .bb-tabs button{padding:8px 12px;font-size:12px;}
+          .bb-tabs button{padding:8px 10px;font-size:12px;}
         }
       `}</style>
 
@@ -1843,26 +2138,31 @@ export default function App(){
         <div style={{maxWidth:1120,margin:"0 auto"}}>
           <div className="bb-topbar" style={{display:"flex",alignItems:"center",justifyContent:"space-between",paddingTop:10,gap:12}}>
             <div style={{display:"flex",alignItems:"center",gap:10}}>
-              <span style={{fontSize:26}}>📚</span>
+              <span className="bb-brand-mark"><BookOpenText size={24} weight="duotone"/></span>
               <div>
-                <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:C.accent,letterSpacing:".04em",lineHeight:1}}>Bob's Books</div>
-                <div style={{fontSize:9,color:C.muted,letterSpacing:".12em",textTransform:"uppercase"}}>Personal Library</div>
+                <div style={{fontFamily:"Newsreader Variable, Georgia, serif",fontSize:22,color:C.accent,letterSpacing:"-.04em",lineHeight:1}}>Bob's Books</div>
+                <div style={{fontSize:10,color:C.muted,letterSpacing:".08em"}}>Personal library</div>
               </div>
             </div>
             <div className="bb-actions" style={{display:"flex",alignItems:"center",gap:8}}>
-              <input className="bb-search" value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Search books, authors, genres..."
-                style={{background:C.bg,border:`1px solid ${C.border}`,color:C.text,padding:"7px 14px",borderRadius:20,fontSize:13,outline:"none",width:240}}/>
+              <label className="bb-search-wrap">
+                <MagnifyingGlass size={16} weight="duotone"/>
+                <input className="bb-search" value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Search books, authors, genres..."/>
+              </label>
               <span style={{fontSize:11,color:C.muted,minWidth:68,textAlign:"right"}}>
                 {saveState==="saving"?"Saving...":saveState==="saved"?"Saved":saveState==="error"?"Save error":""}
               </span>
-              <Btn variant="small" onClick={()=>signOut(auth)}>Sign out</Btn>
+              <Btn variant="small" icon={SignOut} onClick={()=>signOut(auth)}>Sign out</Btn>
             </div>
           </div>
-          <div className="bb-tabs" style={{display:"flex",gap:2,marginTop:4}}>
-            {[["bookshelf","Bookshelf"],["main","Dashboard"],["goals","Goals"]].map(([t,l])=>(
-              <button key={t} onClick={()=>setTab(t)} style={{padding:"9px 18px",fontSize:13,color:tab===t?C.accent:C.muted,borderTop:"none",borderLeft:"none",borderRight:"none",borderBottom:tab===t?`2px solid ${C.accent}`:"2px solid transparent",background:"none",textTransform:"uppercase",letterSpacing:".06em",fontFamily:"'Crimson Pro',serif",fontWeight:500,transition:"color .2s",cursor:"pointer"}}>{l}</button>
+          <nav className="bb-tabs" style={{display:"flex",gap:2,marginTop:4}} aria-label="Bob's Books sections">
+            {[["bookshelf","Bookshelf",Books],["main","Reading Dashboard",ChartLineUp],["goals","Goals Dashboard",Target],["settings","Settings",GearSix]].map(([t,l,Icon])=>(
+              <button key={t} onClick={()=>setTab(t)} className={`bb-tab-button ${tab===t?"is-active":""}`}>
+                <Icon size={16} weight="duotone" aria-hidden="true"/>
+                <span>{l}</span>
+              </button>
             ))}
-          </div>
+          </nav>
         </div>
       </header>
 
@@ -1886,14 +2186,16 @@ export default function App(){
           />
         )}
         {tab==="goals"&&(
-          <GoalsPage goals={goals} books={books} sessions={sessions} settings={settings}
+          <GoalsDashboardPage goals={goals} books={books} sessions={sessions} settings={settings}
             selectedGoal={selectedGoal} setSelectedGoal={setSelectedGoal}
             getSessionPageEquiv={getSessionPageEquivFn}
             onAddGoal={()=>setAddGoalOpen(true)}
             onEditGoal={setEditGoalData}
             onDeleteGoal={deleteGoal}
-            onSettingsChange={setSettings}
           />
+        )}
+        {tab==="settings"&&(
+          <LibrarySettingsPage books={books} sessions={sessions} settings={settings} onSettingsChange={setSettings}/>
         )}
       </main>
 

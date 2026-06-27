@@ -1,4 +1,4 @@
-const CACHE_NAME = "bobs-books-v1";
+const CACHE_NAME = "bobs-books-v3";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -16,6 +16,20 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+
+  if (event.request.mode === "navigate" || event.request.destination === "script" || event.request.destination === "style") {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy)).catch(() => undefined);
+          return response;
+        })
+        .catch(() => caches.match(event.request).then((cached) => cached || caches.match("./index.html")))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
