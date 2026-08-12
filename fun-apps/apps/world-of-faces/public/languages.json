@@ -5,8 +5,8 @@
       "nativeLabel": "English",
       "dir": "ltr",
       "intro": "Hello, I am a photographer and author working on a project. I am collecting stories from people all over the world, and I wanted to ask if you would not mind being a part of this project?",
-      "consent_yes": "âœ“  Yes, I agree",
-      "consent_no": "âœ—  No thanks",
+      "consent_yes": "✓  Yes, I agree",
+      "consent_no": "✗  No thanks",
       "sharing_question": "Can I share this interview?",
       "sharing_yes": "Yes",
       "sharing_anonymous": "Yes, but keep me anonymous",
@@ -35,80 +35,80 @@
     },
     "es": {
       "label": "Spanish",
-      "nativeLabel": "EspaÃ±ol",
+      "nativeLabel": "Español",
       "dir": "ltr",
-      "intro": "Â¿Puedo grabarte una entrevista para un proyecto sobre personas y sus historias?",
-      "consent_yes": "âœ“  SÃ­, acepto",
-      "consent_no": "âœ—  No, gracias",
-      "sharing_question": "Â¿Puedo compartir esta entrevista?",
-      "sharing_yes": "SÃ­",
-      "sharing_anonymous": "SÃ­, pero de forma anÃ³nima",
+      "intro": "¿Puedo grabarte una entrevista para un proyecto sobre personas y sus historias?",
+      "consent_yes": "✓  Sí, acepto",
+      "consent_no": "✗  No, gracias",
+      "sharing_question": "¿Puedo compartir esta entrevista?",
+      "sharing_yes": "Sí",
+      "sharing_anonymous": "Sí, pero de forma anónima",
       "sharing_no": "No",
       "fields": {
         "sectionTitle": "Sobre Ti",
         "name": "Nombre",
         "age": "Edad",
-        "religion": "ReligiÃ³n",
+        "religion": "Religión",
         "location": "Lugar"
       },
       "questions": [
-        "Â¿QuiÃ©n eres?",
-        "Â¿CuÃ¡l es tu historia?",
-        "Â¿CuÃ¡l es la mejor parte de tu vida?",
-        "Â¿CuÃ¡l es la parte mÃ¡s difÃ­cil de tu vida?",
-        "Â¿QuÃ© esperas para el futuro?"
+        "¿Quién eres?",
+        "¿Cuál es tu historia?",
+        "¿Cuál es la mejor parte de tu vida?",
+        "¿Cuál es la parte más difícil de tu vida?",
+        "¿Qué esperas para el futuro?"
       ]
     },
     "ar": {
       "label": "Arabic",
-      "nativeLabel": "Ø§Ù„Ø¹Ø±Ø¨ÙŠØ©",
+      "nativeLabel": "العربية",
       "dir": "rtl",
-      "intro": "Ù‡Ù„ ÙŠÙ…ÙƒÙ†Ù†ÙŠ ØªØ³Ø¬ÙŠÙ„ Ù…Ù‚Ø§Ø¨Ù„Ø© Ù…Ø¹Ùƒ Ù„Ù…Ø´Ø±ÙˆØ¹ Ø¹Ù† Ø§Ù„Ù†Ø§Ø³ ÙˆÙ‚ØµØµÙ‡Ù…ØŸ",
-      "consent_yes": "âœ“  Ù†Ø¹Ù…ØŒ Ø£ÙˆØ§ÙÙ‚",
-      "consent_no": "âœ—  Ù„Ø§ØŒ Ø´ÙƒØ±Ø§Ù‹",
-      "sharing_question": "Ù‡Ù„ ÙŠÙ…ÙƒÙ†Ù†ÙŠ Ù…Ø´Ø§Ø±ÙƒØ© Ù‡Ø°Ù‡ Ø§Ù„Ù…Ù‚Ø§Ø¨Ù„Ø©ØŸ",
-      "sharing_yes": "Ù†Ø¹Ù…",
-      "sharing_anonymous": "Ù†Ø¹Ù…ØŒ Ù„ÙƒÙ† Ø¨Ø´ÙƒÙ„ Ù…Ø¬Ù‡ÙˆÙ„",
-      "sharing_no": "Ù„Ø§",
+      "intro": "هل يمكنني تسجيل مقابلة معك لمشروع عن الناس وقصصهم؟",
+      "consent_yes": "✓  نعم، أوافق",
+      "consent_no": "✗  لا، شكرًا",
+      "sharing_question": "هل يمكنني مشاركة هذه المقابلة؟",
+      "sharing_yes": "نعم",
+      "sharing_anonymous": "نعم، ولكن بشكل مجهول",
+      "sharing_no": "لا",
       "fields": {
-        "sectionTitle": "Ø¹Ù†Ùƒ",
-        "name": "Ø§Ù„Ø§Ø³Ù…",
-        "age": "Ø§Ù„Ø¹Ù…Ø±",
-        "religion": "Ø§Ù„Ø¯ÙŠÙ†",
-        "location": "Ø§Ù„Ù…ÙƒØ§Ù†"
+        "sectionTitle": "عنك",
+        "name": "الاسم",
+        "age": "العمر",
+        "religion": "الدين",
+        "location": "المكان"
       },
       "questions": [
-        "Ù…Ù† Ø£Ù†ØªØŸ",
-        "Ù…Ø§ Ù‡ÙŠ Ù‚ØµØªÙƒØŸ",
-        "Ù…Ø§ Ù‡Ùˆ Ø£ÙØ¶Ù„ Ø¬Ø²Ø¡ ÙÙŠ Ø­ÙŠØ§ØªÙƒØŸ",
-        "Ù…Ø§ Ù‡Ùˆ Ø£ØµØ¹Ø¨ Ø¬Ø²Ø¡ ÙÙŠ Ø­ÙŠØ§ØªÙƒØŸ",
-        "Ø¨Ù…Ø§Ø°Ø§ ØªØ£Ù…Ù„ ÙÙŠ Ø§Ù„Ù…Ø³ØªÙ‚Ø¨Ù„ØŸ"
+        "من أنت؟",
+        "ما هي قصتك؟",
+        "ما هو أفضل جزء في حياتك؟",
+        "ما هو أصعب جزء في حياتك؟",
+        "ماذا تأمل في المستقبل؟"
       ]
     },
     "fr": {
       "label": "French",
-      "nativeLabel": "FranÃ§ais",
+      "nativeLabel": "Français",
       "dir": "ltr",
-      "intro": "Puis-je enregistrer un entretien avec vous pour un projet sur les gens et leurs histoires?",
-      "consent_yes": "âœ“  Oui, j'accepte",
-      "consent_no": "âœ—  Non, merci",
-      "sharing_question": "Puis-je partager cette interview?",
+      "intro": "Puis-je enregistrer un entretien avec vous pour un projet sur les gens et leurs histoires ?",
+      "consent_yes": "✓  Oui, j'accepte",
+      "consent_no": "✗  Non, merci",
+      "sharing_question": "Puis-je partager cette interview ?",
       "sharing_yes": "Oui",
-      "sharing_anonymous": "Oui, mais de faÃ§on anonyme",
+      "sharing_anonymous": "Oui, mais de façon anonyme",
       "sharing_no": "Non",
       "fields": {
-        "sectionTitle": "Ã€ Votre Sujet",
+        "sectionTitle": "À Votre Sujet",
         "name": "Nom",
-        "age": "Ã‚ge",
+        "age": "Âge",
         "religion": "Religion",
         "location": "Lieu"
       },
       "questions": [
-        "Qui Ãªtes-vous?",
-        "Quelle est votre histoire?",
-        "Quelle est la meilleure partie de votre vie?",
-        "Quelle est la partie la plus difficile de votre vie?",
-        "Qu'espÃ©rez-vous pour l'avenir?"
+        "Qui êtes-vous ?",
+        "Quelle est votre histoire ?",
+        "Quelle est la meilleure partie de votre vie ?",
+        "Quelle est la partie la plus difficile de votre vie ?",
+        "Qu'espérez-vous pour l'avenir ?"
       ]
     },
     "id": {
@@ -181,10 +181,10 @@
       "label": "Balinese",
       "nativeLabel": "Basa Bali",
       "dir": "ltr",
-      "note": "Translations are approximate â€” please have a native speaker review before use.",
+      "note": "Translations are approximate — please have a native speaker review before use.",
       "intro": "Dados titiang ngrekam wawancara sareng ragane, antuk proyek indik jadma lan satua-satuannyane?",
-      "consent_yes": "âœ“  Inggih, titiang setuju",
-      "consent_no": "âœ—  Nenten, suksma",
+      "consent_yes": "✓  Inggih, titiang setuju",
+      "consent_no": "✗  Nenten, suksma",
       "sharing_question": "Dados titiang ngwedar wawancara puniki?",
       "sharing_yes": "Inggih",
       "sharing_anonymous": "Inggih, nanging tanpa adan",
@@ -203,11 +203,141 @@
         "Napi sane paling berat ring urip ragane?",
         "Napi pangaptin ragane?"
       ]
+    },
+    "mn": {
+      "label": "Mongolian (Cyrillic)",
+      "nativeLabel": "Монгол хэл",
+      "dir": "ltr",
+      "intro": "Сайн байна уу, би нэгэн төсөл дээр ажиллаж буй гэрэл зурагчин, зохиолч байна. Би дэлхийн өнцөг булан бүрээс хүмүүсийн түүхийг цуглуулж байгаа бөгөөд та энэ төслийн нэг хэсэг болохыг хүсэх эсэхийг тань асуумаар байна.",
+      "consent_yes": "✓  Тийм ээ, би зөвшөөрч байна",
+      "consent_no": "✗  Үгүй ээ, баярлалаа",
+      "sharing_question": "Би энэ ярилцлагыг хуваалцаж болох уу?",
+      "sharing_yes": "Тийм",
+      "sharing_anonymous": "Тийм, гэхдээ нэрийг минь нууцлаарай",
+      "sharing_no": "Үгүй",
+      "interview_question": "Одоо би танаас хэдэн асуулт асууж болох уу? Хариулахад ойролцоогоор {minutes} минут болно.",
+      "instructions": "Дэлгэц дээр асуулт гарч ирнэ. Би таны хариултыг утсаараа бичиж авна. Хариулж дуусаад надад хэлээрэй, тэгээд би дараагийн асуулт руу шилжинэ. Та хүссэнээрээ богино эсвэл дэлгэрэнгүй хариулж болно.",
+      "language_note": "Зүгээр л танд хэлэхэд, би таны юу хэлж байгааг ойлгохгүй. Тиймээс хүссэн зүйлээ чөлөөтэй хэлээрэй. Бидний яриа дууссаны дараа би бичлэгийг орчуулна.",
+      "question_notes": "Эдгээр асуултыг зориудаар тодорхой бус, нээлттэй байдлаар боловсруулсан. Тиймээс буруу хариулт гэж байхгүй. Өөрийнхөөрөө хариулаарай!",
+      "completed": "Миний асуух бүх асуулт энэ хүрээд дууслаа. Маш их баярлалаа.",
+      "fields": {
+        "sectionTitle": "Таны тухай мэдээлэл",
+        "name": "Нэр",
+        "age": "Нас",
+        "religion": "Шашин",
+        "location": "Байршил"
+      },
+      "questions": [
+        "Та хэн бэ?",
+        "Өнөөдрийг хүртэлх таны түүх юу вэ?",
+        "Таны амьдралын хамгийн сайхан хэсэг юу вэ?",
+        "Таны амьдралын хамгийн хэцүү хэсэг юу байсан бэ?",
+        "Та юуг найдаж, хүсэж явдаг вэ?",
+        "Таныг инээлгэдэг зүйл юу вэ?",
+        "Таны тухай дэлхий нийт юу мэдээсэй гэж хүсдэг вэ?"
+      ]
+    },
+    "mn_trad": {
+      "label": "Mongolian (Traditional Script)",
+      "nativeLabel": "ᠮᠣᠩᠭᠣᠯ ᠬᠡᠯᠡ",
+      "dir": "ltr",
+      "note": "Traditional Mongolian script is normally written vertically. This translation uses the traditional Mongolian script.",
+      "intro": "ᠰᠠᠶᠢᠨ ᠪᠠᠶᠢᠨ ᠤᠤ, ᠪᠢ ᠨᠢᠭᠡᠨ ᠲᠥᠰᠥᠯ ᠳᠡᠭᠡᠷ᠎ᠡ ᠠᠵᠢᠯᠯᠠᠵᠤ ᠪᠤᠢ ᠭᠡᠷᠡᠯ ᠵᠢᠷᠤᠭᠴᠢ ᠪᠠ ᠵᠣᠬᠢᠶᠠᠯᠴᠢ ᠪᠣᠯᠣᠨ᠎ᠠ. ᠪᠢ ᠳᠡᠯᠡᠬᠡᠢ ᠳᠡᠭᠡᠷᠡᠬᠢ ᠡᠯ᠎ᠡ ᠭᠠᠵᠠᠷ ᠣᠷᠣᠨ ᠤ ᠬᠦᠮᠦᠰ ᠦᠨ ᠲᠡᠦᠬᠡ ᠶᠢ ᠴᠤᠭᠯᠠᠭᠤᠯᠵᠤ ᠪᠠᠶᠢᠨ᠎ᠠ. ᠲᠠ ᠡᠨᠡ ᠲᠥᠰᠥᠯ ᠦᠨ ᠨᠢᠭᠡ ᠬᠡᠰᠡᠭ ᠪᠣᠯᠬᠤ ᠶᠢ ᠵᠥᠪᠰᠢᠶᠡᠬᠦ ᠡᠰᠡᠬᠦ ᠶᠢ ᠲᠠᠨ ᠠᠴᠠ ᠠᠰᠠᠭᠤᠮᠠᠷ ᠪᠠᠶᠢᠨ᠎ᠠ.",
+      "consent_yes": "✓  ᠲᠡᠭᠡ, ᠪᠢ ᠵᠥᠪᠰᠢᠶᠡᠨ᠎ᠡ",
+      "consent_no": "✗  ᠦᠭᠡᠢ, ᠪᠠᠶᠠᠷᠯᠠᠯ᠎ᠠ",
+      "sharing_question": "ᠪᠢ ᠡᠨᠡ ᠶᠠᠷᠢᠯᠴᠠᠯᠭ᠎ᠠ ᠶᠢ ᠬᠤᠪᠢᠶᠠᠯᠴᠠᠵᠤ ᠪᠣᠯᠬᠤ ᠤᠤ?",
+      "sharing_yes": "ᠲᠡᠭᠡ",
+      "sharing_anonymous": "ᠲᠡᠭᠡ, ᠭᠡᠬᠦ ᠳᠡᠭᠡᠨ ᠨᠡᠷ᠎ᠡ ᠶᠢ ᠮᠢᠨᠢ ᠨᠢᠭᠤᠴᠠᠯᠠᠭᠠᠷᠠᠢ",
+      "sharing_no": "ᠦᠭᠡᠢ",
+      "interview_question": "ᠣᠳᠣ ᠪᠢ ᠲᠠᠨ ᠠᠴᠠ ᠬᠡᠳᠦᠨ ᠠᠰᠠᠭᠤᠯᠲᠠ ᠠᠰᠠᠭᠤᠵᠤ ᠪᠣᠯᠬᠤ ᠤᠤ? ᠬᠠᠷᠢᠭᠤᠯᠬᠤ ᠳᠤ ᠣᠶᠢᠷᠠᠯᠴᠠᠭ᠎ᠠ ᠪᠠᠷ {minutes} ᠮᠢᠨᠦ᠋ᠲ ᠵᠠᠷᠤᠴᠠᠭᠤᠯᠤᠨ᠎ᠠ.",
+      "instructions": "ᠳᠡᠯᠭᠡᠴᠡ ᠳᠡᠭᠡᠷ᠎ᠡ ᠨᠢᠭᠡ ᠠᠰᠠᠭᠤᠯᠲᠠ ᠭᠠᠷᠤᠨ᠎ᠠ. ᠪᠢ ᠲᠠᠨ ᠤ ᠬᠠᠷᠢᠭᠤ ᠶᠢ ᠤᠲᠠᠰᠤ ᠪᠠᠷ ᠢᠶᠠᠨ ᠪᠢᠴᠢᠵᠦ ᠠᠪᠤᠨ᠎ᠠ. ᠲᠠ ᠳᠠᠭᠤᠰᠬᠠᠭᠠᠳ ᠨᠠᠳᠠ ᠳᠤ ᠬᠡᠯᠡᠭᠡᠷᠡᠢ, ᠲᠡᠭᠡᠭᠡᠳ ᠪᠢ ᠳᠠᠷᠠᠭ᠎ᠠ ᠶᠢᠨ ᠠᠰᠠᠭᠤᠯᠲᠠ ᠳᠤ ᠰᠢᠯᠵᠢᠨ᠎ᠡ. ᠲᠠ ᠬᠦᠰᠡᠭᠰᠡᠨ ᠬᠡᠮᠵᠢᠶ᠎ᠡ ᠪᠡᠷ ᠢᠶᠡᠨ ᠲᠣᠪᠴᠢ ᠪᠤᠶᠤ ᠳᠡᠯᠭᠡᠷᠡᠩᠭᠦᠢ ᠬᠠᠷᠢᠭᠤᠯᠵᠤ ᠪᠣᠯᠣᠨ᠎ᠠ.",
+      "language_note": "ᠵᠦᠭᠡᠷ ᠯᠡ ᠲᠠᠨ ᠳᠤ ᠬᠡᠯᠡᠬᠦ ᠳᠦ, ᠪᠢ ᠲᠠᠨ ᠤ ᠶᠠᠷᠢᠭᠰᠠᠨ ᠢ ᠣᠶᠢᠯᠠᠭᠠᠬᠤ ᠦᠭᠡᠢ. ᠲᠡᠶᠢᠮᠦ ᠡᠴᠡ ᠬᠦᠰᠡᠭᠰᠡᠨ ᠵᠦᠢᠯ ᠢᠶᠡᠨ ᠴᠢᠯᠦᠭᠡᠲᠡᠢ ᠶᠠᠷᠢᠭᠠᠷᠠᠢ. ᠪᠢ ᠪᠢᠴᠢᠯᠭᠡ ᠶᠢ ᠪᠢᠳᠡᠨ ᠦ ᠶᠠᠷᠢᠯᠴᠠᠯᠭ᠎ᠠ ᠳᠠᠭᠤᠰᠤᠭᠰᠠᠨ ᠤ ᠳᠠᠷᠠᠭ᠎ᠠ ᠯᠡ ᠣᠷᠴᠢᠭᠤᠯᠤᠨ᠎ᠠ.",
+      "question_notes": "ᠡᠳᠡᠭᠡᠷ ᠠᠰᠠᠭᠤᠯᠲᠠ ᠶᠢ ᠵᠣᠷᠢᠭᠤᠳᠠ ᠲᠣᠳᠣᠷᠬᠠᠢ ᠪᠤᠰᠤ, ᠨᠡᠭᠡᠭᠡᠯᠲᠡ ᠲᠡᠢ ᠪᠠᠶᠢᠬᠤ ᠪᠠᠷ ᠪᠣᠯᠪᠠᠰᠤᠷᠠᠭᠰᠠᠨ. ᠲᠡᠶᠢᠮᠦ ᠡᠴᠡ ᠪᠤᠷᠤᠭᠤ ᠬᠠᠷᠢᠭᠤ ᠭᠡᠵᠦ ᠪᠠᠶᠢᠬᠤ ᠦᠭᠡᠢ. ᠥᠪᠡᠷ ᠦᠨ ᠬᠢ ᠪᠡᠷ ᠢᠶᠡᠨ ᠬᠠᠷᠢᠭᠤᠯᠤᠭᠠᠷᠠᠢ!",
+      "completed": "ᠮᠢᠨᠦ ᠠᠰᠠᠭᠤᠬᠤ ᠪᠦᠬᠦ ᠠᠰᠠᠭᠤᠯᠲᠠ ᠡᠨᠡ ᠬᠦᠷᠡᠭᠡᠳ ᠳᠠᠭᠤᠰᠤᠯ᠎ᠠ. ᠮᠠᠰᠢ ᠶᠡᠬᠡ ᠪᠠᠶᠠᠷᠯᠠᠯ᠎ᠠ.",
+      "fields": {
+        "sectionTitle": "ᠲᠠᠨ ᠤ ᠲᠤᠬᠠᠢ",
+        "name": "ᠨᠡᠷ᠎ᠡ",
+        "age": "ᠨᠠᠰᠤ",
+        "religion": "ᠱᠠᠰᠢᠨ",
+        "location": "ᠪᠠᠶᠢᠷᠢᠯᠠᠯ"
+      },
+      "questions": [
+        "ᠲᠠ ᠬᠡᠨ ᠪᠤᠢ?",
+        "ᠥᠨᠥᠳᠦᠷ ᠬᠦᠷᠲᠡᠯᠡᠬᠢ ᠲᠠᠨ ᠤ ᠲᠡᠦᠬᠡ ᠶᠠᠭᠤ ᠪᠤᠢ?",
+        "ᠲᠠᠨ ᠤ ᠠᠮᠢᠳᠤᠷᠠᠯ ᠤᠨ ᠬᠠᠮᠤᠭ ᠤᠨ ᠰᠠᠶᠢᠨ ᠬᠡᠰᠡᠭ ᠶᠠᠭᠤ ᠪᠤᠢ?",
+        "ᠲᠠᠨ ᠤ ᠠᠮᠢᠳᠤᠷᠠᠯ ᠤᠨ ᠬᠠᠮᠤᠭ ᠤᠨ ᠬᠡᠴᠡᠭᠦᠦ ᠬᠡᠰᠡᠭ ᠶᠠᠭᠤ ᠪᠠᠶᠢᠭᠰᠠᠨ ᠪᠤᠢ?",
+        "ᠲᠠ ᠶᠠᠭᠤ ᠶᠢ ᠬᠦᠰᠡᠵᠦ ᠪᠠᠶᠢᠨ᠎ᠠ?",
+        "ᠲᠠᠨ ᠢ ᠢᠨᠢᠶᠡᠯᠭᠡᠳᠡᠭ ᠵᠦᠢᠯ ᠶᠠᠭᠤ ᠪᠤᠢ?",
+        "ᠲᠠᠨ ᠤ ᠲᠤᠬᠠᠢ ᠳᠡᠯᠡᠬᠡᠢ ᠶᠠᠭᠤ ᠶᠢ ᠮᠡᠳᠡᠭᠡᠰᠡᠢ ᠭᠡᠵᠦ ᠲᠠ ᠬᠦᠰᠡᠳᠡᠭ ᠪᠤᠢ?"
+      ]
+    },
+    "bxr": {
+      "label": "Buryat",
+      "nativeLabel": "Буряад хэлэн",
+      "dir": "ltr",
+      "note": "Buryat is a Mongolic language/major variety spoken primarily around Buryatia and northern Mongolia. Please have a native speaker review before use.",
+      "intro": "Сайн байна, би нэгэ түсэл дээрэ хүдэлжэ байһан гэрэл зурагша, зохёолшо байнаб. Би дэлхэйн олон нютагһаа хүнүүдэй түүхэнүүдые суглуулжа байнаб, тиигээд та энэ түсэлэй нэгэ хуби болохо дурагүй гүт гэжэ асуухаяа һананаб.",
+      "consent_yes": "✓  Тиимэ, би зүбшөөнэб",
+      "consent_no": "✗  Үгы, баярлааб",
+      "sharing_question": "Би энэ интервьюе хахалжа болохо гү?",
+      "sharing_yes": "Тиимэ",
+      "sharing_anonymous": "Тиимэ, зүгөөр намайе нэрэгүй үлөөгты",
+      "sharing_no": "Үгы",
+      "interview_question": "Мүнөө би танда хэдэн асуудал табижа болохо гү? Харюусахад ойролсоогоор {minutes} минута хэрэгтэй болохо.",
+      "instructions": "Дэлгэц дээрэ асуудал гараха. Би тандай харюусые утасараа бэшэжэ абахаб. Дүүргээд надад хэлэгты, тиигээд би удаадахи асуудалда ошохоб. Та өөрынгөө хүсэһэнээр богиношье, дэлгэрэнгыгээршье харюусажа болохо.",
+      "language_note": "Зүгээр л хэлэхэд, би танда хэлэһэн юумыетнай ойлгохогүйб. Тиимэһээ хүсэһэн юумаа сүлөөтэйгөөр хэлэгты. Би бэшэлгэеэ манай хөөрэлдөөнэй һүүлээр лэ оршуулхаб.",
+      "question_notes": "Эдэ асуудалнууд зориһоор тодорхой бэшэ, нээлтэтэйгээр табигданхай. Тиимэһээ буруу харюу гэжэ байхагүй. Өөрынгөө хүсэһэнөөр харюусагты!",
+      "completed": "Мүнөө минии табиха бүхэ асуудалнууд дуурэбэ. Маш ехэ баярлааб.",
+      "fields": {
+        "sectionTitle": "Танда хабаатай мэдээсэл",
+        "name": "Нэрэ",
+        "age": "Наһан",
+        "religion": "Шажан",
+        "location": "Байрлал"
+      },
+      "questions": [
+        "Та хэн гээшэбта?",
+        "Энэ хүрэтэрхи танда й түүхэ ямар бэ?",
+        "Танда й амидаралай эгээл һайхан хубинь ямар бэ?",
+        "Танда й амидаралай эгээл хүндэ хубинь ямар байгааб?",
+        "Та юугээр найдажа байнабта?",
+        "Таниие энеэдэг болгодог юумэн юун бэ?",
+        "Танда тухай дэлхэй юуг мэдэдэг болоһой гэжэ та хүсэдэг бэ?"
+      ]
+    },
+    "xal": {
+      "label": "Oirat",
+      "nativeLabel": "ᡆᡕᡅᡃᠷᡂᠠᡄᠠᡃᠨ",
+      "dir": "ltr",
+      "note": "Oirat is a Western Mongolic variety. This translation should be reviewed by a native Oirat speaker before production use.",
+      "intro": "Сән бәйнә, би нэг төслин дээр ажиллаж бәйнә. Би дэлхийн өөр өөр газар нутгин улсин туухиг цуглуулҗ бәйнә, тэгәд та эн төслин нэг хэсг болхыг зөвшөөрх үү гиҗ асуҗ бәйнә.",
+      "consent_yes": "✓  Тииг, би зөвшөөрнә",
+      "consent_no": "✗  Үгү, баярлә",
+      "sharing_question": "Би эн ярилцлагиг хуваалцҗ болх уу?",
+      "sharing_yes": "Тииг",
+      "sharing_anonymous": "Тииг, гэхд мини нэрийг нууцалҗ өгөрэй",
+      "sharing_no": "Үгү",
+      "interview_question": "Одар би танд хэдн асуулт асуҗ болх уу? Хариулхд ойролцоогар {minutes} минут орна.",
+      "instructions": "Дэлгэц дээр нэг асуулт гарна. Би таны хариултыг утсаар бичиж авна. Дуусад надад хэлээрэй, тэгәд би дараах асуултд шилжинэ. Та хүссэнээр богино эсвэл дэлгэрэнгүй хариулж болна.",
+      "language_note": "Зүгээр л мэдүлхэд, би таны хэлснийг ойлгхгүй. Тиймээс хүссэн юмаа чөлөөтэй хэлээрэй. Би бичлэгийг манай ярилцлага дууссаны дараа л орчуулна.",
+      "question_notes": "Эдн асуултыг зориуд тодорхой бус, нээлттэй байлгасан. Тиймээс буруу хариулт гэж байхгүй. Өөрийнхөөрөө хариулаарай!",
+      "completed": "Миний асуух бүх асуулт энд хүрәд дууслаа. Маш их баярлалаа.",
+      "fields": {
+        "sectionTitle": "Таны тухай",
+        "name": "Нэр",
+        "age": "Нас",
+        "religion": "Шашин",
+        "location": "Байршил"
+      },
+      "questions": [
+        "Та хэн бэ?",
+        "Одоог хүртэлх таны туухь ямар бэ?",
+        "Таны амьдралын хамгийн сайхан хэсэг юу вэ?",
+        "Таны амьдралын хамгийн хүнд хэсэг юу байсан бэ?",
+        "Та юуг найдаж байна?",
+        "Таныг инээлгэдэг зүйл юу вэ?",
+        "Таны тухай дэлхий юу мэдээсэй гэж та хүсдэг вэ?"
+      ]
     }
   }
 }
-
-
-
-
-
