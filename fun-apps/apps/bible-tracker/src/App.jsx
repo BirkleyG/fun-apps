@@ -56,6 +56,9 @@ const Icon = ({ type, size = 18, color = "currentColor", strokeWidth = 1.75 }) =
     case "list":     return <svg {...p}><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>;
     case "audio":    return <svg {...p}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 010 7.07"/><path d="M19.07 4.93a10 10 0 010 14.14"/></svg>;
     case "undo":     return <svg {...p}><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.96"/></svg>;
+    case "compass":  return <svg {...p}><circle cx="12" cy="12" r="9"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>;
+    case "lock":     return <svg {...p}><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>;
+    case "search":   return <svg {...p}><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>;
     default: return <svg {...p}><rect x="3" y="3" width="18" height="18" rx="2"/></svg>;
   }
 };
@@ -152,6 +155,52 @@ function catFilter(b, cat) {
   if (cat==="nt") return b.testament==="NT";
   return b.category===cat;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DISCOVERIES — obscure, weird, and wonderful Bible moments, unlocked by reading
+// the chapter they're hiding in. Each hint is deliberately vague about which
+// chapter it lives in — that's the "find it" part.
+// ─────────────────────────────────────────────────────────────────────────────
+const DISCOVERIES = [
+  { id:"d1", chapter:"Genesis 19", category:"Odd & Gruesome", title:"A Pillar of Salt", hint:"Somewhere near a burning city, someone really shouldn't have looked back.", fact:"As Sodom and Gomorrah burn, Lot's wife glances back at the destruction against explicit instructions — and is instantly turned into a pillar of salt." },
+  { id:"d2", chapter:"Genesis 6", category:"Talking & Creatures", title:"Giants Walked the Earth", hint:"Before a flood, the text casually mentions some very large ancient beings.", fact:"Genesis mentions the Nephilim — often translated \"giants\" — living on the earth in the days before the flood, the offspring of an unusual union." },
+  { id:"d3", chapter:"Exodus 4", category:"Miracles & Wonders", title:"Snake Stick, Instant Leprosy", hint:"A shepherd's staff does something you really don't want your walking stick to do.", fact:"To prove his call, Moses throws his staff down and it becomes a snake; God also briefly turns his hand leprous, then heals it, as a second sign." },
+  { id:"d4", chapter:"Numbers 16", category:"Odd & Gruesome", title:"The Ground Opens Up", hint:"A rebellion ends about as dramatically as a punishment can.", fact:"When Korah leads a rebellion against Moses, the ground literally splits open and swallows him, his family, and his followers alive." },
+  { id:"d5", chapter:"Numbers 22", category:"Talking & Creatures", title:"The Talking Donkey", hint:"A stubborn animal on a road trip has more to say than its rider expects.", fact:"Balaam's donkey sees an angel blocking the road, refuses to move, and — to Balaam's shock — starts talking back to him." },
+  { id:"d6", chapter:"Numbers 11", category:"Odd & Gruesome", title:"Quail Three Feet Deep", hint:"Be careful what you complain about wanting to eat.", fact:"After the people complain about manna, God sends so much quail it piles up roughly three feet deep around the camp — right before a plague strikes those who gorged on it." },
+  { id:"d7", chapter:"Deuteronomy 3", category:"Odd & Gruesome", title:"A 13-Foot Bed", hint:"A defeated king leaves behind some seriously oversized furniture.", fact:"The iron bed of Og, king of Bashan, is recorded at about 13.5 feet long and 6 feet wide — and it was apparently a well-known tourist fact even then." },
+  { id:"d8", chapter:"Joshua 10", category:"Miracles & Wonders", title:"The Day the Sun Stood Still", hint:"During one battle, the sky itself seems to cooperate.", fact:"At Joshua's command, the sun and moon stand still in the sky for about a full day, giving Israel extra daylight to finish a battle." },
+  { id:"d9", chapter:"Judges 3", category:"Odd & Gruesome", title:"The Sword That Vanished", hint:"A left-handed judge's secret weapon disappears in a very unfortunate way.", fact:"Left-handed judge Ehud stabs King Eglon with a hidden sword — and Eglon is described as so overweight that the blade, and even the handle, disappear into his body." },
+  { id:"d10", chapter:"Judges 4", category:"Odd & Gruesome", title:"A Tent Peg Ambush", hint:"A tired general accepts hospitality and really shouldn't have fallen asleep.", fact:"Jael offers the fleeing general Sisera milk and a place to rest — then drives a tent peg through his temple with a hammer while he sleeps." },
+  { id:"d11", chapter:"Judges 6", category:"Miracles & Wonders", title:"The Wet-and-Dry Fleece", hint:"Someone asks for very specific, very testable proof — twice.", fact:"Gideon asks God for a sign using a wool fleece: first dew on the fleece but dry ground around it, then the reverse the next night — and gets both." },
+  { id:"d12", chapter:"Judges 14", category:"Talking & Creatures", title:"Honey in a Lion Carcass", hint:"A wedding riddle hides a genuinely strange discovery in the wild.", fact:"Samson finds a swarm of bees and honey inside the carcass of a lion he'd killed earlier, and turns it into an unsolvable riddle at his wedding feast." },
+  { id:"d13", chapter:"Judges 15", category:"Odd & Gruesome", title:"A Jawbone Weapon", hint:"An improvised weapon does surprisingly well against a small army.", fact:"Samson single-handedly kills a thousand men using nothing but the jawbone of a donkey he found lying on the ground." },
+  { id:"d14", chapter:"1 Samuel 5", category:"Talking & Creatures", title:"The Idol That Kept Falling Over", hint:"A captured religious artifact makes a rival god look bad — repeatedly.", fact:"After the Philistines place the captured Ark next to their idol Dagon, they find the statue face-down before it each morning — the second time with its head and hands broken off." },
+  { id:"d15", chapter:"1 Samuel 6", category:"Odd & Gruesome", title:"Golden Tumors and Mice", hint:"A guilt offering involves some very unusual craft materials.", fact:"To end a plague, the Philistines send the Ark back with a guilt offering of five golden tumors and five golden mice, modeled after the affliction ravaging their cities." },
+  { id:"d16", chapter:"1 Samuel 28", category:"Odd & Gruesome", title:"A Séance Gone Right", hint:"A king in disguise gets far more than he bargained for from a fortune teller.", fact:"King Saul, having banned mediums, secretly visits one anyway — and she actually succeeds in summoning the spirit of the prophet Samuel, terrifying everyone involved." },
+  { id:"d17", chapter:"2 Samuel 6", category:"Odd & Gruesome", title:"Dancing Too Hard", hint:"A king celebrates so enthusiastically it costs him his marriage.", fact:"David dances before the Ark with such wild abandon — in a linen ephod, in public — that his wife Michal watches from a window and despises him for it." },
+  { id:"d18", chapter:"2 Samuel 18", category:"Odd & Gruesome", title:"Caught by the Hair", hint:"A prince's famous good looks become his undoing mid-battle.", fact:"Fleeing on a mule, Absalom rides under a great oak and his head gets caught fast in its branches — leaving him hanging helplessly while the mule runs on without him." },
+  { id:"d19", chapter:"1 Kings 3", category:"Miracles & Wonders", title:"The Baby-Splitting Bluff", hint:"A new king solves a custody dispute with a shocking threat.", fact:"To settle a dispute between two women over a baby, Solomon orders it cut in half — a bluff that instantly reveals the real mother when she begs him to spare it." },
+  { id:"d20", chapter:"1 Kings 17", category:"Talking & Creatures", title:"Fed by Ravens", hint:"A prophet in hiding gets room service from an unlikely source.", fact:"While hiding by a brook during a drought, the prophet Elijah is fed bread and meat twice a day by ravens." },
+  { id:"d21", chapter:"1 Kings 18", category:"Odd & Gruesome", title:"Elijah's Trash Talk", hint:"A prophet openly mocks a rival god at a very public contest.", fact:"Taunting the prophets of Baal at Mount Carmel, Elijah suggests their silent god might be daydreaming, traveling, or in the bathroom." },
+  { id:"d22", chapter:"2 Kings 2", category:"Talking & Creatures", title:"Bears vs. Bullies", hint:"Mocking a prophet's hairstyle turns out to be a very bad idea.", fact:"After a group of youths mock the prophet Elisha for being bald, two bears come out of the woods and maul forty-two of them." },
+  { id:"d23", chapter:"2 Kings 6", category:"Miracles & Wonders", title:"The Floating Axe Head", hint:"A borrowed tool ends up somewhere metal really shouldn't go.", fact:"When a borrowed iron axe head sinks into a river, Elisha throws a stick into the water and the iron floats back up to the surface." },
+  { id:"d24", chapter:"2 Kings 13", category:"Miracles & Wonders", title:"Raised by a Skeleton", hint:"A burial is interrupted in the most unexpected way imaginable.", fact:"Some men burying a body panic mid-burial and toss the corpse into Elisha's tomb — and the moment it touches Elisha's bones, the dead man comes back to life." },
+  { id:"d25", chapter:"2 Kings 20", category:"Miracles & Wonders", title:"The Shadow That Moved Backward", hint:"A sick king is offered a sign involving something a sundial shouldn't do.", fact:"As a sign that he'll recover, King Hezekiah is given a choice — and chooses to have the sun's shadow move ten steps backward on the palace stairway." },
+  { id:"d26", chapter:"Daniel 3", category:"Miracles & Wonders", title:"A Fourth Man in the Furnace", hint:"Three men refuse to bow, and the punishment gets a surprise fourth guest.", fact:"Thrown into a furnace for refusing to worship a golden statue, Shadrach, Meshach, and Abednego walk around unharmed — joined by a mysterious fourth figure." },
+  { id:"d27", chapter:"Daniel 4", category:"Odd & Gruesome", title:"The King Who Ate Grass", hint:"A proud ruler's punishment involves living like livestock for years.", fact:"As judgment for his pride, King Nebuchadnezzar loses his mind and lives like an animal for seven years, eating grass and letting his hair and nails grow wild." },
+  { id:"d28", chapter:"Jonah 1", category:"Talking & Creatures", title:"Swallowed by a Fish", hint:"A prophet trying to run away ends up somewhere very cramped.", fact:"Fleeing God's call by ship, Jonah is thrown overboard during a storm and swallowed whole by a great fish, surviving three days inside it." },
+  { id:"d29", chapter:"Ezekiel 4", category:"Odd & Gruesome", title:"390 Days on His Side", hint:"A prophet is told to act out a siege using his own body as the stage.", fact:"God tells Ezekiel to lie on his side for over a year straight — 390 days on one side, then 40 on the other — as a live-action enactment of Israel's coming siege, cooking his food over dung for fuel." },
+  { id:"d30", chapter:"Isaiah 20", category:"Odd & Gruesome", title:"Three Years, No Clothes", hint:"A prophet's wardrobe choices become the whole message.", fact:"As a prophetic sign against Egypt and Cush, Isaiah walks around stripped and barefoot for three straight years." },
+  { id:"d31", chapter:"Matthew 17", category:"Miracles & Wonders", title:"Tax Money in a Fish's Mouth", hint:"Peter is told exactly where to find the coin he needs — nowhere near a wallet.", fact:"To pay the temple tax, Jesus tells Peter to catch a fish, open its mouth, and he'll find a coin inside — exactly enough for both of them." },
+  { id:"d32", chapter:"Mark 5", category:"Talking & Creatures", title:"2,000 Pigs Off a Cliff", hint:"An exorcism ends with an entire herd of animals making a fatal decision.", fact:"Jesus casts a legion of demons out of a man and into a herd of about two thousand pigs, which immediately rush down a steep bank into the sea and drown." },
+  { id:"d33", chapter:"Mark 11", category:"Miracles & Wonders", title:"The Fig Tree Curse", hint:"A hungry morning walk ends badly for one particular tree.", fact:"Finding no fruit on a fig tree, Jesus curses it on the spot — and by the next day, his disciples find it withered from the roots up." },
+  { id:"d34", chapter:"Acts 5", category:"Odd & Gruesome", title:"A Healing Shadow", hint:"An apostle's mere shadow becomes something people line up for.", fact:"So many people believe just Peter's shadow falling on them might heal them that the sick are carried out and laid in the street hoping to be in its path." },
+  { id:"d35", chapter:"Acts 12", category:"Odd & Gruesome", title:"Eaten by Worms", hint:"A king accepts a compliment he really shouldn't have, with grim results.", fact:"When a crowd flatters King Herod Agrippa as a god and he fails to deny it, he's struck down and, as the text puts it, eaten by worms and dies." },
+  { id:"d36", chapter:"Acts 19", category:"Miracles & Wonders", title:"Healing Handkerchiefs", hint:"Ordinary cloth becomes extraordinary after touching the right person.", fact:"Handkerchiefs and aprons that had merely touched Paul's skin were carried off to the sick, and diseases and evil spirits reportedly left them." },
+  { id:"d37", chapter:"Acts 20", category:"Odd & Gruesome", title:"Death by Sermon", hint:"A very long late-night talk has a dramatic, window-shaped consequence.", fact:"During one of Paul's long, late-night sermons, a young man named Eutychus dozes off on a windowsill, falls three stories, and is picked up dead — until Paul raises him back to life." },
+  { id:"d38", chapter:"Acts 28", category:"Talking & Creatures", title:"The Snake That Didn't Bite Twice", hint:"A shipwreck survivor has a very close call while gathering firewood.", fact:"After surviving a shipwreck, Paul is bitten by a venomous snake while stacking firewood — and simply shakes it into the fire, completely unharmed." },
+];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CHRONOLOGICAL PLAN — exact interleaved order from the provided document
@@ -826,6 +875,28 @@ function AnalyticsPage({ t, goals, activeGoalId, randomReadings }) {
   const dayBars=[0,0,0,0,0,0,0];
   (viewMode==="overall"?allReadings:gReadings).forEach(r=>{if(r.date)dayBars[new Date(r.date+"T12:00:00").getDay()]++;});
   const maxDB=Math.max(...dayBars,1);
+
+  // Fun facts — completion-based figures use every chapter ever marked read (backfilled
+  // "already read" chapters included, since they really were finished); pace/habit figures
+  // use only tracked reading events, same as the rest of this page.
+  const chapterReadSetFull=new Set();
+  goals.forEach(g=>(g.readings||[]).forEach(r=>chapterReadSetFull.add(r.chapter)));
+  randomReadings.forEach(r=>chapterReadSetFull.add(r.chapter));
+  const totalBibleChapters=BIBLE_BOOKS.reduce((a,b)=>a+b.chapters,0);
+  const estWords=chapterReadSetFull.size*450;
+  const estHours=((allReadings.length*4.2)/60).toFixed(1);
+  const booksTouched=new Set([...chapterReadSetFull].map(getBook)).size;
+  const activeDatesSorted=Object.keys(dayCount).sort();
+  let longestGapDays=0;
+  for(let i=1;i<activeDatesSorted.length;i++){
+    const diff=Math.round((new Date(activeDatesSorted[i]+"T12:00:00")-new Date(activeDatesSorted[i-1]+"T12:00:00"))/86400000);
+    if(diff>longestGapDays) longestGapDays=diff;
+  }
+  const weekendCount=allReadings.filter(r=>r.date&&[0,6].includes(new Date(r.date+"T12:00:00").getDay())).length;
+  const weekendPct=allReadings.length>0?Math.round((weekendCount/allReadings.length)*100):0;
+  const avgPerActiveDay=Object.keys(dayCount).length>0?(allReadings.length/Object.keys(dayCount).length).toFixed(1):"0";
+  const favDayName=allReadings.length>0?dayNames[dayBars.indexOf(maxDB)]:"—";
+
   const sCard=(icon,lbl,val,sub)=>(
     <div style={{background:t.bgCard,border:`1px solid ${t.border}`,borderRadius:"12px",padding:"12px 14px",flex:1,minWidth:"85px"}}>
       <Icon type={icon} size={16} color={t.acc}/>
@@ -901,6 +972,24 @@ function AnalyticsPage({ t, goals, activeGoalId, randomReadings }) {
             </div>
           ))}
         </div>}
+        <div style={{background:t.bgCard,border:`1px solid ${t.border}`,borderRadius:"13px",padding:"14px 16px"}}>
+          <p style={{fontFamily:"'Playfair Display',serif",fontSize:"14px",color:t.text,fontWeight:600,marginBottom:"12px"}}>Fun Facts</p>
+          {[
+            {label:"Estimated Reading Time",icon:"clock",val:`${estHours} hrs`},
+            {label:"Estimated Words Read",icon:"book",val:`${estWords.toLocaleString()} words`},
+            {label:"% of the Bible Read",icon:"target",val:`${totalBibleChapters>0?Math.round((chapterReadSetFull.size/totalBibleChapters)*100):0}%`},
+            {label:"Books Touched",icon:"bookmark",val:`${booksTouched} of 66`},
+            {label:"Favorite Day to Read",icon:"calendar",val:favDayName},
+            {label:"Avg Chapters / Active Day",icon:"chart",val:avgPerActiveDay},
+            {label:"Weekend Reader",icon:"trending",val:`${weekendPct}% on weekends`},
+            {label:"Longest Break",icon:"alert",val:longestGapDays>0?`${longestGapDays} day${longestGapDays!==1?"s":""}`:"—"},
+          ].map(({label,icon,val})=>(
+            <div key={label} style={{display:"flex",alignItems:"flex-start",gap:"10px",marginBottom:"10px"}}>
+              <Icon type={icon} size={14} color={t.gold}/>
+              <div><p style={{fontSize:"12px",color:t.textM}}>{label}</p><p style={{fontSize:"14px",color:t.text,fontWeight:600}}>{val}</p></div>
+            </div>
+          ))}
+        </div>
       </div>}
 
       {viewMode!=="overall"&&goal&&<div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
@@ -938,6 +1027,82 @@ function AnalyticsPage({ t, goals, activeGoalId, randomReadings }) {
           })}
         </div>
       </div>}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DISCOVERIES — obscure, whacky Bible moments unlocked one chapter at a time
+// ─────────────────────────────────────────────────────────────────────────────
+function DiscoveriesPage({ t, goals, randomReadings }) {
+  const [cat, setCat] = useState("all");
+
+  const readCount = {};
+  goals.forEach(g=>(g.readings||[]).forEach(r=>{readCount[r.chapter]=(readCount[r.chapter]||0)+1;}));
+  randomReadings.forEach(r=>{readCount[r.chapter]=(readCount[r.chapter]||0)+1;});
+
+  const categories=["all",...new Set(DISCOVERIES.map(d=>d.category))];
+  const visible=cat==="all"?DISCOVERIES:DISCOVERIES.filter(d=>d.category===cat);
+  const unlockedCount=DISCOVERIES.filter(d=>readCount[d.chapter]).length;
+
+  return (
+    <div style={{flex:1,overflowY:"auto",padding:"14px 16px"}}>
+      <div style={{background:t.bgCard,border:`1px solid ${t.border}`,borderRadius:"13px",padding:"14px 16px",marginBottom:"14px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"8px"}}>
+          <Icon type="compass" size={20} color={t.acc}/>
+          <div>
+            <p style={{fontFamily:"'Playfair Display',serif",fontSize:"16px",color:t.text,fontWeight:600}}>Discoveries</p>
+            <p style={{fontSize:"12px",color:t.textM}}>Obscure &amp; whacky Bible moments, hidden in your reading</p>
+          </div>
+        </div>
+        <div style={{height:"8px",background:t.doneBg,borderRadius:"4px",overflow:"hidden",marginTop:"6px"}}>
+          <div style={{height:"100%",width:`${(unlockedCount/DISCOVERIES.length)*100}%`,background:`linear-gradient(90deg,${t.acc},${t.gold})`,borderRadius:"4px",transition:"width 0.5s ease"}}/>
+        </div>
+        <p style={{fontSize:"12px",color:t.textM,marginTop:"6px"}}>{unlockedCount} of {DISCOVERIES.length} discovered</p>
+      </div>
+
+      <div style={{display:"flex",gap:"6px",overflowX:"auto",paddingBottom:"4px",marginBottom:"12px"}}>
+        {categories.map(c=>(
+          <button key={c} onClick={()=>setCat(c)} style={{padding:"6px 12px",borderRadius:"16px",whiteSpace:"nowrap",fontSize:"12px",border:`1px solid ${cat===c?t.acc:t.border}`,background:cat===c?t.accBg:t.bgCard,color:cat===c?t.acc:t.textM,cursor:"pointer",fontWeight:cat===c?600:400,flexShrink:0}}>
+            {c==="all"?"All":c}
+          </button>
+        ))}
+      </div>
+
+      <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
+        {visible.map(d=>{
+          const count=readCount[d.chapter]||0;
+          const unlocked=count>0;
+          return (
+            <div key={d.id} style={{background:t.bgCard,border:`1px solid ${unlocked?t.gold+"60":t.border}`,borderRadius:"12px",padding:"13px 15px",opacity:unlocked?1:0.85}}>
+              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:"10px"}}>
+                <div style={{display:"flex",alignItems:"flex-start",gap:"10px",flex:1,minWidth:0}}>
+                  <Icon type={unlocked?"compass":"lock"} size={16} color={unlocked?t.gold:t.textL} style={{marginTop:"2px",flexShrink:0}}/>
+                  <div style={{flex:1,minWidth:0}}>
+                    {unlocked ? (
+                      <>
+                        <p style={{fontFamily:"'Playfair Display',serif",fontSize:"15px",color:t.text,fontWeight:600}}>{d.title}</p>
+                        <p style={{fontSize:"11px",color:t.gold,fontWeight:600,marginTop:"1px"}}>{d.chapter}</p>
+                        <p style={{fontSize:"13px",color:t.textM,marginTop:"6px",lineHeight:1.5}}>{d.fact}</p>
+                      </>
+                    ) : (
+                      <>
+                        <p style={{fontFamily:"'Playfair Display',serif",fontSize:"15px",color:t.textM,fontWeight:600}}>Undiscovered</p>
+                        <p style={{fontSize:"13px",color:t.textM,marginTop:"6px",lineHeight:1.5,fontStyle:"italic"}}>{d.hint}</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+                {unlocked&&<div style={{textAlign:"right",flexShrink:0}}>
+                  <div style={{fontSize:"16px",fontWeight:700,color:t.acc,fontFamily:"'Playfair Display',serif"}}>×{count}</div>
+                  <div style={{fontSize:"9px",color:t.textM}}>read{count!==1?"s":""}</div>
+                </div>}
+              </div>
+              <p style={{fontSize:"10px",color:t.textL,marginTop:"8px",letterSpacing:"0.05em"}}>{d.category.toUpperCase()}</p>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1592,12 +1757,13 @@ export default function App() {
               </div>
           )}
           {page==="analytics"&&<AnalyticsPage t={t} goals={goals} activeGoalId={activeGoalId} randomReadings={randomReadings}/>}
+          {page==="discoveries"&&<DiscoveriesPage t={t} goals={goals} randomReadings={randomReadings}/>}
           {page==="settings"&&<SettingsPage t={t} settings={settings} onUpdateSettings={setSettings} goals={goals} randomReadings={randomReadings}/>}
         </div>
 
         {/* BOTTOM NAV */}
         <div style={{borderTop:`1px solid ${t.border}`,background:t.nav,display:"flex",flexShrink:0}}>
-          {[{id:"main",icon:"book",label:"Reading"},{id:"analytics",icon:"chart",label:"Analytics"},{id:"settings",icon:"settings",label:"Settings"}].map(tab=>(
+          {[{id:"main",icon:"book",label:"Reading"},{id:"analytics",icon:"chart",label:"Analytics"},{id:"discoveries",icon:"compass",label:"Discoveries"},{id:"settings",icon:"settings",label:"Settings"}].map(tab=>(
             <button key={tab.id} onClick={()=>setPage(tab.id)} style={{flex:1,padding:"10px 4px 12px",border:"none",cursor:"pointer",background:"none",display:"flex",flexDirection:"column",alignItems:"center",gap:"3px"}}>
               <Icon type={tab.icon} size={20} color={page===tab.id?t.acc:t.textM}/>
               <span style={{fontSize:"10px",color:page===tab.id?t.acc:t.textM,fontWeight:page===tab.id?600:400,letterSpacing:"0.04em"}}>{tab.label}</span>
