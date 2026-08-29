@@ -1,5 +1,6 @@
 ﻿// @ts-nocheck
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db, provider } from "./firebase";
@@ -1371,6 +1372,7 @@ export default function App() {
   const [loaded, setLoaded] = useState(false);
   const [saveState, setSaveState] = useState("idle");
   const saveTimerRef = useRef(null);
+  const pickerRef = useRef(null);
 
   const t = settings.darkMode ? D : L;
 
@@ -1523,7 +1525,7 @@ export default function App() {
           </div>
 
           {goals.length>0?(
-            <div style={{position:"relative"}}>
+            <div style={{position:"relative"}} ref={pickerRef}>
               <button onClick={()=>setShowPicker(v=>!v)} style={{display:"flex",alignItems:"center",gap:"8px",padding:"7px 10px",borderRadius:"9px",cursor:"pointer",border:`1px solid ${t.border}`,background:t.bg,width:"100%"}}>
                 <Icon type="target" size={14} color={t.acc}/>
                 <div style={{flex:1,textAlign:"left",overflow:"hidden"}}>
@@ -1533,23 +1535,41 @@ export default function App() {
                 <Icon type="chevron-down" size={13} color={t.textM}/>
               </button>
 
-              {showPicker&&<div style={{position:"absolute",top:"calc(100% + 4px)",left:0,right:0,background:t.bgEl,border:`1px solid ${t.borderS}`,borderRadius:"10px",zIndex:100,overflow:"hidden",boxShadow:`0 8px 24px ${t.shS}`,animation:"fadeUp 0.15s ease"}}>
-                {activeGoals.map(g=>{const gc=new Set((g.readings||[]).map(r=>r.chapter)).size;return(
-                  <button key={g.id} onClick={()=>{setActiveGoalId(g.id);setShowPicker(false);}} style={{display:"flex",alignItems:"center",gap:"10px",width:"100%",padding:"10px 14px",textAlign:"left",background:g.id===activeGoalId?t.accBg:"none",border:"none",borderBottom:`1px solid ${t.border}`,cursor:"pointer"}}>
-                    <Icon type="target" size={13} color={g.id===activeGoalId?t.acc:t.textL}/>
-                    <div style={{flex:1}}><p style={{fontSize:"14px",color:g.id===activeGoalId?t.acc:t.text,fontWeight:g.id===activeGoalId?600:400}}>{g.name}</p><p style={{fontSize:"12px",color:t.textM}}>{gc}/{g.chapters.length} · {g.chapters.length>0?Math.round((gc/g.chapters.length)*100):0}%</p></div>
-                  </button>
-                );})}
-                {compGoals.length>0&&<>
-                  <div style={{padding:"6px 14px 4px",background:t.bg}}><p style={{fontSize:"10px",color:t.textL,letterSpacing:"0.07em",fontWeight:600}}>COMPLETED PLANS</p></div>
-                  {compGoals.map(g=>(
-                    <button key={g.id} onClick={()=>{setActiveGoalId(g.id);setShowPicker(false);}} style={{display:"flex",alignItems:"center",gap:"10px",width:"100%",padding:"9px 14px",textAlign:"left",background:g.id===activeGoalId?t.goldL:"none",border:"none",borderBottom:`1px solid ${t.border}`,cursor:"pointer",opacity:0.8}}>
-                      <Icon type="trophy" size={13} color={t.gold}/>
-                      <div><p style={{fontSize:"14px",color:t.textM}}>{g.name}</p><p style={{fontSize:"11px",color:t.textL}}>Complete · {g.chapters.length} chapters</p></div>
-                    </button>
-                  ))}
-                </>}
-              </div>}
+              {/* Rendered via portal: the header bar has a backdrop-filter (index.css .bt-top-row),
+                  which creates its own CSS stacking context and traps any z-index inside it —
+                  no z-index value here could ever paint above the page content below. Escaping
+                  to document.body with fixed positioning sidesteps that entirely. */}
+              {showPicker&&pickerRef.current&&createPortal(
+                <>
+                  <div onClick={()=>setShowPicker(false)} style={{position:"fixed",inset:0,zIndex:999}}/>
+                  <div style={{
+                    position:"fixed",
+                    top:pickerRef.current.getBoundingClientRect().bottom+4,
+                    left:pickerRef.current.getBoundingClientRect().left,
+                    width:pickerRef.current.getBoundingClientRect().width,
+                    maxHeight:"60vh",overflowY:"auto",
+                    background:t.bgEl,border:`1px solid ${t.borderS}`,borderRadius:"10px",zIndex:1000,
+                    boxShadow:`0 8px 24px ${t.shS}`,animation:"fadeUp 0.15s ease"
+                  }}>
+                    {activeGoals.map(g=>{const gc=new Set((g.readings||[]).map(r=>r.chapter)).size;return(
+                      <button key={g.id} onClick={()=>{setActiveGoalId(g.id);setShowPicker(false);}} style={{display:"flex",alignItems:"center",gap:"10px",width:"100%",padding:"10px 14px",textAlign:"left",background:g.id===activeGoalId?t.accBg:"none",border:"none",borderBottom:`1px solid ${t.border}`,cursor:"pointer"}}>
+                        <Icon type="target" size={13} color={g.id===activeGoalId?t.acc:t.textL}/>
+                        <div style={{flex:1}}><p style={{fontSize:"14px",color:g.id===activeGoalId?t.acc:t.text,fontWeight:g.id===activeGoalId?600:400}}>{g.name}</p><p style={{fontSize:"12px",color:t.textM}}>{gc}/{g.chapters.length} · {g.chapters.length>0?Math.round((gc/g.chapters.length)*100):0}%</p></div>
+                      </button>
+                    );})}
+                    {compGoals.length>0&&<>
+                      <div style={{padding:"6px 14px 4px",background:t.bg}}><p style={{fontSize:"10px",color:t.textL,letterSpacing:"0.07em",fontWeight:600}}>COMPLETED PLANS</p></div>
+                      {compGoals.map(g=>(
+                        <button key={g.id} onClick={()=>{setActiveGoalId(g.id);setShowPicker(false);}} style={{display:"flex",alignItems:"center",gap:"10px",width:"100%",padding:"9px 14px",textAlign:"left",background:g.id===activeGoalId?t.goldL:"none",border:"none",borderBottom:`1px solid ${t.border}`,cursor:"pointer",opacity:0.8}}>
+                          <Icon type="trophy" size={13} color={t.gold}/>
+                          <div><p style={{fontSize:"14px",color:t.textM}}>{g.name}</p><p style={{fontSize:"11px",color:t.textL}}>Complete · {g.chapters.length} chapters</p></div>
+                        </button>
+                      ))}
+                    </>}
+                  </div>
+                </>,
+                document.body
+              )}
             </div>
           ):<p style={{fontSize:"13px",color:t.textM}}>Create a plan to begin tracking your reading →</p>}
 
