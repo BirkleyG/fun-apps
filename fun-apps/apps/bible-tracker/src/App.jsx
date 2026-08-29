@@ -386,6 +386,32 @@ function todayStr() { return new Date().toISOString().slice(0,10); }
 function fmtDate(d) { try { return new Date(d+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}); } catch(e){return d;} }
 function getBook(ch) { const p=ch.split(" "); return p.slice(0,-1).join(" "); }
 
+// A reading counts toward analytics (streaks, "most active day", heatmap-by-date, etc.)
+// only if it was actually logged as read. Chapters marked complete via "Start In Progress"
+// (you'd already read them before using the app) are real completions but not reading events.
+function isTrackedReading(r) { return !r?.backfilled; }
+
+// Existing accounts may already have the "instant 500-chapter day" bug baked into their data:
+// a burst of readings all dated the same day with timestamps exactly 500ms apart (the bug's
+// signature, from Date.now()-(idx-i)*500). Detect and flag those retroactively so analytics
+// stop treating them as reading events — without deleting anything.
+function flagLegacyBackfill(readings) {
+  if (!Array.isArray(readings) || readings.length === 0) return readings;
+  const byDate = {};
+  readings.forEach((r, idx) => { if (r.date) (byDate[r.date] ||= []).push(idx); });
+  const flagged = new Set();
+  Object.values(byDate).forEach(idxs => {
+    if (idxs.length < 8) return;
+    const entries = idxs.map(i => ({ i, ts: readings[i].ts })).filter(e => typeof e.ts === "number").sort((a,b)=>a.ts-b.ts);
+    if (entries.length < 8) return;
+    let stepMatches = 0;
+    for (let k=1;k<entries.length;k++) if (entries[k].ts - entries[k-1].ts === 500) stepMatches++;
+    if (stepMatches >= entries.length - 2) idxs.forEach(i => flagged.add(i));
+  });
+  if (flagged.size === 0) return readings;
+  return readings.map((r, idx) => flagged.has(idx) && !r.backfilled ? { ...r, backfilled: true } : r);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CHOIR SOUND — "Ahh-AHHH!"
 // ─────────────────────────────────────────────────────────────────────────────
@@ -669,7 +695,7 @@ function NewGoalModal({ t, onClose, onCreate }) {
           {step<3&&type&&<button onClick={()=>setStep(s=>s+1)} style={{padding:"9px 18px",borderRadius:"8px",border:"none",background:t.acc,color:"#fff",cursor:"pointer",fontSize:"14px",fontWeight:600}}>Next</button>}
           {step===3&&<button onClick={()=>{
             const readings=[];
-            if(startMode==="mid"&&startChapter){const idx=chs.indexOf(startChapter);if(idx>0)chs.slice(0,idx).forEach((c,i)=>readings.push({chapter:c,date:todayStr(),ts:Date.now()-(idx-i)*500}));}
+            if(startMode==="mid"&&startChapter){const idx=chs.indexOf(startChapter);if(idx>0)chs.slice(0,idx).forEach((c,i)=>readings.push({chapter:c,date:todayStr(),ts:Date.now()-(idx-i)*500,backfilled:true}));}
             onCreate({id:Date.now().toString(),name:name.trim()||(TYPES.find(tp=>tp.id===type)?.label+" Plan")||"My Plan",type,chapters:chs,readings,createdAt:todayStr()});
           }} style={{padding:"9px 18px",borderRadius:"8px",border:"none",background:t.acc,color:"#fff",cursor:"pointer",fontSize:"14px",fontWeight:600}}>Create Plan</button>}
         </div>
@@ -736,9 +762,11 @@ function LineChart({ data, t }) {
 // ─────────────────────────────────────────────────────────────────────────────
 function AnalyticsPage({ t, goals, activeGoalId, randomReadings }) {
   const [viewMode, setViewMode] = useState("overall");
+  // "allReadings" here means genuinely logged reading *events* — chapters marked already-read
+  // via "Start In Progress" are excluded so they don't fake a 500-chapter reading day.
   const allReadings=[];
-  goals.forEach(g=>(g.readings||[]).forEach(r=>allReadings.push({...r,goalId:g.id})));
-  randomReadings.forEach(r=>allReadings.push({...r,goalId:"random"}));
+  goals.forEach(g=>(g.readings||[]).filter(isTrackedReading).forEach(r=>allReadings.push({...r,goalId:g.id})));
+  randomReadings.filter(isTrackedReading).forEach(r=>allReadings.push({...r,goalId:"random"}));
   const chCount={}, bookCount={}, dayCount={}, monthCount={}, weekCount={};
   allReadings.forEach(r=>{
     chCount[r.chapter]=(chCount[r.chapter]||0)+1;
@@ -765,7 +793,7 @@ function AnalyticsPage({ t, goals, activeGoalId, randomReadings }) {
       const bkChs=g.chapters.filter(c=>getBook(c)===bk);
       const readBkChs=bkChs.filter(c=>cSet.has(c));
       if(readBkChs.length>0&&readBkChs.length<bkChs.length){
-        const lastR=(g.readings||[]).filter(r=>getBook(r.chapter)===bk).map(r=>r.date).sort().pop();
+        const lastR=(g.readings||[]).filter(r=>isTrackedReading(r)&&getBook(r.chapter)===bk).map(r=>r.date).sort().pop();
         if(lastR&&lastR<sevenAgo) stuckBooks.push({book:bk,goal:g.name,lastRead:lastR,done:readBkChs.length,total:bkChs.length});
       }
     });
@@ -774,7 +802,7 @@ function AnalyticsPage({ t, goals, activeGoalId, randomReadings }) {
   goals.forEach(g=>{
     [...new Set(g.chapters.map(c=>getBook(c)))].forEach(bk=>{
       const bkChs=g.chapters.filter(c=>getBook(c)===bk);
-      const bkRds=(g.readings||[]).filter(r=>getBook(r.chapter)===bk);
+      const bkRds=(g.readings||[]).filter(r=>isTrackedReading(r)&&getBook(r.chapter)===bk);
       if(bkRds.length===0) return;
       const dates=[...new Set(bkRds.map(r=>r.date))].sort();
       const done=bkChs.every(c=>(g.readings||[]).some(r=>r.chapter===c));
@@ -786,8 +814,8 @@ function AnalyticsPage({ t, goals, activeGoalId, randomReadings }) {
   const goal=goals.find(g=>g.id===viewMode);
   let gReadings=[],gCompleted=0,gTotal=0,gPct=0,gDates=[],gStreak=0,gLongest=0;
   if(goal){
-    gReadings=goal.readings||[];
-    const gSet=new Set(gReadings.map(r=>r.chapter));
+    gReadings=(goal.readings||[]).filter(isTrackedReading);
+    const gSet=new Set((goal.readings||[]).map(r=>r.chapter));
     gCompleted=gSet.size; gTotal=goal.chapters.length; gPct=gTotal>0?Math.round((gCompleted/gTotal)*100):0;
     gDates=[...new Set(gReadings.map(r=>r.date))].sort().reverse();
     for(let i=0;i<365;i++){const d=new Date(Date.now()-i*86400000).toISOString().slice(0,10);if(gDates.includes(d))gStreak++;else if(i>0)break;}
@@ -820,8 +848,8 @@ function AnalyticsPage({ t, goals, activeGoalId, randomReadings }) {
         <div style={{background:t.bgCard,border:`1px solid ${t.border}`,borderRadius:"13px",padding:"14px 16px"}}>
           <p style={{fontFamily:"'Playfair Display',serif",fontSize:"14px",color:t.text,fontWeight:600,marginBottom:"12px"}}>Top Readings</p>
           {[
-            {label:"Most Read Chapter",icon:"book",val:topCh?`${topCh[0]} (Ã—${topCh[1]})`:"—"},
-            {label:"Most Read Book",icon:"bookmark",val:topBk?`${topBk[0]} (Ã—${topBk[1]})`:"—"},
+            {label:"Most Read Chapter",icon:"book",val:topCh?`${topCh[0]} (×${topCh[1]})`:"—"},
+            {label:"Most Read Book",icon:"bookmark",val:topBk?`${topBk[0]} (×${topBk[1]})`:"—"},
             {label:"Most Active Day",icon:"calendar",val:topDay?`${fmtDate(topDay[0])} · ${topDay[1]} ch.`:"—"},
             {label:"Most Active Month",icon:"chart",val:topMo?(()=>{const [y,m]=topMo[0].split("-");return `${new Date(y,m-1).toLocaleString("en-US",{month:"long",year:"numeric"})} · ${topMo[1]} ch.`;})():"—"},
             {label:"Most Active Week",icon:"trending",val:topWk?`${topWk[0]} · ${topWk[1]} ch.`:"—"},
@@ -889,7 +917,7 @@ function AnalyticsPage({ t, goals, activeGoalId, randomReadings }) {
           {sCard("flame","Current Streak",gStreak,gStreak===1?"day":"days")}
           {sCard("trophy","Longest Streak",gLongest,"days")}
           {sCard("calendar","Days Active",gDates.length,"total")}
-          {sCard("chart","Avg/Day",gDates.length>0?(gCompleted/gDates.length).toFixed(1):"0","chapters")}
+          {sCard("chart","Avg/Day",gDates.length>0?(new Set(gReadings.map(r=>r.chapter)).size/gDates.length).toFixed(1):"0","chapters")}
         </div>
         <div style={{background:t.bgCard,border:`1px solid ${t.border}`,borderRadius:"12px",padding:"14px 16px"}}>
           <p style={{fontFamily:"'Playfair Display',serif",fontSize:"14px",color:t.text,marginBottom:"10px",fontWeight:600}}>Books Progress</p>
@@ -914,224 +942,264 @@ function AnalyticsPage({ t, goals, activeGoalId, randomReadings }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SHARE — Book Opening with Rich Heatmap Tooltip
+// BIBLE WRAPPED — a Spotify-Wrapped-style recap of your reading journey
 // ─────────────────────────────────────────────────────────────────────────────
-function SharePage({ t, goals, randomReadings, onClose }) {
-  const [open, setOpen] = useState(false);
-  const [tooltip, setTooltip] = useState(null); // {name,total,readNums,totalReads,rect}
+function computeStreaksFromDates(dateSet) {
+  let current=0, longest=0;
+  for(let i=0;i<3650;i++){
+    const d=new Date(Date.now()-i*86400000).toISOString().slice(0,10);
+    if(dateSet.has(d)) current++; else if(i>0) break;
+  }
+  if(dateSet.size>0){
+    const sorted=[...dateSet].sort();
+    let run=1;
+    for(let i=1;i<sorted.length;i++){
+      const diff=(new Date(sorted[i]+"T12:00:00")-new Date(sorted[i-1]+"T12:00:00"))/86400000;
+      if(diff===1){run++;longest=Math.max(longest,run);} else run=1;
+    }
+    longest=Math.max(longest,current);
+  }
+  return {current,longest};
+}
 
-  useEffect(()=>{const id=setTimeout(()=>setOpen(true),280);return()=>clearTimeout(id);},[]);
+function BibleWrapped({ t, goals, randomReadings, onClose }) {
+  const [slide, setSlide] = useState(0);
 
-  // Build read counts per chapter across all goals + random
-  const readCount = {};
-  goals.forEach(g=>(g.readings||[]).forEach(r=>{readCount[r.chapter]=(readCount[r.chapter]||0)+1;}));
-  randomReadings.forEach(r=>{readCount[r.chapter]=(readCount[r.chapter]||0)+1;});
-  const maxC = Math.max(...Object.values(readCount),1);
+  // Every chapter ever marked complete — includes legitimate "already read" backfill,
+  // since those chapters really were finished, just not on a tracked date.
+  const chapterReadSet = new Set();
+  goals.forEach(g=>(g.readings||[]).forEach(r=>chapterReadSet.add(r.chapter)));
+  randomReadings.forEach(r=>chapterReadSet.add(r.chapter));
+  const totalChaptersRead = chapterReadSet.size;
+  const totalBibleChapters = BIBLE_BOOKS.reduce((a,b)=>a+b.chapters,0);
+  const pctBible = totalBibleChapters>0 ? Math.round((totalChaptersRead/totalBibleChapters)*100) : 0;
 
-  const MINP=0.004, totalChs=BIBLE_BOOKS.reduce((a,b)=>a+b.chapters,0);
-  const books = BIBLE_BOOKS.map(b=>({...b,prop:Math.max(b.chapters/totalChs,MINP)}));
-  const totalP = books.reduce((a,b)=>a+b.prop,0);
+  // Only genuinely logged reading events power the date-based stats below.
+  const trackedEvents = [];
+  goals.forEach(g=>(g.readings||[]).filter(isTrackedReading).forEach(r=>trackedEvents.push(r)));
+  randomReadings.filter(isTrackedReading).forEach(r=>trackedEvents.push(r));
 
-  const totalRead=Object.keys(readCount).length;
-  const allRds=goals.reduce((a,g)=>a+(g.readings?.length||0),0)+randomReadings.length;
+  const dayCount={}, bookCount={}, monthCount={};
+  trackedEvents.forEach(r=>{
+    if(!r.date) return;
+    dayCount[r.date]=(dayCount[r.date]||0)+1;
+    const bk=getBook(r.chapter); bookCount[bk]=(bookCount[bk]||0)+1;
+    const [y,m]=r.date.split("-"); monthCount[`${y}-${m}`]=(monthCount[`${y}-${m}`]||0)+1;
+  });
+  const dateSet=new Set(Object.keys(dayCount));
+  const {current:currentStreak, longest:longestStreak}=computeStreaksFromDates(dateSet);
+  const activeDays=dateSet.size;
+  const topBook=Object.entries(bookCount).sort((a,b)=>b[1]-a[1])[0];
+  const topDay=Object.entries(dayCount).sort((a,b)=>b[1]-a[1])[0];
+  const topMonth=Object.entries(monthCount).sort((a,b)=>b[1]-a[1])[0];
+  const firstDate=[...dateSet].sort()[0];
 
-  const handleBookHover = (e, book) => {
-    // Build per-chapter read data for this book
-    const readNums = Array.from({length:book.chapters},(_,i)=>{
-      const key=`${book.name} ${i+1}`;
-      return {num:i+1, count:readCount[key]||0};
-    });
-    const totalReads = readNums.reduce((a,r)=>a+r.count,0);
-    const rect = e.currentTarget.getBoundingClientRect();
-    setTooltip({name:book.name, total:book.chapters, readNums, totalReads, rect});
-  };
+  const testamentOf = bk => BIBLE_BOOKS.find(b=>b.name===bk)?.testament;
+  const otRead=[...chapterReadSet].filter(c=>testamentOf(getBook(c))==="OT").length;
+  const ntRead=[...chapterReadSet].filter(c=>testamentOf(getBook(c))==="NT").length;
+  const otTotal=BIBLE_BOOKS.filter(b=>b.testament==="OT").reduce((a,b)=>a+b.chapters,0);
+  const ntTotal=BIBLE_BOOKS.filter(b=>b.testament==="NT").reduce((a,b)=>a+b.chapters,0);
 
-  // Smart tooltip positioning
-  const TT = tooltip ? (() => {
-    const r = tooltip.rect;
-    const viewW = window.innerWidth;
-    const left = r.left + r.width/2;
-    const top = r.top;
-    return { left: Math.min(Math.max(left-110,8), viewW-230), top: top - 8 };
-  })() : null;
+  const booksCompleted=BIBLE_BOOKS.filter(b=>{
+    for(let i=1;i<=b.chapters;i++) if(!chapterReadSet.has(`${b.name} ${i}`)) return false;
+    return true;
+  });
+  const plansCompleted=goals.filter(g=>g.chapters.length>0&&new Set((g.readings||[]).map(r=>r.chapter)).size>=g.chapters.length).length;
+
+  const milestoneThresholds=[1,50,100,250,500,750,1000,totalBibleChapters];
+  const milestonesHit=milestoneThresholds.filter(m=>totalChaptersRead>=m);
+  const nextMilestone=milestoneThresholds.find(m=>totalChaptersRead<m);
+
+  const estMinutes=Math.round(trackedEvents.length*4.2);
+  const estHours=(estMinutes/60).toFixed(1);
+
+  const dayNames=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const dayBars=[0,0,0,0,0,0,0];
+  trackedEvents.forEach(r=>{if(r.date) dayBars[new Date(r.date+"T12:00:00").getDay()]++;});
+  const maxDayBar=Math.max(...dayBars,1);
+  const favDayIdx=dayBars.indexOf(maxDayBar);
+
+  const num=(n)=>n.toLocaleString("en-US");
+
+  const GRADIENTS=[
+    "linear-gradient(160deg,#8B2635 0%,#3A1018 100%)",
+    "linear-gradient(160deg,#A8762A 0%,#4A3410 100%)",
+    "linear-gradient(160deg,#2E5A9C 0%,#12233F 100%)",
+    "linear-gradient(160deg,#4A7C59 0%,#1B3122 100%)",
+    "linear-gradient(160deg,#B84040 0%,#5A1F1F 100%)",
+    "linear-gradient(160deg,#9B4DCA 0%,#3C2050 100%)",
+    "linear-gradient(160deg,#C4734A 0%,#4A2A15 100%)",
+    "linear-gradient(160deg,#1A0C05 0%,#3D2810 60%,#4A3318 100%)",
+  ];
+
+  const StatNum = ({children}) => <div style={{fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:"52px",color:"#fff",lineHeight:1.05}}>{children}</div>;
+  const Eyebrow = ({children}) => <p style={{fontSize:"11px",letterSpacing:"0.16em",color:"rgba(255,255,255,0.65)",marginBottom:"10px",textTransform:"uppercase"}}>{children}</p>;
+  const Caption = ({children}) => <p style={{fontSize:"14px",color:"rgba(255,255,255,0.85)",marginTop:"10px",lineHeight:1.6,maxWidth:"280px"}}>{children}</p>;
+
+  const slides=[
+    // 0 — Intro
+    <div key="intro" style={{textAlign:"center"}}>
+      <Icon type="book" size={40} color="#fff" strokeWidth={1.2}/>
+      <p style={{fontFamily:"'Playfair Display',serif",fontSize:"26px",fontWeight:700,color:"#fff",marginTop:"18px"}}>Bible Wrapped</p>
+      <Caption>
+        {firstDate ? `Your reading journey since ${fmtDate(firstDate)}.` : "Your reading journey so far."} Tap through for the highlights.
+      </Caption>
+    </div>,
+    // 1 — Total chapters
+    <div key="total" style={{textAlign:"center"}}>
+      <Eyebrow>Chapters Read</Eyebrow>
+      <StatNum>{num(totalChaptersRead)}</StatNum>
+      <Caption>That's {pctBible}% of the entire Bible — {num(totalBibleChapters)} chapters in all.</Caption>
+    </div>,
+    // 2 — Sessions & time
+    <div key="sessions" style={{textAlign:"center"}}>
+      <Eyebrow>Reading Sessions Logged</Eyebrow>
+      <StatNum>{num(trackedEvents.length)}</StatNum>
+      <Caption>Roughly {estHours} hours spent in Scripture, across {num(activeDays)} different days.</Caption>
+    </div>,
+    // 3 — Streaks
+    <div key="streaks" style={{textAlign:"center"}}>
+      <Icon type="flame" size={30} color="#fff"/>
+      <Eyebrow>Reading Streak</Eyebrow>
+      <StatNum>{currentStreak}</StatNum>
+      <Caption>{currentStreak===1?"day":"days"} in a row right now. Your longest-ever streak was {longestStreak} {longestStreak===1?"day":"days"}.</Caption>
+    </div>,
+    // 4 — Best day/month
+    <div key="best" style={{textAlign:"center"}}>
+      <Eyebrow>Your Best Day</Eyebrow>
+      <StatNum>{topDay?topDay[1]:0}</StatNum>
+      <Caption>
+        {topDay?`chapters on ${fmtDate(topDay[0])}`:"Log a chapter to get started"}
+        {topMonth?` · Busiest month: ${new Date(topMonth[0].split("-")[0],topMonth[0].split("-")[1]-1).toLocaleString("en-US",{month:"long",year:"numeric"})}`:""}
+      </Caption>
+      <div style={{display:"flex",gap:"5px",alignItems:"flex-end",height:"46px",marginTop:"20px",justifyContent:"center"}}>
+        {dayBars.map((c,i)=>(
+          <div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"4px",width:"22px"}}>
+            <div style={{width:"100%",borderRadius:"3px 3px 0 0",height:`${(c/maxDayBar)*34}px`,minHeight:c>0?"3px":"0",background:i===favDayIdx&&c>0?"#fff":"rgba(255,255,255,0.4)"}}/>
+            <span style={{fontSize:"9px",color:"rgba(255,255,255,0.7)"}}>{dayNames[i]}</span>
+          </div>
+        ))}
+      </div>
+    </div>,
+    // 5 — Favorite book & testament split
+    <div key="book" style={{textAlign:"center",width:"100%"}}>
+      <Icon type="bookmark" size={28} color="#fff"/>
+      <Eyebrow>Favorite Book</Eyebrow>
+      <p style={{fontFamily:"'Playfair Display',serif",fontSize:"30px",fontWeight:700,color:"#fff"}}>{topBook?topBook[0]:"—"}</p>
+      <Caption>{topBook?`Read ${topBook[1]} time${topBook[1]!==1?"s":""} across your plans.`:"Nothing logged yet."}</Caption>
+      <div style={{marginTop:"22px",width:"260px",textAlign:"left"}}>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:"11px",color:"rgba(255,255,255,0.75)",marginBottom:"4px"}}>
+          <span>Old Testament · {otRead}/{otTotal}</span><span>{otTotal>0?Math.round((otRead/otTotal)*100):0}%</span>
+        </div>
+        <div style={{height:"6px",background:"rgba(255,255,255,0.18)",borderRadius:"3px",overflow:"hidden",marginBottom:"12px"}}>
+          <div style={{height:"100%",width:`${otTotal>0?(otRead/otTotal)*100:0}%`,background:"#fff",borderRadius:"3px"}}/>
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:"11px",color:"rgba(255,255,255,0.75)",marginBottom:"4px"}}>
+          <span>New Testament · {ntRead}/{ntTotal}</span><span>{ntTotal>0?Math.round((ntRead/ntTotal)*100):0}%</span>
+        </div>
+        <div style={{height:"6px",background:"rgba(255,255,255,0.18)",borderRadius:"3px",overflow:"hidden"}}>
+          <div style={{height:"100%",width:`${ntTotal>0?(ntRead/ntTotal)*100:0}%`,background:"#fff",borderRadius:"3px"}}/>
+        </div>
+      </div>
+    </div>,
+    // 6 — Books completed & milestones
+    <div key="milestones" style={{textAlign:"center",width:"100%"}}>
+      <Icon type="trophy" size={30} color="#fff"/>
+      <Eyebrow>Books Finished</Eyebrow>
+      <StatNum>{booksCompleted.length}</StatNum>
+      <Caption>of 66 books complete{plansCompleted>0?` · ${plansCompleted} plan${plansCompleted!==1?"s":""} finished`:""}</Caption>
+      <div style={{display:"flex",flexWrap:"wrap",gap:"6px",justifyContent:"center",marginTop:"18px",maxWidth:"280px"}}>
+        {milestoneThresholds.map(m=>(
+          <div key={m} style={{padding:"5px 10px",borderRadius:"16px",fontSize:"11px",fontWeight:600,background:milestonesHit.includes(m)?"#fff":"rgba(255,255,255,0.15)",color:milestonesHit.includes(m)?"#3A1018":"rgba(255,255,255,0.55)"}}>
+            {m} {m===totalBibleChapters?"(whole Bible)":""}
+          </div>
+        ))}
+      </div>
+      {nextMilestone&&<p style={{fontSize:"11px",color:"rgba(255,255,255,0.65)",marginTop:"12px"}}>{nextMilestone-totalChaptersRead} chapters to your next milestone</p>}
+    </div>,
+    // 7 — Recap
+    <div key="recap" style={{textAlign:"center",width:"100%"}}>
+      <Eyebrow>Your Journey, At A Glance</Eyebrow>
+      <p style={{fontFamily:"'Playfair Display',serif",fontSize:"20px",fontWeight:700,color:"#fff",marginBottom:"16px"}}>Scripture Wrapped</p>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",width:"100%",maxWidth:"300px",margin:"0 auto"}}>
+        {[
+          {l:"Chapters read",v:num(totalChaptersRead)},
+          {l:"Of the Bible",v:`${pctBible}%`},
+          {l:"Books finished",v:booksCompleted.length},
+          {l:"Longest streak",v:`${longestStreak}d`},
+          {l:"Active days",v:num(activeDays)},
+          {l:"Reading plans",v:goals.length},
+        ].map(s=>(
+          <div key={s.l} style={{background:"rgba(255,255,255,0.12)",borderRadius:"10px",padding:"10px 8px"}}>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:"18px",fontWeight:700,color:"#fff"}}>{s.v}</div>
+            <div style={{fontSize:"10px",color:"rgba(255,255,255,0.7)",marginTop:"2px"}}>{s.l}</div>
+          </div>
+        ))}
+      </div>
+      <p style={{fontSize:"12px",color:"rgba(255,255,255,0.6)",marginTop:"18px"}}>Keep going — every chapter counts.</p>
+    </div>,
+  ];
+
+  const goNext=()=>setSlide(s=>Math.min(s+1,slides.length-1));
+  const goPrev=()=>setSlide(s=>Math.max(s-1,0));
+
+  useEffect(()=>{
+    const onKey=e=>{
+      if(e.key==="ArrowRight") goNext();
+      else if(e.key==="ArrowLeft") goPrev();
+      else if(e.key==="Escape") onClose();
+    };
+    window.addEventListener("keydown",onKey);
+    return ()=>window.removeEventListener("keydown",onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[slide]);
 
   return (
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:"12px"}}>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:"16px"}}>
+      <div style={{width:"100%",maxWidth:"380px",display:"flex",flexDirection:"column",gap:"10px"}}>
 
-      {/* Rich tooltip */}
-      {tooltip&&TT&&(
-        <div style={{
-          position:"fixed", left:TT.left, top:TT.top,
-          transform:"translateY(-100%)",
-          background:t.bgEl, border:`1px solid ${t.borderS}`, borderRadius:"12px",
-          padding:"12px 14px", zIndex:400, pointerEvents:"none",
-          boxShadow:`0 8px 24px ${t.shS}`, width:"220px",
-          animation:"fadeUp 0.1s ease",
-        }}>
-          <p style={{fontFamily:"'Playfair Display',serif",fontSize:"14px",fontWeight:600,color:t.text,marginBottom:"4px"}}>{tooltip.name}</p>
-          <p style={{fontSize:"12px",color:t.textM,marginBottom:"8px"}}>
-            {tooltip.readNums.filter(r=>r.count>0).length} of {tooltip.total} chapters read
-            {tooltip.totalReads>0&&` · ${tooltip.totalReads} total readings`}
-          </p>
-          {/* Mini chapter grid */}
-          <div style={{display:"flex",flexWrap:"wrap",gap:"2px",marginBottom:"6px"}}>
-            {tooltip.readNums.map(({num,count})=>(
-              <div key={num} title={`Ch. ${num}: ${count} reading${count!==1?"s":""}`}
-                style={{
-                  width:"11px",height:"11px",borderRadius:"2px",
-                  background:count===0?t.doneBg:`rgba(139,38,53,${Math.min(0.2+0.8*(count/maxC),1)})`,
-                  border:`1px solid ${count>0?t.acc+"40":t.border}`,
-                  flexShrink:0,
-                }}/>
-            ))}
-          </div>
-          <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
-            {[{bg:t.doneBg,label:"Unread"},{bg:`rgba(139,38,53,0.3)`,label:"Read"},{bg:`rgba(139,38,53,0.85)`,label:"Often"}].map(({bg,label})=>(
-              <div key={label} style={{display:"flex",alignItems:"center",gap:"3px"}}>
-                <div style={{width:"8px",height:"8px",borderRadius:"1px",background:bg,border:`1px solid ${t.border}`}}/>
-                <span style={{fontSize:"9px",color:t.textL}}>{label}</span>
-              </div>
-            ))}
-          </div>
+        {/* Progress segments */}
+        <div style={{display:"flex",gap:"4px"}}>
+          {slides.map((_,i)=>(
+            <div key={i} style={{flex:1,height:"3px",borderRadius:"2px",background:"rgba(255,255,255,0.25)",overflow:"hidden"}}>
+              <div style={{height:"100%",width:i<slide?"100%":i===slide?"100%":"0%",background:"#fff",transition:"width 0.2s"}}/>
+            </div>
+          ))}
         </div>
-      )}
 
-      <div style={{width:"100%",maxWidth:"640px",maxHeight:"92vh",display:"flex",flexDirection:"column"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px",padding:"0 4px"}}>
-          <p style={{fontFamily:"'Playfair Display',serif",fontSize:"16px",color:"rgba(255,255,255,0.9)",fontWeight:600}}>My Reading Journey</p>
-          <button onClick={onClose} style={{background:"rgba(255,255,255,0.12)",border:"none",color:"#fff",cursor:"pointer",borderRadius:"8px",padding:"7px 12px",display:"flex",alignItems:"center",gap:"6px",fontSize:"13px"}}>
-            <Icon type="x" size={15} color="#fff"/> Close
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <p style={{fontSize:"13px",color:"rgba(255,255,255,0.7)"}}>{slide+1} / {slides.length}</p>
+          <button onClick={onClose} style={{background:"rgba(255,255,255,0.12)",border:"none",color:"#fff",cursor:"pointer",borderRadius:"8px",padding:"6px 11px",display:"flex",alignItems:"center",gap:"5px",fontSize:"12px"}}>
+            <Icon type="x" size={13} color="#fff"/> Close
           </button>
         </div>
 
-        {/*
-          ── THE BOOK ──
-          Layers (bottom → top):
-            1. Right page: heatmap (always visible, right half)
-            2. Inside-left page: title/stats (fades in as cover opens)
-            3. Cover: perspective wrapper → rotating leather cover
-            4. Spine: always on top at center
-          CRITICAL: NO overflow:hidden anywhere above a 3D-transformed element.
-          Perspective must be the DIRECT parent of the rotating element.
-        */}
-        <div style={{
-          position:"relative",
-          height:"440px",
-          borderRadius:"8px",
-          boxShadow:`0 24px 64px rgba(0,0,0,0.75)`,
-          flexShrink:0,
-          // NO overflow:hidden here — that would kill 3D transforms
-        }}>
-
-          {/* LAYER 1 — Right page: heatmap (always visible) */}
+        {/* Card */}
+        <div style={{position:"relative",borderRadius:"18px",overflow:"hidden",boxShadow:"0 24px 64px rgba(0,0,0,0.6)"}}>
           <div style={{
-            position:"absolute", right:0, top:0, bottom:0, width:"50%",
-            background:`linear-gradient(160deg,${t.bgCard} 0%,${t.goldL} 100%)`,
-            borderRadius:"0 8px 8px 0",
-            overflow:"auto", zIndex:1,
-          }}>
-            <div style={{padding:"14px 12px"}}>
-              <p style={{fontFamily:"'Playfair Display',serif",fontSize:"10px",color:t.gold,letterSpacing:"0.12em",marginBottom:"10px",textAlign:"center"}}>✦ HEATMAP ✦</p>
-              <p style={{fontSize:"10px",color:t.textM,marginBottom:"8px",textAlign:"center"}}>Hover a book for details</p>
-              <div style={{display:"flex",flexWrap:"wrap",gap:"2px",marginBottom:"10px"}}>
-                {books.map(book=>{
-                  const pxW=Math.max((book.prop/totalP)*240,10);
-                  const bkRds=Array.from({length:book.chapters},(_,i)=>readCount[`${book.name} ${i+1}`]||0);
-                  const totalReads=bkRds.reduce((a,b)=>a+b,0);
-                  const intensity=totalReads===0?0:Math.min(1,0.15+0.85*(totalReads/(book.chapters*maxC)));
-                  return (
-                    <div key={book.name}
-                      onMouseEnter={e=>handleBookHover(e,book)}
-                      onMouseLeave={()=>setTooltip(null)}
-                      style={{width:`${pxW}px`,height:"26px",borderRadius:"2px",overflow:"hidden",border:`1px solid ${t.border}`,cursor:"default",position:"relative",flexShrink:0,transition:"transform 0.12s",background:totalReads===0?t.doneBg:`rgba(139,38,53,${intensity})`}}
-                      onMouseOver={e=>{e.currentTarget.style.transform="scale(1.18) translateY(-2px)";e.currentTarget.style.zIndex="20";}}
-                      onMouseOut={e=>{e.currentTarget.style.transform="scale(1)";e.currentTarget.style.zIndex="1";}}>
-                      {book.chapters<=14&&pxW>16&&(
-                        <div style={{display:"flex",height:"100%"}}>
-                          {bkRds.map((c,i)=><div key={i} style={{flex:1,background:c===0?t.doneBg:`rgba(139,38,53,${0.15+0.85*(c/maxC)})`}}/>)}
-                        </div>
-                      )}
-                      {pxW>22&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"flex-end",padding:"1px 2px"}}>
-                        <span style={{fontSize:"6px",color:t.text,opacity:0.55,lineHeight:1,overflow:"hidden",whiteSpace:"nowrap"}}>{book.name.length>6?book.name.slice(0,5)+"…":book.name}</span>
-                      </div>}
-                    </div>
-                  );
-                })}
-              </div>
-              <div style={{display:"flex",alignItems:"center",gap:"5px",justifyContent:"center",marginBottom:"10px"}}>
-                <span style={{fontSize:"9px",color:t.textM}}>Unread</span>
-                {[0.2,0.5,0.8].map(op=><div key={op} style={{width:"9px",height:"9px",borderRadius:"1px",background:`rgba(139,38,53,${op})`}}/>)}
-                <span style={{fontSize:"9px",color:t.textM}}>Often</span>
-              </div>
-              <div style={{display:"flex",gap:"5px"}}>
-                {[{l:"Chapters",v:totalRead},{l:"Plans",v:goals.length},{l:"Readings",v:allRds}].map(s=>(
-                  <div key={s.l} style={{textAlign:"center",padding:"6px 4px",background:t.bgCard,borderRadius:"6px",border:`1px solid ${t.border}`,flex:1}}>
-                    <div style={{fontSize:"15px",fontWeight:700,color:t.acc,fontFamily:"'Playfair Display',serif"}}>{s.v}</div>
-                    <div style={{fontSize:"9px",color:t.textM,marginTop:"1px"}}>{s.l}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            height:"480px",background:GRADIENTS[slide%GRADIENTS.length],
+            display:"flex",alignItems:"center",justifyContent:"center",padding:"28px",
+            animation:"fadeUp 0.3s ease",
+          }} key={slide}>
+            {slides[slide]}
           </div>
+          {/* Tap zones for prev/next, story-style */}
+          <div onClick={goPrev} style={{position:"absolute",left:0,top:0,bottom:0,width:"32%",cursor:slide>0?"pointer":"default"}}/>
+          <div onClick={goNext} style={{position:"absolute",right:0,top:0,bottom:0,width:"68%",cursor:slide<slides.length-1?"pointer":"default"}}/>
+        </div>
 
-          {/* LAYER 2 — Inside-left page: revealed as cover opens */}
-          <div style={{
-            position:"absolute", left:0, top:0, bottom:0, width:"50%",
-            background:`linear-gradient(135deg, ${t.bgCard} 0%, ${t.goldL} 100%)`,
-            borderRadius:"8px 0 0 8px",
-            display:"flex", alignItems:"center", justifyContent:"center",
-            zIndex:2,
-            opacity: open ? 1 : 0,
-            transition:"opacity 0.5s ease 0.7s",
-          }}>
-            <div style={{textAlign:"center",color:t.gold,padding:"20px"}}>
-              <Icon type="book" size={32} color={t.gold} strokeWidth={1.2}/>
-              <div style={{width:"32px",height:"1px",background:t.gold,margin:"12px auto",opacity:0.4}}/>
-              <p style={{fontFamily:"'Playfair Display',serif",fontSize:"15px",fontWeight:700,marginBottom:"4px",color:t.text}}>My Reading</p>
-              <p style={{fontFamily:"'Playfair Display',serif",fontSize:"15px",fontWeight:700,fontStyle:"italic",color:t.text}}>Journey</p>
-              <div style={{width:"32px",height:"1px",background:t.gold,margin:"12px auto",opacity:0.4}}/>
-              <p style={{fontSize:"11px",color:t.textM,marginBottom:"4px"}}>{totalRead} chapters</p>
-              <p style={{fontSize:"11px",color:t.textM}}>{allRds} readings</p>
-            </div>
-          </div>
-
-          {/* LAYER 3 — Cover: perspective is the DIRECT parent of the rotating div */}
-          {/* overflow:visible is CRITICAL — never hidden on or above a 3D element */}
-          <div style={{
-            position:"absolute", left:0, top:0, bottom:0, width:"50%",
-            perspective:"1000px",
-            overflow:"visible",
-            zIndex: open ? 0 : 5,
-          }}>
-            <div style={{
-              width:"100%", height:"100%",
-              transformOrigin:"right center",
-              transform: open ? "rotateY(-180deg)" : "rotateY(0deg)",
-              transition:"transform 1.3s cubic-bezier(0.645,0.045,0.355,1.000)",
-              backfaceVisibility:"hidden",
-              WebkitBackfaceVisibility:"hidden",
-              borderRadius:"8px 0 0 8px",
-              background:"linear-gradient(145deg,#1A0C05 0%,#3D2810 40%,#4A3318 70%,#2A1A08 100%)",
-              boxShadow: open ? "none" : "4px 0 20px rgba(0,0,0,0.6)",
-              display:"flex", alignItems:"center", justifyContent:"center",
-            }}>
-              <div style={{textAlign:"center",padding:"20px"}}>
-                <Icon type="book" size={34} color="#D4AF37" strokeWidth={1.1}/>
-                <div style={{width:"32px",height:"1px",background:"#D4AF37",margin:"12px auto",opacity:0.45}}/>
-                <p style={{fontFamily:"'Playfair Display',serif",fontSize:"16px",fontWeight:700,color:"#D4AF37",letterSpacing:"0.04em"}}>Scripture</p>
-                <p style={{fontFamily:"'Playfair Display',serif",fontSize:"11px",color:"#D4AF37",opacity:0.6,marginTop:"4px",fontStyle:"italic"}}>Reading Tracker</p>
-              </div>
-            </div>
-          </div>
-
-          {/* LAYER 4 — Spine (always on top) */}
-          <div style={{
-            position:"absolute",
-            left:"calc(50% - 5px)", top:0, bottom:0, width:"10px",
-            background:"linear-gradient(90deg,#080402,#2A1A0A,#080402)",
-            zIndex:10,
-            boxShadow:"0 0 8px rgba(0,0,0,0.8)",
-          }}/>
+        {/* Explicit nav buttons */}
+        <div style={{display:"flex",justifyContent:"space-between",gap:"8px"}}>
+          <button onClick={goPrev} disabled={slide===0} style={{flex:1,padding:"10px",borderRadius:"10px",border:"1px solid rgba(255,255,255,0.2)",background:"rgba(255,255,255,0.08)",color:"#fff",cursor:slide===0?"default":"pointer",opacity:slide===0?0.4:1,fontSize:"13px",display:"flex",alignItems:"center",justifyContent:"center",gap:"6px"}}>
+            <Icon type="chevron-right" size={13} color="#fff" style={{transform:"rotate(180deg)"}}/> Back
+          </button>
+          {slide<slides.length-1
+            ? <button onClick={goNext} style={{flex:1,padding:"10px",borderRadius:"10px",border:"none",background:"#fff",color:"#2A1A0E",cursor:"pointer",fontSize:"13px",fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:"6px"}}>
+                Next <Icon type="chevron-right" size={13} color="#2A1A0E"/>
+              </button>
+            : <button onClick={onClose} style={{flex:1,padding:"10px",borderRadius:"10px",border:"none",background:"#fff",color:"#2A1A0E",cursor:"pointer",fontSize:"13px",fontWeight:600}}>
+                Done
+              </button>}
         </div>
       </div>
     </div>
@@ -1157,10 +1225,10 @@ function SettingsPage({ t, settings, onUpdateSettings, goals, randomReadings }) 
   );
   return (
     <div style={{flex:1,overflowY:"auto",padding:"16px"}}>
-      {showShare&&<SharePage t={t} goals={goals} randomReadings={randomReadings} onClose={()=>setShowShare(false)}/>}
+      {showShare&&<BibleWrapped t={t} goals={goals} randomReadings={randomReadings} onClose={()=>setShowShare(false)}/>}
       <button onClick={()=>setShowShare(true)} style={{width:"100%",padding:"15px 18px",borderRadius:"14px",cursor:"pointer",background:`linear-gradient(135deg,${t.acc},${t.accL})`,border:"none",marginBottom:"16px",textAlign:"left",boxShadow:`0 4px 18px ${t.acc}40`,display:"flex",alignItems:"center",gap:"12px"}}>
         <Icon type="share" size={20} color="#fff"/>
-        <div><p style={{fontFamily:"'Playfair Display',serif",fontSize:"16px",color:"#fff",fontWeight:600}}>Share My Reading Journey</p><p style={{fontSize:"13px",color:"rgba(255,255,255,0.8)",marginTop:"2px"}}>Open your personalized Bible reading heatmap</p></div>
+        <div><p style={{fontFamily:"'Playfair Display',serif",fontSize:"16px",color:"#fff",fontWeight:600}}>Bible Wrapped</p><p style={{fontSize:"13px",color:"rgba(255,255,255,0.8)",marginTop:"2px"}}>See your personalized reading recap</p></div>
       </button>
       <div style={{background:t.bgCard,border:`1px solid ${t.border}`,borderRadius:"14px",padding:"0 16px",marginBottom:"16px"}}>
         <TR label="Dark Mode" desc="Warmer dark parchment theme" k="darkMode" icon={settings.darkMode?"moon":"sun"}/>
@@ -1330,7 +1398,11 @@ export default function App() {
       try {
         const data = await loadAppData(user.uid);
         if (cancelled) return;
-        setGoals(Array.isArray(data?.goals) ? data.goals : []);
+        const rawGoals = Array.isArray(data?.goals) ? data.goals : [];
+        setGoals(rawGoals.map(g => {
+          const flagged = flagLegacyBackfill(g.readings);
+          return flagged === g.readings ? g : { ...g, readings: flagged };
+        }));
         setActiveGoalId(data?.activeGoalId || null);
         setRandomReadings(Array.isArray(data?.randomReadings) ? data.randomReadings : []);
         if (data?.settings) setSettings((p) => ({ ...p, ...data.settings }));
