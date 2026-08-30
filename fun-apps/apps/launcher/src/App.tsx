@@ -45,6 +45,11 @@ const getWorldOfFacesUrl = () => {
   return getAppUrl(envUrl, "./world-of-faces/", 5181);
 };
 
+const getMeetingRecorderUrl = () => {
+  const envUrl = import.meta.env.VITE_MEETING_RECORDER_URL as string | undefined;
+  return getAppUrl(envUrl, "./meeting-recorder/", 5182);
+};
+
 type AppTile = {
   title: string;
   subtitle: string;
@@ -120,6 +125,14 @@ export default function App() {
       href: getWorldOfFacesUrl(),
       accent: "#db4a3f",
     },
+    {
+      title: "Meeting Notes AI",
+      subtitle: "Records and transcribes meetings, then formats them into your own templates.",
+      signal: "MN",
+      meta: "Meeting recorder",
+      href: getMeetingRecorderUrl(),
+      accent: "#5eead4",
+    },
   ];
 
   return (
@@ -138,7 +151,7 @@ export default function App() {
           <div className="orb orb--one" />
           <div className="orb orb--two" />
           <div className="hero__metric">
-            <span>9</span>
+            <span>{apps.length}</span>
             <small>apps in the suite</small>
           </div>
           <div className="hero__rail">

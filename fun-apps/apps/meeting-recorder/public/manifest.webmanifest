@@ -1,0 +1,23 @@
+{
+  "name": "Meeting Notes AI",
+  "short_name": "MeetingNotes",
+  "start_url": "/fun-apps/meeting-recorder/",
+  "scope": "/fun-apps/meeting-recorder/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/fun-apps/meeting-recorder/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/fun-apps/meeting-recorder/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

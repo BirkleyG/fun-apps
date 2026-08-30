@@ -231,6 +231,54 @@ cd apps/emoji-battle
 npm run build
 ```
 
+## Meeting Notes AI App
+
+Meeting Notes AI records meetings, transcribes them live in the browser, and formats the transcript into
+templates you define (e.g. "1:1 Meeting", "Client Call"). It's a PWA, installable to your phone's home screen.
+
+- Recording uses `MediaRecorder`; live transcription uses the browser's built-in Web Speech API (Chrome/Edge —
+  Safari/Firefox will still record audio, just without live captions).
+- Per-recording (or a default in Settings) you choose where it's stored: **This device** keeps the audio,
+  transcript, and notes entirely in IndexedDB and never leaves the browser; **Cloud** uploads audio to Firebase
+  Storage and the transcript/notes to Firestore, scoped to your account.
+- Formatting into a template is free by default (a local keyword/extractive summarizer, no API calls). You can
+  optionally paste your own Anthropic API key in Settings to get real AI-written summaries instead — the key is
+  stored only in the browser's local storage and used to call the Anthropic API directly from your browser.
+
+### Firebase Setup
+
+Meeting Notes AI uses Firebase Authentication (Google) + Firestore + Storage in the same shared `fun-apps`
+Firebase project.
+
+Set environment variables:
+
+```
+# apps/meeting-recorder/.env
+VITE_FIREBASE_API_KEY=...
+VITE_FIREBASE_AUTH_DOMAIN=...
+VITE_FIREBASE_PROJECT_ID=...
+VITE_FIREBASE_STORAGE_BUCKET=...
+VITE_FIREBASE_MESSAGING_SENDER_ID=...
+VITE_FIREBASE_APP_ID=...
+```
+
+An example file is provided at `apps/meeting-recorder/.env.example`.
+
+### Run Locally
+
+```
+cd apps/meeting-recorder
+npm install
+npm run dev
+```
+
+### Build
+
+```
+cd apps/meeting-recorder
+npm run build
+```
+
 ## Firestore Security Rules (Example)
 
 Use per-user access rules similar to the following:
@@ -272,6 +320,7 @@ service cloud.firestore {
   - Coin Atlas at `/fun-apps/coin-atlas/`
   - Bob's Books at `/fun-apps/bobs-books/`
   - Emoji Battle at `/fun-apps/emoji-battle/`
+  - Meeting Notes AI at `/fun-apps/meeting-recorder/`
 - For GitHub Pages builds, set repository secrets for:
   - `VITE_FIREBASE_API_KEY`
   - `VITE_FIREBASE_AUTH_DOMAIN`
