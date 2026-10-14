@@ -17,7 +17,7 @@ label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--mute
 select,button,input[type=file]{font:inherit}
 select{padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
 .check{flex-direction:row;align-items:center;gap:6px;font-size:14px;color:var(--ink)}
-button{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:7px 12px;border-radius:8px;cursor:pointer}
+button,.s{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:7px 12px;border-radius:8px;cursor:pointer}
 button:hover{border-color:var(--acc)} button:disabled{opacity:.5;cursor:default}
 #rec{background:var(--rec);border-color:var(--rec);color:#fff;font-weight:600;font-size:16px;padding:12px 26px;border-radius:999px}
 #rec.on{background:var(--ink);border-color:var(--ink);color:var(--bg)}
@@ -36,6 +36,7 @@ button:hover{border-color:var(--acc)} button:disabled{opacity:.5;cursor:default}
 .banner{padding:8px 12px;border-radius:8px;background:color-mix(in srgb,var(--warn) 15%,transparent);color:var(--ink);margin-bottom:10px;font-size:13px}
 audio{height:32px;max-width:100%}
 details summary{cursor:pointer;color:var(--mute)}
+[hidden]{display:none!important}
 </style>
 </head>
 <body>
@@ -80,11 +81,26 @@ details summary{cursor:pointer;color:var(--mute)}
     <div id="live" style="margin-top:10px"><span class="mute">Press Record to start.</span></div>
   </div>
 
+  <div class="card" id="phoneCard" hidden>
+    <b>Record on your phone</b>
+    <div class="row" style="align-items:flex-start;margin-top:10px;gap:18px">
+      <img id="qr" alt="QR code" width="150" height="150" style="background:#fff;border-radius:8px;padding:4px">
+      <div style="flex:1;min-width:220px">
+        <ol class="small" style="margin:0;padding-left:18px">
+          <li>Join the <b>same Wi-Fi</b> as this computer and scan the code with your phone camera.</li>
+          <li>Your phone will warn that the connection isn't private. That's expected (it's your own computer).
+              Tap <b>Advanced → Proceed</b> (Android) or <b>Show Details → visit this website</b> (iPhone).</li>
+          <li>Tap <b>Record</b>. When you stop, it's sent straight here and transcribed automatically.</li>
+        </ol>
+        <p class="small mute" style="margin:8px 0 0">Bookmark or "Add to Home Screen" on your phone. The link stays the same. <button id="copyPhone" class="s">Copy link</button></p>
+      </div>
+    </div>
+  </div>
+
   <div class="card">
-    <b>Transcribe a recording (e.g. from your phone)</b>
-    <p class="small mute" style="margin:4px 0 10px">Record with your phone's voice recorder, then pick the file here. On a phone, run with <code>--lan</code> and open the link it prints, or sync recordings into a watched folder.</p>
-    <div class="row"><input type="file" id="file" accept="audio/*,video/mp4,.m4a,.amr,.3gp,.opus"><button id="upBtn">Upload &amp; transcribe</button><span id="upStatus" class="small mute"></span></div>
-    <p class="small mute" id="lanInfo"></p>
+    <b>Transcribe an existing recording</b>
+    <div class="row" style="margin-top:8px"><input type="file" id="file" accept="audio/*,video/mp4,.m4a,.amr,.3gp,.opus"><button id="upBtn">Upload &amp; transcribe</button><span id="upStatus" class="small mute"></span></div>
+    <p class="small mute" style="margin:8px 0 0">Or start with <code>--watch "C:\path\to\folder"</code> to auto-transcribe anything your phone syncs into a folder (OneDrive, Google Drive...).</p>
   </div>
 
   <div class="card"><b>Recordings</b><div id="sessions" style="margin-top:6px"></div></div>
@@ -127,7 +143,8 @@ async function init(){
   $('autoFinal').checked = LS.get('autoFinal', true);
   ['lang','target','liveModel','finalModel'].forEach(i => $(i).onchange = () => LS.set(i, $(i).value));
   ['srcMic','srcSys','autoFinal'].forEach(i => $(i).onchange = () => LS.set(i, $(i).checked));
-  if(cfg.lan_url) $('lanInfo').innerHTML = `Phone link (same Wi-Fi): <code>${cfg.lan_url}</code>`;
+  if(cfg.phone_url){ $('phoneCard').hidden = false; $('qr').src = '/api/phone-qr.svg';
+    $('copyPhone').onclick = async e => { try { await navigator.clipboard.writeText(cfg.phone_url); e.target.textContent = 'Copied ✓'; } catch { prompt('Phone link:', cfg.phone_url); } }; }
   if(cfg.device === 'cpu') $('status').textContent = 'Running on CPU — the accurate pass takes a while on long meetings.';
   refreshSessions(); setInterval(refreshSessions, 2000);
 }

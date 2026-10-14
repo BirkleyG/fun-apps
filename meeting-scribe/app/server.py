@@ -19,7 +19,7 @@ from urllib.parse import parse_qs, urlparse
 import numpy as np
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request, WebSocket
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
 
 from . import engine, store, translate
 
@@ -41,8 +41,12 @@ executor = ThreadPoolExecutor(max_workers=1)  # one accurate pass at a time
 
 
 # --------------------------------------------------------------------------- security
+PHONE_PATHS = {"/phone", "/api/ping", "/api/upload"}   # all a phone on the LAN may touch
+
+
 class Gate:
-    """Pure-ASGI middleware: blocks cross-site requests and (in --lan mode) requires a token."""
+    """Pure-ASGI middleware: blocks cross-site requests; phones on the LAN need a token
+    and can only reach the recorder page + upload endpoint."""
 
     def __init__(self, app, token=None):
         self.app, self.token = app, token
@@ -54,27 +58,37 @@ class Gate:
         origin = headers.get("origin")
         if origin and urlparse(origin).netloc != headers.get("host", ""):
             return await self._deny(scope, send, 403)
-        set_cookie = False
         client = (scope.get("client") or ("", 0))[0]
-        if self.token and client not in ("127.0.0.1", "::1"):
-            qs = parse_qs(scope.get("query_string", b"").decode())
-            cookie = http.cookies.SimpleCookie(headers.get("cookie", ""))
-            got = (cookie["ms_token"].value if "ms_token" in cookie else "")
-            q = (qs.get("t") or [""])[0]
-            if secrets.compare_digest(got, self.token):
-                pass
-            elif secrets.compare_digest(q, self.token):
-                set_cookie = True
-            else:
-                return await self._deny(scope, send, 401)
-        if set_cookie and scope["type"] == "http":
-            async def send2(msg):
-                if msg["type"] == "http.response.start":
-                    msg["headers"] = list(msg.get("headers", [])) + [
-                        (b"set-cookie", f"ms_token={self.token}; Path=/; HttpOnly; SameSite=Strict".encode())]
-                await send(msg)
-            return await self.app(scope, receive, send2)
-        await self.app(scope, receive, send)
+        if client in ("127.0.0.1", "::1"):
+            return await self.app(scope, receive, send)
+        # ---- remote (phone) client
+        if not self.token:
+            return await self._deny(scope, send, 403)
+        qs = parse_qs(scope.get("query_string", b"").decode())
+        cookie = http.cookies.SimpleCookie(headers.get("cookie", ""))
+        got = cookie["ms_token"].value if "ms_token" in cookie else ""
+        q = (qs.get("t") or [""])[0]
+        set_cookie = False
+        if secrets.compare_digest(got, self.token):
+            pass
+        elif secrets.compare_digest(q, self.token):
+            set_cookie = True
+        else:
+            return await self._deny(scope, send, 401)
+        path = scope["path"]
+        if scope["type"] == "websocket" or (path != "/" and path not in PHONE_PATHS):
+            return await self._deny(scope, send, 403)
+
+        async def send2(msg):
+            if set_cookie and msg["type"] == "http.response.start":
+                msg["headers"] = list(msg.get("headers", [])) + [
+                    (b"set-cookie", f"ms_token={self.token}; Path=/; Secure; HttpOnly; SameSite=Strict; Max-Age=31536000".encode())]
+            await send(msg)
+
+        if path == "/":
+            await send2({"type": "http.response.start", "status": 302, "headers": [(b"location", b"/phone")]})
+            return await send2({"type": "http.response.body", "body": b""})
+        await self.app(scope, receive, send2)
 
     async def _deny(self, scope, send, code):
         if scope["type"] == "websocket":
@@ -336,6 +350,28 @@ def index():
     return FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-store"})
 
 
+@app.get("/phone")
+def phone_page():
+    return FileResponse(STATIC / "phone.html", headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/ping")
+def ping():
+    return {"ok": True, "languages": LANGS}
+
+
+@app.get("/api/phone-qr.svg")
+def phone_qr():
+    url = getattr(app.state, "phone_url", None)
+    if not url:
+        raise HTTPException(404)
+    import io
+    import segno
+    buf = io.BytesIO()
+    segno.make(url, error="m").save(buf, kind="svg", scale=6, border=2, dark="#000", light="#fff")
+    return Response(buf.getvalue(), media_type="image/svg+xml")
+
+
 @app.get("/api/config")
 def config():
     dev, _ = engine.device_info()
@@ -343,7 +379,7 @@ def config():
         "live_models": engine.LIVE_MODELS, "final_models": engine.FINAL_MODELS,
         "languages": LANGS, "translation_available": translate.available(),
         "ffmpeg": bool(shutil.which("ffmpeg")), "device": dev,
-        "lan_url": getattr(app.state, "lan_url", None),
+        "phone_url": getattr(app.state, "phone_url", None),
     }
 
 
@@ -431,9 +467,12 @@ def delete(sid: str):
 
 @app.post("/api/upload")
 async def upload(request: Request, name: str = "audio.m4a", language: str = "auto",
-                 target: str = "", final_model: str = "large-v3-turbo"):
+                 target: str = "", final_model: str = ""):
     """Raw-body upload of an existing recording (e.g. from your phone)."""
-    return await _ingest_stream(request.stream(), name, language, target, final_model)
+    if int(request.headers.get("content-length") or 0) > 4 << 30:
+        raise HTTPException(413, "File too large")
+    model = final_model if final_model in engine.FINAL_MODELS else getattr(app.state, "default_model", "large-v3-turbo")
+    return await _ingest_stream(request.stream(), name, language, target, model)
 
 
 async def _ingest_stream(stream, name, language, target, final_model):
@@ -504,10 +543,32 @@ def lan_ip():
         s.close()
 
 
+def already_running(port) -> bool:
+    import urllib.request
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/ping", timeout=1.5) as r:
+            return r.status == 200
+    except Exception:
+        return False
+
+
+def phone_token() -> str:
+    """Stable secret so the phone link / QR code keeps working between runs."""
+    f = store.DATA / "phone_token.txt"
+    if f.exists() and f.read_text().strip():
+        return f.read_text().strip()
+    store.DATA.mkdir(parents=True, exist_ok=True)
+    tok = secrets.token_urlsafe(16)
+    f.write_text(tok)
+    return tok
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--port", type=int, default=8765)
-    ap.add_argument("--lan", action="store_true", help="Also listen on your Wi-Fi so your phone can upload (token protected)")
+    ap.add_argument("--no-phone", action="store_true", help="Don't open the phone recorder on your Wi-Fi")
+    ap.add_argument("--lan", action="store_true", help=argparse.SUPPRESS)  # old flag, phone is on by default now
+    ap.add_argument("--default-model", default="large-v3-turbo", help="Accurate model for phone uploads")
     ap.add_argument("--watch", type=Path, help="Folder to auto-transcribe new audio from (e.g. a synced phone-recordings folder)")
     ap.add_argument("--watch-model", default="large-v3-turbo")
     ap.add_argument("--watch-language", default="auto")
@@ -515,24 +576,41 @@ def main():
     ap.add_argument("--open", action="store_true", help="Open the browser")
     args = ap.parse_args()
 
+    url = f"http://127.0.0.1:{args.port}"
+    if already_running(args.port):          # e.g. clicked "Run" twice: just show the app
+        print("  Meeting Scribe is already running; opening it.")
+        if args.open:
+            webbrowser.open(url)
+        return
+
     store.init()
     recover_interrupted()
-    token = secrets.token_urlsafe(16) if args.lan else None
+    app.state.default_model = args.default_model
+    token = None if args.no_phone else phone_token()
     app.add_middleware(Gate, token=token)
-    host = "0.0.0.0" if args.lan else "127.0.0.1"
-    url = f"http://127.0.0.1:{args.port}"
-    if args.lan:
-        app.state.lan_url = f"http://{lan_ip()}:{args.port}/?t={token}"
-        print(f"\n  On your phone (same Wi-Fi), open:\n  {app.state.lan_url}\n")
+
+    if token:
+        ip = lan_ip()
+        try:
+            from .certs import ensure_cert
+            cert, key = ensure_cert(store.DATA / "certs", ip)
+            phone_port = args.port + 1
+            srv = uvicorn.Server(uvicorn.Config(app, host="0.0.0.0", port=phone_port, log_level="warning",
+                                                ssl_certfile=str(cert), ssl_keyfile=str(key)))
+            threading.Thread(target=srv.run, daemon=True).start()
+            app.state.phone_url = f"https://{ip}:{phone_port}/phone?t={token}"
+            print(f"\n  Phone recorder (same Wi-Fi): {app.state.phone_url}\n  (scan the QR code shown in the app)\n")
+        except Exception as e:  # noqa: BLE001
+            print(f"  Phone recorder disabled: {e}")
     if args.watch:
         args.watch.mkdir(parents=True, exist_ok=True)
         threading.Thread(target=watch_folder, daemon=True,
                          args=(args.watch, args.watch_model, args.watch_language, args.watch_target)).start()
         print(f"  Watching {args.watch} for new recordings")
-    print(f"  Meeting Scribe running at {url}  (Ctrl+C to quit)")
+    print(f"  Meeting Scribe running at {url}  (close this window to quit)")
     if args.open:
         threading.Timer(1.2, lambda: webbrowser.open(url)).start()
-    uvicorn.run(app, host=host, port=args.port, log_level="warning")
+    uvicorn.run(app, host="127.0.0.1", port=args.port, log_level="warning")
 
 
 if __name__ == "__main__":

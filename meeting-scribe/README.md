@@ -6,11 +6,16 @@ the whole recording with a bigger Whisper model for a **much more accurate final
 
 Nothing leaves your computer (after the one-time model download).
 
-## Run it (Windows)
+## Install & run (Windows)
 
-1. Install Python 3.12 from python.org (tick **Add to PATH**).
-2. Double-click **`start.bat`**. First run installs dependencies; your browser opens at http://127.0.0.1:8765.
-3. Press **Record**. The first run downloads the models (live: ~150 MB, accurate: ~1.5 GB for `large-v3-turbo`).
+**Easiest:** on the Fun Apps home page, press **Install on this PC**, open the downloaded
+`Install-Meeting-Scribe.bat`, and wait. It installs into `%LOCALAPPDATA%\MeetingScribe`, adds a
+**Meeting Scribe** desktop shortcut, installs Python 3.12 via winget if you don't have a suitable one,
+and starts the app. After that, the **Run Meeting Scribe** button on the home page (or the shortcut) starts it
+and opens your browser. If it's already running it just opens the page.
+
+**Manual:** unzip the folder anywhere and double-click **`start.bat`** (same Python check/install).
+The first run downloads components and speech models (live: ~150 MB, accurate: ~1.5 GB for `large-v3-turbo`).
 
 Use **Chrome or Edge**. For *Computer audio*, pick **Entire screen** and tick **Also share system audio**
 (or share a tab with tab audio). Use headphones when recording mic + computer audio together.
@@ -35,17 +40,25 @@ the meeting length on a typical laptop CPU. With an NVIDIA GPU it's detected and
 * **Into other languages:** double-click `add-translation.bat` once (offline Argos Translate; language
   packs download on first use, then work offline). Quality is decent, not perfect.
 
-## Phone recordings
+## Phone recordings (record on your phone, lands on your computer)
 
-Phone browsers block microphone access on plain `http://` pages, so the phone workflow is **record with your
-phone's voice recorder, then send the file over**. Two ways:
+When Meeting Scribe is running, the app shows a **Record on your phone** card with a QR code.
 
-1. **Upload page:** `start.bat --lan`, open the link it prints on your phone (same Wi-Fi), pick the file.
-   The link contains a secret token; it's only reachable on your network. Windows Firewall will ask once. Allow private networks.
-2. **Synced folder:** `start.bat --watch "C:\Users\you\OneDrive\Recordings"`. Anything your phone drops into
-   that folder (OneDrive, Google Drive, Dropbox, Syncthing...) is transcribed automatically. Your originals are copied, never modified.
+1. Phone on the **same Wi-Fi** as the computer; scan the QR code.
+2. Your phone warns the connection isn't private: that's the app's own self-signed certificate, and it's needed
+   because phone browsers only allow the microphone on `https` pages. Tap **Advanced → Proceed** (Android)
+   or **Show Details → visit this website** (iPhone).
+3. Tap **Record**. On Stop the audio is sent straight to the computer and transcribed with the accurate model.
 
-Any common format works (m4a, mp3, wav, aac, ogg, opus, flac, mp4, amr...).
+Notes:
+* Recordings are written to the phone's own storage while recording, so a dropped connection or closed tab
+  loses nothing. Anything not sent stays in the list with a **Send** button.
+* Keep the screen on and the page open while recording (phones pause the mic in the background).
+* The link includes a secret token and stays the same between runs; bookmark it. A phone can only reach the
+  recorder page and the upload endpoint, nothing else. Windows Firewall asks once; allow **private** networks.
+  Start with `--no-phone` to turn this off.
+* Already have a recording (voice memo, etc.)? Use **Transcribe an existing recording** on the app page,
+  or run with `--watch "C:\path\to\folder"` to auto-transcribe whatever syncs into a folder (OneDrive, Google Drive...).
 
 ## Where things are stored
 

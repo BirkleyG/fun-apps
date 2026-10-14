@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { CSSProperties } from "react";
 
 const getAppUrl = (envUrl: string | undefined, productionPath: string, devPort: number) => {
@@ -44,6 +45,77 @@ const getWorldOfFacesUrl = () => {
   const envUrl = import.meta.env.VITE_WORLD_OF_FACES_URL as string | undefined;
   return getAppUrl(envUrl, "./world-of-faces/", 5181);
 };
+
+const SCRIBE_LOCAL_URL = "http://localhost:8765/";
+
+const downloadScribeInstaller = async () => {
+  const base = new URL(import.meta.env.BASE_URL, window.location.origin).href;
+  const res = await fetch(`${base}meeting-scribe-installer-template.txt`, { cache: "no-store" });
+  if (!res.ok) throw new Error("Installer is not published yet. Merge to main so the site rebuilds.");
+  const bat = (await res.text())
+    .replace("__ZIP_URL__", `${base}meeting-scribe.zip`)
+    .replace(/\r?\n/g, "\r\n");
+  const url = URL.createObjectURL(new Blob([bat], { type: "application/octet-stream" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "Install-Meeting-Scribe.bat";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+};
+
+function MeetingScribePanel() {
+  const [note, setNote] = useState("");
+  const install = async () => {
+    setNote("");
+    try {
+      await downloadScribeInstaller();
+      setNote("Downloaded. Open the file from your Downloads folder to install.");
+    } catch (error) {
+      setNote(error instanceof Error ? error.message : "Could not download the installer.");
+    }
+  };
+  return (
+    <section className="scribe" id="scribe" aria-labelledby="scribe-title">
+      <div className="scribe__copy">
+        <div className="scribe__kicker">Runs on your PC · free · offline</div>
+        <h2 id="scribe-title">Meeting Scribe</h2>
+        <p>
+          Records your mic and computer audio, transcribes and translates live, saves the audio, then
+          produces a very accurate transcript you can copy in one click. Your phone can record too and
+          send straight to your computer.
+        </p>
+        <ol className="scribe__steps">
+          <li>
+            <b>Install</b> (once): download the installer and open it. It sets up everything, including
+            Python if you don&apos;t have it. If Windows says &ldquo;protected your PC&rdquo;, choose{" "}
+            <i>More info → Run anyway</i>.
+          </li>
+          <li>
+            <b>Run</b>: use the Run button any time, or the <i>Meeting Scribe</i> desktop shortcut. Your
+            browser opens the app. The first run needs a few minutes to download the speech models.
+          </li>
+        </ol>
+      </div>
+      <div className="scribe__actions">
+        <button type="button" className="scribe__btn scribe__btn--primary" onClick={install}>
+          Install on this PC
+        </button>
+        <a className="scribe__btn" href="meetingscribe://run">
+          Run Meeting Scribe
+        </a>
+        <a className="scribe__btn scribe__btn--ghost" href={SCRIBE_LOCAL_URL}>
+          Already running? Open it
+        </a>
+        <a className="scribe__link" href={`${import.meta.env.BASE_URL}meeting-scribe.zip`}>
+          Download the files only (zip)
+        </a>
+        {note && <p className="scribe__note" role="status">{note}</p>}
+      </div>
+    </section>
+  );
+}
 
 type AppTile = {
   title: string;
@@ -177,6 +249,7 @@ export default function App() {
             </button>
           ))}
         </div>
+        <MeetingScribePanel />
       </main>
     </div>
   );
