@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meeting Scribe</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1c2230;--mute:#667085;--line:#e3e6ec;--acc:#2f6fed;--rec:#e5484d;--ok:#1f9d6b;--warn:#b7791f}
+@media (prefers-color-scheme:dark){:root{--bg:#12141a;--card:#1b1e27;--ink:#e8eaf0;--mute:#98a2b3;--line:#2b3040;--acc:#6b95ff;--rec:#ff6369;--ok:#3ccf91;--warn:#e0a84a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,Segoe UI,sans-serif}
+main{max-width:980px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:22px;margin:0 0 4px} .sub{color:var(--mute);margin:0 0 18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--mute)}
+select,button,input[type=file]{font:inherit}
+select{padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+.check{flex-direction:row;align-items:center;gap:6px;font-size:14px;color:var(--ink)}
+button,.s{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:7px 12px;border-radius:8px;cursor:pointer}
+button:hover{border-color:var(--acc)} button:disabled{opacity:.5;cursor:default}
+#rec{background:var(--rec);border-color:var(--rec);color:#fff;font-weight:600;font-size:16px;padding:12px 26px;border-radius:999px}
+#rec.on{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.meter{height:6px;width:90px;background:var(--line);border-radius:4px;overflow:hidden;display:inline-block;vertical-align:middle}
+.meter i{display:block;height:100%;width:0;background:var(--ok);transition:width .08s}
+.mute{color:var(--mute)} .small{font-size:12px}
+#live{min-height:180px;max-height:46vh;overflow:auto;white-space:pre-wrap}
+.seg{margin:0 0 8px} .t{color:var(--mute);font-size:12px;margin-right:6px;font-variant-numeric:tabular-nums}
+.who{font-weight:600;margin-right:4px} .who.mic{color:var(--acc)} .who.system{color:var(--ok)}
+.tr{display:block;color:var(--mute);font-style:italic;margin-left:2px}
+.chip{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--mute)}
+.chip.done{color:var(--ok);border-color:var(--ok)} .chip.error{color:var(--rec);border-color:var(--rec)}
+.chip.transcribing,.chip.queued{color:var(--warn);border-color:var(--warn)}
+.sess{border-top:1px solid var(--line);padding:12px 0} .sess:first-child{border-top:0}
+.bar{height:4px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:6px}.bar i{display:block;height:100%;background:var(--acc)}
+.banner{padding:8px 12px;border-radius:8px;background:color-mix(in srgb,var(--warn) 15%,transparent);color:var(--ink);margin-bottom:10px;font-size:13px}
+audio{height:32px;max-width:100%}
+details summary{cursor:pointer;color:var(--mute)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <h1>Meeting Scribe</h1>
+  <p class="sub">Local, offline, free. Records your mic and/or computer audio, transcribes live, then re-transcribes accurately when you stop.</p>
+
+  <div class="card">
+    <div class="row">
+      <label class="check"><input type="checkbox" id="srcMic" checked> Microphone</label>
+      <label class="check"><input type="checkbox" id="srcSys"> Computer audio</label>
+      <label>Spoken language<select id="lang"></select></label>
+      <label>Translate to<select id="target"></select></label>
+      <label>Live model<select id="liveModel"></select></label>
+      <label>Accurate model<select id="finalModel"></select></label>
+      <label class="check"><input type="checkbox" id="autoFinal" checked> Accurate pass when I stop</label>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <button id="rec">● Record</button>
+      <span id="timer" class="mute" style="font-variant-numeric:tabular-nums">00:00</span>
+      <span class="small mute">Mic <span class="meter"><i id="mMic"></i></span></span>
+      <span class="small mute">Computer <span class="meter"><i id="mSys"></i></span></span>
+      <span id="status" class="small mute"></span>
+    </div>
+    <details style="margin-top:10px"><summary class="small">Tips for computer audio</summary>
+      <p class="small mute">Use Chrome or Edge. When asked what to share, choose <b>Entire screen</b> and tick <b>Also share system audio</b>
+      (or share a single tab with <b>Also share tab audio</b>). Wear headphones if you record mic + computer audio together, or the mic will re-record the speakers.</p>
+    </details>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <b id="viewTitle">Live transcript</b>
+      <span class="row">
+        <label class="check"><input type="checkbox" id="optTs"> timestamps</label>
+        <label class="check"><input type="checkbox" id="optSp" checked> speakers</label>
+        <select id="which"><option value="original">Original</option><option value="translation">Translation</option></select>
+        <button id="copyView">Copy</button>
+      </span>
+    </div>
+    <div id="banner"></div>
+    <div id="live" style="margin-top:10px"><span class="mute">Press Record to start.</span></div>
+  </div>
+
+  <div class="card" id="phoneCard" hidden>
+    <b>Record on your phone</b>
+    <div class="row" style="align-items:flex-start;margin-top:10px;gap:18px">
+      <img id="qr" alt="QR code" width="150" height="150" style="background:#fff;border-radius:8px;padding:4px">
+      <div style="flex:1;min-width:220px">
+        <ol class="small" style="margin:0;padding-left:18px">
+          <li>Join the <b>same Wi-Fi</b> as this computer and scan the code with your phone camera.</li>
+          <li>Your phone will warn that the connection isn't private. That's expected (it's your own computer).
+              Tap <b>Advanced → Proceed</b> (Android) or <b>Show Details → visit this website</b> (iPhone).</li>
+          <li>Tap <b>Record</b>. When you stop, it's sent straight here and transcribed automatically.</li>
+        </ol>
+        <p class="small mute" style="margin:8px 0 0">Bookmark or "Add to Home Screen" on your phone. The link stays the same. <button id="copyPhone" class="s">Copy link</button></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>Transcribe an existing recording</b>
+    <div class="row" style="margin-top:8px"><input type="file" id="file" accept="audio/*,video/mp4,.m4a,.amr,.3gp,.opus"><button id="upBtn">Upload &amp; transcribe</button><span id="upStatus" class="small mute"></span></div>
+    <p class="small mute" style="margin:8px 0 0">Or start with <code>--watch "C:\path\to\folder"</code> to auto-transcribe anything your phone syncs into a folder (OneDrive, Google Drive...).</p>
+  </div>
+
+  <div class="card"><b>Recordings</b><div id="sessions" style="margin-top:6px"></div></div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const LS = { get(k, d){ try { return JSON.parse(localStorage.getItem(k)) ?? d } catch { return d } }, set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)) } catch {} } };
+let cfg, rec = null, viewSid = null, viewSegs = [], liveSegs = [];
+
+const workletSrc = `
+class Tap extends AudioWorkletProcessor {
+  constructor(){ super(); this.ratio = sampleRate/16000; this.last = 0; this.p = 0; this.out = new Int16Array(4096); this.n = 0; }
+  process(inputs){
+    const inp = inputs[0]; if(!inp || !inp.length) return true;
+    const len = inp[0].length, x = new Float32Array(len + 1); x[0] = this.last;
+    for(let c=0;c<inp.length;c++){ const d=inp[c]; for(let i=0;i<len;i++) x[i+1] += d[i]/inp.length; }
+    let p = this.p;
+    while(p + 1 < x.length){
+      const i = Math.floor(p), f = p - i, v = x[i]*(1-f) + x[i+1]*f;
+      this.out[this.n++] = Math.max(-1, Math.min(1, v)) * 32767;
+      if(this.n === this.out.length){ this.port.postMessage(this.out.buffer, [this.out.buffer]); this.out = new Int16Array(4096); this.n = 0; }
+      p += this.ratio;
+    }
+    this.p = p - (x.length - 1); this.last = x[x.length - 1];
+    return true;
+  }
+}
+registerProcessor('tap', Tap);`;
+
+async function init(){
+  cfg = await (await fetch('/api/config')).json();
+  const opt = (sel, items, def) => { sel.innerHTML = items.map(([v,l]) => `<option value="${v}">${l}</option>`).join(''); sel.value = def; };
+  const L = Object.entries(cfg.languages);
+  opt($('lang'), [['auto','Auto-detect'], ...L], LS.get('lang','auto'));
+  opt($('target'), [['','No translation'], ...L], LS.get('target',''));
+  opt($('liveModel'), cfg.live_models.map(m => [m, m]), LS.get('liveModel','base'));
+  opt($('finalModel'), cfg.final_models.map(m => [m, m + (m==='large-v3-turbo'?' (recommended)':'')]), LS.get('finalModel','large-v3-turbo'));
+  $('srcMic').checked = LS.get('srcMic', true); $('srcSys').checked = LS.get('srcSys', false);
+  $('autoFinal').checked = LS.get('autoFinal', true);
+  ['lang','target','liveModel','finalModel'].forEach(i => $(i).onchange = () => LS.set(i, $(i).value));
+  ['srcMic','srcSys','autoFinal'].forEach(i => $(i).onchange = () => LS.set(i, $(i).checked));
+  if(cfg.phone_url){ $('phoneCard').hidden = false; $('qr').src = '/api/phone-qr.svg';
+    $('copyPhone').onclick = async e => { try { await navigator.clipboard.writeText(cfg.phone_url); e.target.textContent = 'Copied ✓'; } catch { prompt('Phone link:', cfg.phone_url); } }; }
+  if(cfg.device === 'cpu') $('status').textContent = 'Running on CPU — the accurate pass takes a while on long meetings.';
+  refreshSessions(); setInterval(refreshSessions, 2000);
+}
+
+// ---------------------------------------------------------------- recording
+async function startRec(){
+  const wantMic = $('srcMic').checked, wantSys = $('srcSys').checked;
+  if(!wantMic && !wantSys) return setStatus('Pick at least one source.');
+  const streams = {};
+  try {
+    if(wantMic) streams.mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: true } });
+    if(wantSys){
+      const d = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      if(!d.getAudioTracks().length){ d.getTracks().forEach(t => t.stop()); throw new Error('No audio was shared. Tick "Also share system audio" in the picker.'); }
+      streams.system = d;
+    }
+  } catch(e){ Object.values(streams).forEach(s => s.getTracks().forEach(t => t.stop())); return setStatus('Could not start: ' + e.message); }
+
+  const meta = await (await fetch('/api/sessions', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+    sources: Object.keys(streams), language: $('lang').value, target: $('target').value,
+    live_model: $('liveModel').value, final_model: $('finalModel').value, auto_final: $('autoFinal').checked }) })).json();
+
+  liveSegs = []; viewSid = null; $('viewTitle').textContent = 'Live transcript'; renderLive();
+  rec = { sid: meta.id, tracks: {}, t0: Date.now(), done: 0 };
+  for(const [name, stream] of Object.entries(streams)) rec.tracks[name] = await openTrack(meta.id, name, stream);
+  rec.timer = setInterval(() => { const s = Math.floor((Date.now()-rec.t0)/1000); $('timer').textContent = `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }, 500);
+  $('rec').textContent = '■ Stop'; $('rec').classList.add('on');
+  setStatus('Recording…');
+}
+
+async function openTrack(sid, name, stream){
+  const audioTrack = stream.getAudioTracks()[0];
+  stream.getVideoTracks().forEach(t => t.stop());   // we only need the audio
+  let ctx;
+  try { ctx = new AudioContext({ sampleRate: 16000 }); } catch { ctx = new AudioContext(); }
+  const url = URL.createObjectURL(new Blob([workletSrc], { type: 'text/javascript' }));
+  await ctx.audioWorklet.addModule(url);
+  const src = ctx.createMediaStreamSource(new MediaStream([audioTrack]));
+  const node = new AudioWorkletNode(ctx, 'tap', { numberOfOutputs: 1 });
+  const mute = ctx.createGain(); mute.gain.value = 0;
+  src.connect(node); node.connect(mute); mute.connect(ctx.destination);
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${proto}://${location.host}/ws/live?session=${sid}&track=${name}`);
+  ws.binaryType = 'arraybuffer';
+  let resolve; const finished = new Promise(r => resolve = r);
+  const tr = { ws, ctx, stream, audioTrack, finished };
+  const meter = $(name === 'mic' ? 'mMic' : 'mSys');
+  ws.onclose = () => resolve();
+  ws.onmessage = ev => {
+    const m = JSON.parse(ev.data);
+    if(m.type === 'seg'){ liveSegs.push(m); if(!viewSid) renderLive(); }
+    else if(m.type === 'status') setStatus(m.msg);
+    else if(m.type === 'warn') $('banner').innerHTML = `<div class="banner">${esc(m.msg)}</div>`;
+    else if(m.type === 'done') resolve();
+  };
+  node.port.onmessage = ev => {
+    const i16 = new Int16Array(ev.data);
+    let s = 0; for(let i=0;i<i16.length;i+=16) s += (i16[i]/32768)**2;
+    meter.style.width = Math.min(100, Math.sqrt(s/(i16.length/16))*400) + '%';
+    if(ws.readyState === 1) ws.send(ev.data);
+  };
+  audioTrack.onended = () => { if(rec) stopRec(); };
+  return tr;
+}
+
+async function stopRec(){
+  if(!rec) return; const r = rec; rec = null;
+  clearInterval(r.timer); $('rec').disabled = true; setStatus('Finishing up…');
+  for(const tr of Object.values(r.tracks)){
+    tr.audioTrack.onended = null; tr.audioTrack.stop();
+    if(tr.ws.readyState === 1) tr.ws.send('end');
+  }
+  await Promise.race([Promise.all(Object.values(r.tracks).map(t => t.finished)), new Promise(res => setTimeout(res, 120000))]);
+  for(const tr of Object.values(r.tracks)){ try{ tr.ws.close() }catch{}; try{ tr.ctx.close() }catch{} }
+  ['mMic','mSys'].forEach(i => $(i).style.width = '0');
+  await fetch(`/api/sessions/${r.sid}/finalize`, { method:'POST' });
+  $('rec').textContent = '● Record'; $('rec').classList.remove('on'); $('rec').disabled = false; $('timer').textContent = '00:00';
+  setStatus($('autoFinal').checked ? 'Saved. Accurate transcript is processing below.' : 'Saved.');
+  refreshSessions();
+}
+$('rec').onclick = () => rec ? stopRec() : startRec();
+
+// ---------------------------------------------------------------- transcript view
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmtT = t => { t = Math.floor(t); const h = Math.floor(t/3600), m = Math.floor(t%3600/60), s = t%60; return (h?h+':':'') + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0'); };
+const WHO = { mic:'Me', system:'Them' };
+function renderSegs(segs, which){
+  const el = $('live'); const stick = el.scrollTop + el.clientHeight >= el.scrollHeight - 40;
+  const tracks = new Set(segs.map(s => s.track)), showWho = $('optSp').checked && tracks.size > 1;
+  const sorted = [...segs].sort((a,b) => a.start - b.start);
+  if(!sorted.length){ el.innerHTML = '<span class="mute">Nothing yet.</span>'; return; }
+  el.innerHTML = sorted.map(s => {
+    const text = which === 'translation' ? (s.translation || s.text) : s.text;
+    const sub = which === 'original' && s.translation ? `<span class="tr">${esc(s.translation)}</span>` : '';
+    return `<p class="seg">${$('optTs').checked ? `<span class="t">${fmtT(s.start)}</span>` : ''}${showWho ? `<span class="who ${s.track}">${WHO[s.track]||s.track}:</span>` : ''}${esc(text)}${sub}</p>`;
+  }).join('');
+  if(stick) el.scrollTop = el.scrollHeight;
+}
+function renderLive(){ renderSegs(liveSegs, 'original'); }
+async function showSession(sid){
+  viewSid = sid; const m = await (await fetch('/api/sessions/' + sid)).json();
+  $('viewTitle').textContent = m.title; $('which').value = 'original';
+  viewSegs = await (await fetch(`/api/sessions/${sid}/segments?which=original`)).json();
+  renderSegs(viewSegs, 'original'); window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+async function reloadView(){
+  if(!viewSid){ renderLive(); return; }
+  const which = $('which').value;
+  viewSegs = await (await fetch(`/api/sessions/${viewSid}/segments?which=${which}`)).json();
+  renderSegs(viewSegs, which === 'translation' ? 'translation' : 'original');
+}
+['optTs','optSp','which'].forEach(i => $(i).onchange = reloadView);
+
+async function copyText(url, btn){
+  const txt = await (await fetch(url)).text();
+  try { await navigator.clipboard.writeText(txt); }
+  catch { const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+  if(btn){ const o = btn.textContent; btn.textContent = 'Copied ✓'; setTimeout(() => btn.textContent = o, 1400); }
+}
+$('copyView').onclick = async e => {
+  const which = $('which').value, q = `timestamps=${+$('optTs').checked}&speakers=${+$('optSp').checked}`;
+  if(viewSid) return copyText(`/api/sessions/${viewSid}/transcript?which=${which}&${q}`, e.target);
+  const sid = rec ? rec.sid : (await (await fetch('/api/sessions')).json())[0]?.id;
+  if(sid) copyText(`/api/sessions/${sid}/transcript?which=${which}&${q}`, e.target);
+};
+
+// ---------------------------------------------------------------- sessions list
+const STATUS = { recording:'recording', uploading:'uploading', recorded:'live only', queued:'queued', transcribing:'transcribing', done:'accurate ✓', error:'error' };
+async function refreshSessions(){
+  let list; try { list = await (await fetch('/api/sessions')).json(); } catch { return; }
+  const open = new Set([...document.querySelectorAll('.sess details[open]')].map(d => d.dataset.id));
+  $('sessions').innerHTML = list.length ? list.map(m => {
+    const busy = m.status === 'queued' || m.status === 'transcribing';
+    const q = `timestamps=${+$('optTs').checked}&speakers=${+$('optSp').checked}`;
+    return `<div class="sess">
+      <div class="row" style="justify-content:space-between"><span><b>${esc(m.title)}</b> <span class="chip ${m.status}">${STATUS[m.status]||m.status}</span></span>
+      <span class="small mute">${m.duration ? fmtT(m.duration) : ''} · ${esc(m.final_model)}</span></div>
+      ${busy ? `<div class="small mute">${esc(m.stage||'')} ${Math.round(m.progress*100)}%</div><div class="bar"><i style="width:${m.progress*100}%"></i></div>` : ''}
+      ${m.error ? `<div class="small" style="color:var(--rec)">${esc(m.error)}</div>` : (m.stage && !busy ? `<div class="small mute">${esc(m.stage)}</div>` : '')}
+      <div class="row" style="margin-top:8px">
+        <button data-a="view" data-id="${m.id}">View</button>
+        <button data-a="copy" data-id="${m.id}" data-w="original">Copy transcript</button>
+        ${m.target ? `<button data-a="copy" data-id="${m.id}" data-w="translation">Copy translation</button>` : ''}
+        <button data-a="rerun" data-id="${m.id}" ${busy||m.status==='recording'?'disabled':''}>${m.status==='done'?'Re-run accurate pass':'Run accurate pass'}</button>
+        <button data-a="del" data-id="${m.id}">Delete</button>
+        <details data-id="${m.id}" ${open.has(m.id)?'open':''}><summary class="small">Audio</summary><div data-audio="${m.id}"></div></details>
+      </div></div>`;
+  }).join('') : '<span class="mute">No recordings yet.</span>';
+  document.querySelectorAll('.sess details[open]').forEach(loadAudio);
+  document.querySelectorAll('.sess details').forEach(d => d.ontoggle = () => d.open && loadAudio(d));
+  if(viewSid && list.find(m => m.id === viewSid && (m.status === 'transcribing' || m.status === 'queued'))) { /* keep */ }
+}
+async function loadAudio(d){
+  const box = d.querySelector('[data-audio]'); if(box.dataset.loaded) return; box.dataset.loaded = 1;
+  const m = await (await fetch('/api/sessions/' + d.dataset.id)).json();
+  const files = m.audio.includes('mix.mp3') ? ['mix.mp3', ...m.audio.filter(a => a !== 'mix.mp3')] : m.audio;
+  box.innerHTML = files.map(f => `<div class="small mute">${f} · <a href="/api/sessions/${m.id}/audio/${f}" download>download</a></div><audio controls preload="none" src="/api/sessions/${m.id}/audio/${f}"></audio>`).join('');
+}
+$('sessions').onclick = async e => {
+  const b = e.target.closest('button'); if(!b) return; const id = b.dataset.id;
+  const q = `timestamps=${+$('optTs').checked}&speakers=${+$('optSp').checked}`;
+  if(b.dataset.a === 'view') showSession(id);
+  else if(b.dataset.a === 'copy') copyText(`/api/sessions/${id}/transcript?which=${b.dataset.w}&${q}`, b);
+  else if(b.dataset.a === 'rerun') { await fetch(`/api/sessions/${id}/rerun`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ final_model: $('finalModel').value }) }); refreshSessions(); }
+  else if(b.dataset.a === 'del' && confirm('Delete this recording and its audio?')) { await fetch('/api/sessions/' + id, { method:'DELETE' }); if(viewSid === id){ viewSid = null; renderLive(); } refreshSessions(); }
+};
+
+// ---------------------------------------------------------------- upload
+$('upBtn').onclick = async () => {
+  const f = $('file').files[0]; if(!f) return $('upStatus').textContent = 'Choose a file first.';
+  $('upStatus').textContent = 'Uploading…'; $('upBtn').disabled = true;
+  try {
+    const p = new URLSearchParams({ name: f.name, language: $('lang').value, target: $('target').value, final_model: $('finalModel').value });
+    const r = await fetch('/api/upload?' + p, { method:'POST', body: f });
+    if(!r.ok) throw new Error((await r.json()).detail || r.status);
+    $('upStatus').textContent = 'Uploaded — transcribing below.'; $('file').value = '';
+  } catch(e){ $('upStatus').textContent = 'Failed: ' + e.message; }
+  $('upBtn').disabled = false; refreshSessions();
+};
+
+function setStatus(t){ $('status').textContent = t; }
+init();
+</script>
+</body>
+</html>

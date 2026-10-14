@@ -1,0 +1,3 @@
+# Optional: offline translation into languages other than English.
+# (Translation INTO English uses Whisper itself and needs nothing extra.)
+argostranslate>=1.9

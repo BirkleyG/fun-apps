@@ -1,0 +1,7 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+faster-whisper>=1.1.0
+numpy>=1.26
+av>=12,<17   # newer PyAV breaks faster-whisper file decoding
+cryptography>=42
+segno>=1.6

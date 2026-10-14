@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12141a">
+<title>Meeting Scribe · Phone</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1c2230;--mute:#667085;--line:#e3e6ec;--acc:#2f6fed;--rec:#e5484d;--ok:#1f9d6b}
+@media (prefers-color-scheme:dark){:root{--bg:#12141a;--card:#1b1e27;--ink:#e8eaf0;--mute:#98a2b3;--line:#2b3040;--acc:#6b95ff;--rec:#ff6369;--ok:#3ccf91}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,sans-serif;padding:env(safe-area-inset-top) 16px 40px}
+h1{font-size:20px;margin:18px 0 2px}.sub{color:var(--mute);font-size:13px;margin:0 0 14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+.center{text-align:center}
+#rec{width:132px;height:132px;border-radius:50%;border:0;background:var(--rec);color:#fff;font:600 17px system-ui;box-shadow:0 6px 22px rgba(229,72,77,.35)}
+#rec.on{background:var(--ink);color:var(--bg);box-shadow:none}
+#timer{font-size:34px;font-variant-numeric:tabular-nums;margin:12px 0 4px}
+.meter{height:8px;background:var(--line);border-radius:6px;overflow:hidden;margin:8px auto 0;max-width:280px}.meter i{display:block;height:100%;width:0;background:var(--ok);transition:width .1s}
+.mute{color:var(--mute)}.small{font-size:13px}
+.conn{font-size:13px;padding:2px 10px;border-radius:99px;border:1px solid var(--line);display:inline-block}
+.conn.ok{color:var(--ok);border-color:var(--ok)}.conn.bad{color:var(--rec);border-color:var(--rec)}
+label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--mute);flex:1;min-width:120px}
+select{font:inherit;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+button.s{font:inherit;padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+button.p{background:var(--acc);border-color:var(--acc);color:#fff}
+.item{border-top:1px solid var(--line);padding:12px 0}.item:first-child{border-top:0}
+.bar{height:5px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:6px}.bar i{display:block;height:100%;width:0;background:var(--acc)}
+audio{width:100%;height:36px;margin-top:8px}
+.chip{font-size:11px;padding:1px 8px;border-radius:99px;border:1px solid var(--line);color:var(--mute)}.chip.sent{color:var(--ok);border-color:var(--ok)}
+</style>
+</head>
+<body>
+<h1>Meeting Scribe</h1>
+<p class="sub">Record here, it goes straight to your computer to be transcribed. <span id="conn" class="conn">checking…</span></p>
+
+<div class="card center">
+  <button id="rec">● Record</button>
+  <div id="timer">00:00</div>
+  <div class="meter"><i id="lvl"></i></div>
+  <p class="small mute" id="msg" style="margin:10px 0 0">Keep this page open and the screen on while recording.</p>
+</div>
+
+<div class="card">
+  <div class="row">
+    <label>Spoken language<select id="lang"></select></label>
+    <label>Translate to<select id="target"></select></label>
+  </div>
+  <label style="flex-direction:row;align-items:center;gap:8px;margin-top:12px;font-size:14px;color:var(--ink)">
+    <input type="checkbox" id="auto" checked> Send to computer automatically when I stop</label>
+</div>
+
+<div class="card"><b>Recordings on this phone</b><div id="list" style="margin-top:6px"><span class="mute small">Nothing yet.</span></div></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const LS = { get(k,d){ try { return JSON.parse(localStorage.getItem(k)) ?? d } catch { return d } }, set(k,v){ try { localStorage.setItem(k, JSON.stringify(v)) } catch {} } };
+
+// ---------- tiny IndexedDB wrapper (recordings + in-progress chunks survive crashes) ----------
+let dbp;
+function db(){ return dbp ||= new Promise((res, rej) => {
+  const r = indexedDB.open('scribe-phone', 1);
+  r.onupgradeneeded = () => { r.result.createObjectStore('recs', { keyPath: 'id' }); r.result.createObjectStore('chunks', { autoIncrement: true }); };
+  r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+}); }
+async function tx(store, mode, fn){ const d = await db(); return new Promise((res, rej) => { const t = d.transaction(store, mode); const out = fn(t.objectStore(store)); t.oncomplete = () => res(out && out.result); t.onerror = () => rej(t.error); }); }
+const putRec = r => tx('recs','readwrite', s => s.put(r));
+const delRec = id => tx('recs','readwrite', s => s.delete(id));
+const allRecs = () => tx('recs','readonly', s => s.getAll());
+const addChunk = c => tx('chunks','readwrite', s => s.add(c));
+const allChunks = () => tx('chunks','readonly', s => s.getAll());
+const clearChunks = () => tx('chunks','readwrite', s => s.clear());
+
+// ---------- recording ----------
+const MIMES = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
+const pickMime = () => MIMES.find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
+const extFor = m => m.includes('mp4') ? 'm4a' : m.includes('ogg') ? 'ogg' : 'webm';
+let cur = null, wake = null;
+
+async function start(){
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true } }); }
+  catch(e){ return say('Microphone blocked: ' + e.message + '. Allow it in your browser settings and reload.'); }
+  const mime = pickMime();
+  const mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+  const started = Date.now(), chunks = [];
+  await clearChunks();
+  mr.ondataavailable = e => { if(e.data && e.data.size){ chunks.push(e.data); addChunk({ t: started, mime: mr.mimeType, blob: e.data }); } };
+  mr.onstop = () => finish(stream, mr.mimeType || mime || 'audio/webm', chunks, started);
+  mr.start(4000);
+  // level meter
+  const ctx = new (window.AudioContext || window.webkitAudioContext)(), an = ctx.createAnalyser(); an.fftSize = 512;
+  ctx.createMediaStreamSource(stream).connect(an); const buf = new Uint8Array(an.fftSize);
+  const meter = setInterval(() => { an.getByteTimeDomainData(buf); let s = 0; for(const v of buf) s += ((v-128)/128)**2; $('lvl').style.width = Math.min(100, Math.sqrt(s/buf.length)*350) + '%'; }, 100);
+  const tick = setInterval(() => { const s = Math.floor((Date.now()-started)/1000); $('timer').textContent = String(Math.floor(s/60)).padStart(2,'0') + ':' + String(s%60).padStart(2,'0'); }, 500);
+  try { wake = await navigator.wakeLock?.request('screen'); } catch {}
+  cur = { mr, ctx, meter, tick };
+  $('rec').textContent = '■ Stop'; $('rec').classList.add('on'); say('Recording…');
+}
+document.addEventListener('visibilitychange', async () => { if(cur && document.visibilityState === 'visible'){ try { wake = await navigator.wakeLock?.request('screen'); } catch {} } });
+
+function stop(){ if(cur) cur.mr.stop(); }
+async function finish(stream, mime, chunks, started){
+  stream.getTracks().forEach(t => t.stop());
+  clearInterval(cur.meter); clearInterval(cur.tick); try { cur.ctx.close() } catch {} try { wake?.release() } catch {}
+  cur = null; $('lvl').style.width = '0'; $('rec').textContent = '● Record'; $('rec').classList.remove('on'); $('timer').textContent = '00:00';
+  await saveRec(chunks, mime, started, Math.round((Date.now()-started)/1000));
+}
+async function saveRec(chunks, mime, started, dur, suffix=''){
+  const d = new Date(started), p = n => String(n).padStart(2,'0');
+  const rec = { id: 'r' + started, name: `Phone recording ${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}.${p(d.getMinutes())}${suffix}.${extFor(mime)}`,
+    created: started, duration: dur, mime, blob: new Blob(chunks, { type: mime }), sent: false };
+  await putRec(rec); await clearChunks(); render();
+  if($('auto').checked) send(rec.id); else say('Saved on your phone. Tap Send to move it to your computer.');
+}
+$('rec').onclick = () => cur ? stop() : start();
+
+// recover a recording that was interrupted (tab closed, phone call, crash)
+(async () => { try {
+  const cs = await allChunks(); if(!cs.length) return;
+  const recs = await allRecs(); if(recs.some(r => r.id === 'r' + cs[0].t)) return await clearChunks();
+  await saveRec(cs.map(c => c.blob), cs[0].mime, cs[0].t, 0, ' (recovered)');
+} catch {} })();
+
+// ---------- sending ----------
+function say(t){ $('msg').textContent = t; }
+function send(id){
+  return new Promise(async resolve => {
+    const rec = (await allRecs()).find(r => r.id === id); if(!rec) return resolve();
+    const q = new URLSearchParams({ name: rec.name, language: $('lang').value, target: $('target').value });
+    const x = new XMLHttpRequest(); x.open('POST', '/api/upload?' + q);
+    const bar = document.querySelector(`[data-bar="${id}"]`);
+    x.upload.onprogress = e => { if(bar && e.lengthComputable) bar.style.width = (100*e.loaded/e.total) + '%'; };
+    x.onload = async () => { if(x.status === 200){ rec.sent = true; await putRec(rec); say('Sent ✓ Your computer is transcribing it now.'); } else say('Computer rejected the file: ' + x.responseText); render(); resolve(); };
+    x.onerror = () => { say('Could not reach your computer. Is Meeting Scribe running, on the same Wi-Fi? Your recording is safe here. Tap Send to retry.'); render(); resolve(); };
+    say('Sending to your computer…'); x.send(rec.blob);
+  });
+}
+
+// ---------- list ----------
+const fmtD = s => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+async function render(){
+  const recs = (await allRecs()).sort((a,b) => b.created - a.created);
+  $('list').innerHTML = recs.length ? recs.map(r => `<div class="item">
+    <div class="row" style="justify-content:space-between"><b class="small">${esc(r.name)}</b><span class="chip ${r.sent?'sent':''}">${r.sent?'sent ✓':'not sent'}</span></div>
+    <div class="small mute">${r.duration ? fmtD(r.duration) + ' · ' : ''}${(r.blob.size/1048576).toFixed(1)} MB</div>
+    <div class="bar"><i data-bar="${r.id}"></i></div>
+    <div class="row" style="margin-top:8px"><button class="s ${r.sent?'':'p'}" data-a="send" data-id="${r.id}">${r.sent?'Send again':'Send to computer'}</button>
+    <button class="s" data-a="dl" data-id="${r.id}">Save file</button><button class="s" data-a="del" data-id="${r.id}">Delete</button></div>
+    <audio controls preload="none" src="${URL.createObjectURL(r.blob)}"></audio></div>`).join('') : '<span class="mute small">Nothing yet.</span>';
+}
+$('list').onclick = async e => { const b = e.target.closest('button'); if(!b) return; const id = b.dataset.id;
+  if(b.dataset.a === 'send') send(id);
+  else if(b.dataset.a === 'del'){ if(confirm('Delete this recording from your phone?')){ await delRec(id); render(); } }
+  else if(b.dataset.a === 'dl'){ const r = (await allRecs()).find(x => x.id === id); const a = document.createElement('a'); a.href = URL.createObjectURL(r.blob); a.download = r.name; a.click(); } };
+
+// ---------- init ----------
+(async () => {
+  try {
+    const r = await (await fetch('/api/ping')).json();
+    $('conn').textContent = 'computer connected ✓'; $('conn').className = 'conn ok';
+    const L = Object.entries(r.languages);
+    $('lang').innerHTML = '<option value="auto">Auto-detect</option>' + L.map(([k,v]) => `<option value="${k}">${v}</option>`).join('');
+    $('target').innerHTML = '<option value="">No translation</option>' + L.map(([k,v]) => `<option value="${k}">${v}</option>`).join('');
+    $('lang').value = LS.get('lang','auto'); $('target').value = LS.get('target','');
+  } catch { $('conn').textContent = 'computer not reachable'; $('conn').className = 'conn bad'; }
+  $('lang').onchange = () => LS.set('lang', $('lang').value); $('target').onchange = () => LS.set('target', $('target').value);
+  $('auto').checked = LS.get('auto', true); $('auto').onchange = () => LS.set('auto', $('auto').checked);
+  if(!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) say('This browser cannot record audio. Try Chrome (Android) or Safari (iPhone).');
+  else if(!window.isSecureContext) say('Recording needs the secure (https) link from the Meeting Scribe app.');
+  render();
+})();
+</script>
+</body>
+</html>

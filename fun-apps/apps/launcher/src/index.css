@@ -438,3 +438,99 @@ h1 {
     transform: none;
   }
 }
+
+/* ---- Meeting Scribe install panel ---- */
+.scribe {
+  margin-top: 40px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.6fr);
+  gap: clamp(20px, 4vw, 48px);
+  padding: clamp(22px, 3vw, 36px);
+  border: 1px solid color-mix(in srgb, #47a3ff 30%, var(--line));
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(71, 163, 255, 0.2), transparent 45%),
+    linear-gradient(145deg, rgba(255,255,255,0.09), rgba(255,255,255,0.03)),
+    var(--surface);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.14), 0 26px 52px rgba(0,0,0,0.25);
+}
+.scribe__kicker {
+  width: max-content;
+  max-width: 100%;
+  margin-bottom: 14px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.06);
+  color: #d7d2c7;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.scribe h2 {
+  margin: 0 0 10px;
+  font-size: clamp(26px, 3vw, 40px);
+}
+.scribe p,
+.scribe__steps {
+  color: var(--muted);
+  line-height: 1.6;
+}
+.scribe__steps {
+  margin: 14px 0 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 8px;
+}
+.scribe__steps b {
+  color: var(--text);
+}
+.scribe__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 12px;
+}
+.scribe__btn {
+  display: block;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255,255,255,0.06);
+  color: var(--text);
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 300ms var(--ease), border-color 300ms var(--ease);
+}
+.scribe__btn:hover {
+  transform: translateY(-2px);
+  border-color: #47a3ff;
+}
+.scribe__btn--primary {
+  border-color: #47a3ff;
+  background: linear-gradient(145deg, #47a3ff, #2f6fed);
+  color: #fff;
+}
+.scribe__btn--ghost {
+  font-weight: 500;
+  color: var(--muted);
+}
+.scribe__link {
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+.scribe__note {
+  margin: 0;
+  font-size: 13px;
+  text-align: center;
+}
+@media (max-width: 760px) {
+  .scribe {
+    grid-template-columns: 1fr;
+  }
+}

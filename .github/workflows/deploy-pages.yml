@@ -118,6 +118,11 @@ jobs:
           cp -R fun-apps/apps/museum-masterpieces/dist/. site/museum-masterpieces/
           cp -R fun-apps/apps/world-of-faces/dist/. site/world-of-faces/
 
+      - name: Package Meeting Scribe
+        run: |
+          (cd meeting-scribe && zip -qr ../site/meeting-scribe.zip . -x ".venv/*" "data/*" "__pycache__/*" "*/__pycache__/*" ".gitignore")
+          cp meeting-scribe/installer/install-template.bat site/meeting-scribe-installer-template.txt
+
       - name: Upload pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
