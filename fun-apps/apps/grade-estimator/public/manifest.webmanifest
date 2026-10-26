@@ -4,8 +4,8 @@
   "start_url": "/fun-apps/grade-estimator/",
   "scope": "/fun-apps/grade-estimator/",
   "display": "standalone",
-  "background_color": "#111827",
-  "theme_color": "#111827",
+  "background_color": "#faf6ec",
+  "theme_color": "#faf6ec",
   "icons": [
     {
       "src": "/fun-apps/grade-estimator/icons/icon-192.png",
