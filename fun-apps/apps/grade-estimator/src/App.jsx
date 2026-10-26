@@ -83,117 +83,117 @@ function computeStats(categories, settings) {
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const G = {
-  bg: "#0f0f13", surface: "#16161d", surfaceHover: "#1c1c26",
-  border: "#2a2a38", borderLight: "#353548",
-  text: "#e8e6f0", textMuted: "#7a7890", textDim: "#4a4860",
-  amber: "#f5a623", green: "#3ecf8e", yellow: "#ffd166",
-  yellowDim: "#7a5f1a", greenDim: "#1a6647", red: "#f25c5c",
+  bg: "#fbf8f0", surface: "#ffffff", surfaceHover: "#f3ecd9",
+  border: "#e4d9bd", borderLight: "#cdbb8a",
+  text: "#2a2418", textMuted: "#7a6e55", textDim: "#a79b7d",
+  amber: "#a8801f", green: "#2f7d57", yellow: "#a8750a",
+  yellowDim: "#c9b27a", greenDim: "#7fb79b", red: "#b3412f",
 };
 
 // ─── CSS ──────────────────────────────────────────────────────────────────────
 const css = `
-  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root { --safe-top: env(safe-area-inset-top, 0px); --safe-bottom: env(safe-area-inset-bottom, 0px); }
-  body { background: #0f0f13; color: #e8e6f0; font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; line-height: 1.5; min-height: 100dvh; overflow-x: hidden; }
+  body { background: #fbf8f0; color: #2a2418; font-family: 'Inter', sans-serif; font-size: 14px; line-height: 1.5; min-height: 100dvh; overflow-x: hidden; }
   .app { display: flex; flex-direction: column; min-height: 100dvh; }
 
-  .nav { display: flex; align-items: center; background: #16161d; border-bottom: 1px solid #2a2a38; padding: 0 24px; padding-top: calc(6px + var(--safe-top)); position: sticky; top: 0; z-index: 100; }
-  .nav-logo { font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; color: #f5a623; letter-spacing: 0.08em; padding: 16px 24px 16px 0; border-right: 1px solid #2a2a38; margin-right: 8px; white-space: nowrap; }
-  .nav-tab { padding: 18px 16px; font-size: 12px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #7a7890; cursor: pointer; border: none; background: transparent; border-bottom: 2px solid transparent; transition: all 0.15s; white-space: nowrap; }
-  .nav-tab:hover { color: #e8e6f0; }
-  .nav-tab.active { color: #f5a623; border-bottom-color: #f5a623; }
+  .nav { display: flex; align-items: center; background: #ffffff; border-bottom: 1px solid #e4d9bd; padding: 0 24px; padding-top: calc(6px + var(--safe-top)); position: sticky; top: 0; z-index: 100; }
+  .nav-logo { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; color: #a8801f; letter-spacing: 0.08em; padding: 16px 24px 16px 0; border-right: 1px solid #e4d9bd; margin-right: 8px; white-space: nowrap; }
+  .nav-tab { padding: 18px 16px; font-size: 12px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: #7a6e55; cursor: pointer; border: none; background: transparent; border-bottom: 2px solid transparent; transition: all 0.15s; white-space: nowrap; }
+  .nav-tab:hover { color: #2a2418; }
+  .nav-tab.active { color: #a8801f; border-bottom-color: #a8801f; }
 
   .main { flex: 1; padding: 32px 24px; max-width: 960px; margin: 0 auto; width: 100%; }
-  .page-title { font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 600; color: #e8e6f0; letter-spacing: -0.01em; }
-  .page-subtitle { color: #7a7890; font-size: 13px; margin-top: 4px; }
+  .page-title { font-family: 'Inter', sans-serif; font-size: 20px; font-weight: 600; color: #2a2418; letter-spacing: -0.01em; }
+  .page-subtitle { color: #7a6e55; font-size: 13px; margin-top: 4px; }
 
-  .card { background: #16161d; border: 1px solid #2a2a38; border-radius: 8px; padding: 20px; margin-bottom: 16px; animation: fadeUp 0.2s ease; }
+  .card { background: #ffffff; border: 1px solid #e4d9bd; border-radius: 8px; padding: 20px; margin-bottom: 16px; animation: fadeUp 0.2s ease; }
   .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-  .card-title { font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; color: #7a7890; text-transform: uppercase; }
+  .card-title { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; color: #7a6e55; text-transform: uppercase; }
 
-  .input { background: #0f0f13; border: 1px solid #2a2a38; border-radius: 6px; color: #e8e6f0; font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; padding: 8px 12px; outline: none; transition: border-color 0.15s; width: 100%; }
-  .input:focus { border-color: #f5a623; }
-  .input.error { border-color: #f25c5c; }
+  .input { background: #fbf8f0; border: 1px solid #e4d9bd; border-radius: 6px; color: #2a2418; font-family: 'Inter', sans-serif; font-size: 14px; padding: 8px 12px; outline: none; transition: border-color 0.15s; width: 100%; }
+  .input:focus { border-color: #a8801f; }
+  .input.error { border-color: #b3412f; }
   .input-sm { padding: 6px 10px; font-size: 13px; }
-  .input-num { font-family: 'IBM Plex Mono', monospace; text-align: right; }
+  .input-num { font-family: 'Inter', sans-serif; text-align: right; }
 
-  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s; white-space: nowrap; }
-  .btn-primary { background: #f5a623; color: #0f0f13; }
-  .btn-primary:hover { background: #f7b84a; }
-  .btn-ghost { background: transparent; color: #7a7890; border: 1px solid #2a2a38; }
-  .btn-ghost:hover { background: #1c1c26; color: #e8e6f0; border-color: #353548; }
-  .btn-danger { background: transparent; color: #f25c5c; border: 1px solid transparent; }
-  .btn-danger:hover { background: rgba(242,92,92,0.1); border-color: rgba(242,92,92,0.3); }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s; white-space: nowrap; }
+  .btn-primary { background: #a8801f; color: #ffffff; }
+  .btn-primary:hover { background: #bf9530; }
+  .btn-ghost { background: transparent; color: #7a6e55; border: 1px solid #e4d9bd; }
+  .btn-ghost:hover { background: #f3ecd9; color: #2a2418; border-color: #cdbb8a; }
+  .btn-danger { background: transparent; color: #b3412f; border: 1px solid transparent; }
+  .btn-danger:hover { background: rgba(179,65,47,0.1); border-color: rgba(179,65,47,0.3); }
   .btn-sm { padding: 5px 10px; font-size: 12px; }
   .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-  .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; }
-  .badge-known     { background: rgba(122,120,144,0.15); color: #7a7890; border: 1px solid rgba(122,120,144,0.25); }
-  .badge-analyze   { background: rgba(255,209,102,0.12); color: #ffd166; border: 1px solid rgba(255,209,102,0.25); }
-  .badge-estimated { background: rgba(62,207,142,0.12);  color: #3ecf8e; border: 1px solid rgba(62,207,142,0.25); }
+  .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; }
+  .badge-known     { background: rgba(122,110,85,0.15); color: #7a6e55; border: 1px solid rgba(122,110,85,0.25); }
+  .badge-analyze   { background: rgba(184,134,11,0.12); color: #a8750a; border: 1px solid rgba(184,134,11,0.25); }
+  .badge-estimated { background: rgba(47,125,87,0.12);  color: #2f7d57; border: 1px solid rgba(47,125,87,0.25); }
 
-  .cat-row { display: grid; gap: 8px; align-items: center; padding: 10px 12px; border-radius: 6px; border: 1px solid #2a2a38; background: #0f0f13; margin-bottom: 8px; transition: border-color 0.15s; }
-  .cat-row:hover { border-color: #353548; }
-  .cat-row.mode-known     { border-left: 3px solid #7a7890; }
-  .cat-row.mode-analyze   { border-left: 3px solid #ffd166; }
-  .cat-row.mode-estimated { border-left: 3px solid #3ecf8e; }
+  .cat-row { display: grid; gap: 8px; align-items: center; padding: 10px 12px; border-radius: 6px; border: 1px solid #e4d9bd; background: #fbf8f0; margin-bottom: 8px; transition: border-color 0.15s; }
+  .cat-row:hover { border-color: #cdbb8a; }
+  .cat-row.mode-known     { border-left: 3px solid #7a6e55; }
+  .cat-row.mode-analyze   { border-left: 3px solid #a8750a; }
+  .cat-row.mode-estimated { border-left: 3px solid #2f7d57; }
 
   .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 12px; margin-bottom: 16px; }
-  .stat-box { background: #0f0f13; border: 1px solid #2a2a38; border-radius: 8px; padding: 16px; }
-  .stat-label { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #7a7890; margin-bottom: 8px; }
-  .stat-value { font-family: 'IBM Plex Mono', monospace; font-size: 28px; font-weight: 600; color: #f5a623; line-height: 1; }
-  .stat-value.null-val { color: #4a4860; font-size: 20px; }
-  .stat-value.good { color: #3ecf8e; }
-  .stat-value.warn { color: #ffd166; }
-  .stat-value.bad  { color: #f25c5c; }
-  .stat-sub { font-size: 11px; color: #7a7890; margin-top: 6px; }
+  .stat-box { background: #fbf8f0; border: 1px solid #e4d9bd; border-radius: 8px; padding: 16px; }
+  .stat-label { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #7a6e55; margin-bottom: 8px; }
+  .stat-value { font-family: 'Inter', sans-serif; font-size: 28px; font-weight: 600; color: #a8801f; line-height: 1; }
+  .stat-value.null-val { color: #a79b7d; font-size: 20px; }
+  .stat-value.good { color: #2f7d57; }
+  .stat-value.warn { color: #a8750a; }
+  .stat-value.bad  { color: #b3412f; }
+  .stat-sub { font-size: 11px; color: #7a6e55; margin-top: 6px; }
 
-  .select { background: #0f0f13; border: 1px solid #2a2a38; border-radius: 6px; color: #e8e6f0; font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; padding: 8px 12px; outline: none; cursor: pointer; width: 100%; }
-  .select:focus { border-color: #f5a623; }
+  .select { background: #fbf8f0; border: 1px solid #e4d9bd; border-radius: 6px; color: #2a2418; font-family: 'Inter', sans-serif; font-size: 14px; padding: 8px 12px; outline: none; cursor: pointer; width: 100%; }
+  .select:focus { border-color: #a8801f; }
 
   .mode-toggle { display: flex; gap: 4px; }
-  .mode-btn { padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.05em; cursor: pointer; border: 1px solid transparent; transition: all 0.12s; font-family: 'IBM Plex Mono', monospace; }
-  .mode-btn-known     { color: #7a7890; border-color: #2a2a38; }
-  .mode-btn-known.active, .mode-btn-known:hover     { background: rgba(122,120,144,0.2); color: #e8e6f0; border-color: #7a7890; }
-  .mode-btn-analyze   { color: #7a5f1a; border-color: #2a2a38; }
-  .mode-btn-analyze.active, .mode-btn-analyze:hover { background: rgba(255,209,102,0.15); color: #ffd166; border-color: #ffd166; }
-  .mode-btn-estimated { color: #1a6647; border-color: #2a2a38; }
-  .mode-btn-estimated.active, .mode-btn-estimated:hover { background: rgba(62,207,142,0.15); color: #3ecf8e; border-color: #3ecf8e; }
+  .mode-btn { padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.05em; cursor: pointer; border: 1px solid transparent; transition: all 0.12s; font-family: 'Inter', sans-serif; }
+  .mode-btn-known     { color: #7a6e55; border-color: #e4d9bd; }
+  .mode-btn-known.active, .mode-btn-known:hover     { background: rgba(122,110,85,0.2); color: #2a2418; border-color: #7a6e55; }
+  .mode-btn-analyze   { color: #c9b27a; border-color: #e4d9bd; }
+  .mode-btn-analyze.active, .mode-btn-analyze:hover { background: rgba(184,134,11,0.15); color: #a8750a; border-color: #a8750a; }
+  .mode-btn-estimated { color: #7fb79b; border-color: #e4d9bd; }
+  .mode-btn-estimated.active, .mode-btn-estimated:hover { background: rgba(47,125,87,0.15); color: #2f7d57; border-color: #2f7d57; }
 
-  .error-text { color: #f25c5c; font-size: 11px; margin-top: 4px; }
-  .weight-total { font-family: 'IBM Plex Mono', monospace; font-size: 13px; }
-  .weight-total.ok { color: #3ecf8e; }
-  .weight-total.bad { color: #f25c5c; }
-  .weight-total.partial { color: #ffd166; }
+  .error-text { color: #b3412f; font-size: 11px; margin-top: 4px; }
+  .weight-total { font-family: 'Inter', sans-serif; font-size: 13px; }
+  .weight-total.ok { color: #2f7d57; }
+  .weight-total.bad { color: #b3412f; }
+  .weight-total.partial { color: #a8750a; }
 
-  .class-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border: 1px solid #2a2a38; border-radius: 6px; background: #0f0f13; margin-bottom: 8px; cursor: pointer; transition: all 0.15s; }
-  .class-item:hover { border-color: #353548; background: #1c1c26; }
+  .class-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border: 1px solid #e4d9bd; border-radius: 6px; background: #fbf8f0; margin-bottom: 8px; cursor: pointer; transition: all 0.15s; }
+  .class-item:hover { border-color: #cdbb8a; background: #f3ecd9; }
   .class-name { font-weight: 500; font-size: 14px; }
-  .class-meta { font-size: 12px; color: #7a7890; margin-top: 2px; font-family: 'IBM Plex Mono', monospace; }
+  .class-meta { font-size: 12px; color: #7a6e55; margin-top: 2px; font-family: 'Inter', sans-serif; }
 
-  .label { font-size: 12px; font-weight: 500; color: #7a7890; margin-bottom: 6px; display: block; letter-spacing: 0.04em; }
-  .range-input { width: 100%; accent-color: #f5a623; cursor: pointer; }
+  .label { font-size: 12px; font-weight: 500; color: #7a6e55; margin-bottom: 6px; display: block; letter-spacing: 0.04em; }
+  .range-input { width: 100%; accent-color: #a8801f; cursor: pointer; }
 
-  .delta { font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 600; }
-  .delta.positive { color: #3ecf8e; }
-  .delta.negative { color: #f25c5c; }
-  .delta.neutral  { color: #7a7890; }
+  .delta { font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600; }
+  .delta.positive { color: #2f7d57; }
+  .delta.negative { color: #b3412f; }
+  .delta.neutral  { color: #7a6e55; }
 
   .quick-controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
 
-  .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid #2a2a38; }
+  .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid #e4d9bd; }
   .setting-label { font-size: 14px; font-weight: 500; }
-  .setting-desc  { font-size: 12px; color: #7a7890; margin-top: 2px; }
+  .setting-desc  { font-size: 12px; color: #7a6e55; margin-top: 2px; }
   .setting-input-wrap { display: flex; align-items: center; gap: 8px; }
 
-  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-  .modal { background: #16161d; border: 1px solid #2a2a38; border-radius: 10px; padding: 24px; width: 340px; }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(42,36,24,0.45); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+  .modal { background: #ffffff; border: 1px solid #e4d9bd; border-radius: 10px; padding: 24px; width: 340px; }
   .modal-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
-  .modal-body { font-size: 13px; color: #7a7890; margin-bottom: 20px; }
+  .modal-body { font-size: 13px; color: #7a6e55; margin-bottom: 20px; }
   .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
-  .empty { text-align: center; padding: 48px 24px; color: #4a4860; font-size: 13px; }
+  .empty { text-align: center; padding: 48px 24px; color: #a79b7d; font-size: 13px; }
   .empty-icon { font-size: 32px; margin-bottom: 12px; }
 
   .flex-between { display: flex; align-items: center; justify-content: space-between; }
@@ -203,12 +203,12 @@ const css = `
   .gap-8 { gap: 8px; }
 
   /* EXPANDABLE CATEGORY ROW */
-  .cat-card { border: 1px solid #2a2a38; border-radius: 8px; background: #0f0f13; margin-bottom: 10px; overflow: hidden; transition: border-color 0.15s; }
-  .cat-card:hover { border-color: #353548; }
-  .cat-card.mode-known    { border-left: 3px solid #7a7890; }
-  .cat-card.mode-analyze  { border-left: 3px solid #ffd166; }
-  .cat-card.mode-estimated{ border-left: 3px solid #3ecf8e; }
-  .cat-card.expanded { border-color: #353548; }
+  .cat-card { border: 1px solid #e4d9bd; border-radius: 8px; background: #fbf8f0; margin-bottom: 10px; overflow: hidden; transition: border-color 0.15s; }
+  .cat-card:hover { border-color: #cdbb8a; }
+  .cat-card.mode-known    { border-left: 3px solid #7a6e55; }
+  .cat-card.mode-analyze  { border-left: 3px solid #a8750a; }
+  .cat-card.mode-estimated{ border-left: 3px solid #2f7d57; }
+  .cat-card.expanded { border-color: #cdbb8a; }
 
   .cat-card-header {
     display: grid;
@@ -219,30 +219,30 @@ const css = `
     cursor: pointer;
     user-select: none;
   }
-  .cat-card-header:hover { background: rgba(255,255,255,0.02); }
+  .cat-card-header:hover { background: rgba(168,128,31,0.06); }
 
   .cat-chevron {
     font-size: 10px;
-    color: #4a4860;
+    color: #a79b7d;
     transition: transform 0.2s;
     display: flex; align-items: center; justify-content: center;
   }
-  .cat-chevron.open { transform: rotate(90deg); color: #7a7890; }
+  .cat-chevron.open { transform: rotate(90deg); color: #7a6e55; }
 
   /* ASSIGNMENT PANEL */
   .assignment-panel {
-    border-top: 1px solid #2a2a38;
+    border-top: 1px solid #e4d9bd;
     padding: 12px 16px 16px;
-    background: #0d0d11;
+    background: #f6f1e4;
   }
   .assignment-panel-header {
     display: flex; align-items: center; justify-content: space-between;
     margin-bottom: 10px;
   }
   .assignment-panel-title {
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'Inter', sans-serif;
     font-size: 10px; font-weight: 600; letter-spacing: 0.08em;
-    text-transform: uppercase; color: #4a4860;
+    text-transform: uppercase; color: #a79b7d;
   }
   .assignment-row {
     display: grid;
@@ -251,11 +251,11 @@ const css = `
     align-items: center;
     margin-bottom: 6px;
   }
-  .assignment-sep { font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #4a4860; text-align: center; }
+  .assignment-sep { font-family: 'Inter', sans-serif; font-size: 14px; color: #a79b7d; text-align: center; }
   .assignment-pct {
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'Inter', sans-serif;
     font-size: 12px;
-    color: #7a7890;
+    color: #7a6e55;
     text-align: right;
     padding-right: 2px;
   }
@@ -275,41 +275,41 @@ const css = `
     width: 16px;
     height: 16px;
     border-radius: 4px;
-    border: 1px solid #353548;
-    background: #0f0f13;
+    border: 1px solid #cdbb8a;
+    background: #fbf8f0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: #0f0f13;
-    font-family: 'IBM Plex Mono', monospace;
+    color: #ffffff;
+    font-family: 'Inter', sans-serif;
     font-size: 11px;
     font-weight: 700;
     transition: all 0.15s;
   }
   .scoring-toggle input:checked + .box {
-    background: #f5a623;
-    border-color: #f5a623;
-    color: #0f0f13;
+    background: #a8801f;
+    border-color: #a8801f;
+    color: #ffffff;
   }
   .scoring-toggle .text {
-    color: #7a7890;
+    color: #7a6e55;
     font-size: 11px;
   }
   .pts-result {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 12px; color: #7a7890;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px; color: #7a6e55;
     text-align: right;
     margin-top: 10px;
     padding-top: 10px;
-    border-top: 1px solid #2a2a38;
+    border-top: 1px solid #e4d9bd;
   }
-  .pts-result .computed-grade { font-size: 18px; font-weight: 600; color: #f5a623; }
-  .pts-result .pts-fraction { font-size: 11px; color: #4a4860; margin-left: 8px; }
+  .pts-result .computed-grade { font-size: 18px; font-weight: 600; color: #a8801f; }
+  .pts-result .pts-fraction { font-size: 11px; color: #a79b7d; margin-left: 8px; }
 
   .grade-computed {
-    background: rgba(245,166,35,0.08);
-    border-color: rgba(245,166,35,0.25) !important;
-    color: #f5a623;
+    background: rgba(168,128,31,0.08);
+    border-color: rgba(168,128,31,0.25) !important;
+    color: #a8801f;
   }
 
   @keyframes fadeUp   { from { opacity: 0; transform: translateY(8px);   } to { opacity: 1; transform: translateY(0); } }
@@ -325,10 +325,10 @@ const css = `
     z-index: 90;
     display: flex;
     align-items: stretch;
-    background: #16161d;
-    border: 1px solid #353548;
+    background: #ffffff;
+    border: 1px solid #cdbb8a;
     border-radius: 40px;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.55), 0 0 0 1px rgba(245,166,35,0.07);
+    box-shadow: 0 8px 28px rgba(90,70,20,0.16), 0 0 0 1px rgba(168,128,31,0.07);
     animation: fadeDown 0.2s ease;
     overflow: hidden;
     white-space: nowrap;
@@ -339,7 +339,7 @@ const css = `
     flex-direction: column;
     align-items: center;
     gap: 3px;
-    border-right: 1px solid #2a2a38;
+    border-right: 1px solid #e4d9bd;
   }
   .nav-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 
@@ -359,25 +359,34 @@ const css = `
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #4a4860;
+    color: #a79b7d;
   }
   .float-bar-value {
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'Inter', sans-serif;
     font-size: 16px;
     font-weight: 600;
     line-height: 1;
   }
-  .float-bar-value.good      { color: #3ecf8e; }
-  .float-bar-value.warn      { color: #ffd166; }
-  .float-bar-value.bad       { color: #f25c5c; }
+  .float-bar-value.good      { color: #2f7d57; }
+  .float-bar-value.warn      { color: #a8750a; }
+  .float-bar-value.bad       { color: #b3412f; }
   .float-bar-delta {
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'Inter', sans-serif;
     font-size: 12px;
     font-weight: 600;
     line-height: 1;
   }
-  .float-bar-delta.pos { color: #3ecf8e; }
-  .float-bar-delta.neg { color: #f25c5c; }
+  .float-bar-delta.pos { color: #2f7d57; }
+  .float-bar-delta.neg { color: #b3412f; }
+
+  .page-title, .nav-logo, .modal-title { font-family: 'Playfair Display', Georgia, serif !important; }
+  .page-title { font-weight: 600; letter-spacing: -0.01em; }
+  .nav-logo { font-size: 15px; letter-spacing: 0.18em; }
+  .stat-value { font-family: 'Playfair Display', Georgia, serif; }
+  .card-title, .nav-tab, .stat-label { letter-spacing: 0.14em; }
+  .class-item.archived { opacity: 0.75; background: #f6f1e4; }
+  .section-rule { display: flex; align-items: center; gap: 12px; margin: 28px 0 14px; font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: #a8801f; cursor: pointer; user-select: none; background: none; border: none; width: 100%; }
+  .section-rule::after { content: ""; flex: 1; height: 1px; background: #e4d9bd; }
 `;
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -403,7 +412,7 @@ function ScenarioSolveModal({ targetGrade, options, onPick, onCancel }) {
       <div className="modal" style={{ width: 520, maxWidth: "calc(100vw - 24px)" }} onClick={e => e.stopPropagation()}>
         <div className="modal-title">Choose Analyze Scenario</div>
         <div className="modal-body" style={{ marginBottom: 14 }}>
-          Target final grade: <strong style={{ color: "#e8e6f0" }}>{targetGrade.toFixed(2)}%</strong>.
+          Target final grade: <strong style={{ color: "#2a2418" }}>{targetGrade.toFixed(2)}%</strong>.
           Pick how Analyze categories should be distributed.
         </div>
         <div style={{ display: "grid", gap: 8 }}>
@@ -414,8 +423,8 @@ function ScenarioSolveModal({ targetGrade, options, onPick, onCancel }) {
               style={{ width: "100%", justifyContent: "flex-start", textAlign: "left", whiteSpace: "normal", display: "block", padding: "10px 12px" }}
               onClick={() => onPick(opt.id)}
             >
-              <div style={{ color: "#e8e6f0", fontSize: 13, fontWeight: 500 }}>{opt.label}</div>
-              <div style={{ color: "#7a7890", fontSize: 12, marginTop: 2 }}>{opt.desc}</div>
+              <div style={{ color: "#2a2418", fontSize: 13, fontWeight: 500 }}>{opt.label}</div>
+              <div style={{ color: "#7a6e55", fontSize: 12, marginTop: 2 }}>{opt.desc}</div>
             </button>
           ))}
         </div>
@@ -487,6 +496,7 @@ function ClassBuilder({ classes, setClasses }) {
   const [errors, setErrors]         = useState({});
   const [confirmDelete, setConfirm] = useState(null);
   const [mode, setMode]             = useState("list");
+  const [showArchived, setShowArchived] = useState(false);
 
   const weightTotal = form.categories.reduce((s, c) => s + (parseFloat(c.weight) || 0), 0);
 
@@ -536,7 +546,39 @@ function ClassBuilder({ classes, setClasses }) {
     }
     setMode("list");
   }
+  function duplicateClass(cls) {
+    const now = new Date().toISOString();
+    setClasses(cs => {
+      const i = cs.findIndex(c => c.id === cls.id);
+      const copy = {
+        id: uid(), name: `${cls.name} (copy)`,
+        categories: cls.categories.map(c => ({ ...c, id: uid() })),
+        createdAt: now, updatedAt: now,
+      };
+      return [...cs.slice(0, i + 1), copy, ...cs.slice(i + 1)];
+    });
+  }
+  function setArchived(id, archived) {
+    setClasses(cs => cs.map(c => c.id === id ? { ...c, archived, updatedAt: new Date().toISOString() } : c));
+  }
   function deleteClass(id) { setClasses(cs => cs.filter(c => c.id !== id)); setConfirm(null); }
+
+  const activeClasses   = classes.filter(c => !c.archived);
+  const archivedClasses = classes.filter(c => c.archived);
+  const renderItem = cls => (
+    <div key={cls.id} className={`class-item ${cls.archived ? "archived" : ""}`} onClick={() => startEdit(cls)}>
+      <div>
+        <div className="class-name">{cls.name}</div>
+        <div className="class-meta">{cls.categories.length} cats · {cls.categories.map(c => `${c.name} (${c.weight}%)`).join(", ")}</div>
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }} onClick={e => e.stopPropagation()}>
+        <button className="btn btn-ghost btn-sm" onClick={() => startEdit(cls)}>Edit</button>
+        <button className="btn btn-ghost btn-sm" onClick={() => duplicateClass(cls)}>Duplicate</button>
+        <button className="btn btn-ghost btn-sm" onClick={() => setArchived(cls.id, !cls.archived)}>{cls.archived ? "Restore" : "Archive"}</button>
+        <button className="btn btn-danger btn-sm" onClick={() => setConfirm(cls)}>Delete</button>
+      </div>
+    </div>
+  );
 
   if (mode === "edit") return (
     <div>
@@ -574,7 +616,7 @@ function ClassBuilder({ classes, setClasses }) {
           </div>
         ))}
         {form.categories.length === 0 && (
-          <div style={{ color: "#4a4860", fontSize: 13, textAlign: "center", padding: "20px 0" }}>
+          <div style={{ color: "#a79b7d", fontSize: 13, textAlign: "center", padding: "20px 0" }}>
             No categories yet. Click "+ Category" to add one.
           </div>
         )}
@@ -592,20 +634,17 @@ function ClassBuilder({ classes, setClasses }) {
         <div><div className="page-title">Classes</div><div className="page-subtitle">Create and manage your classes</div></div>
         <button className="btn btn-primary" onClick={startCreate}>+ Class</button>
       </div>
-      {classes.length === 0 ? (
-        <div className="empty"><div className="empty-icon">📚</div>No classes yet. Create your first class to get started.</div>
-      ) : classes.map(cls => (
-        <div key={cls.id} className="class-item" onClick={() => startEdit(cls)}>
-          <div>
-            <div className="class-name">{cls.name}</div>
-            <div className="class-meta">{cls.categories.length} cats · {cls.categories.map(c => `${c.name} (${c.weight}%)`).join(", ")}</div>
-          </div>
-          <div style={{ display: "flex", gap: 8 }} onClick={e => e.stopPropagation()}>
-            <button className="btn btn-ghost btn-sm" onClick={() => startEdit(cls)}>Edit</button>
-            <button className="btn btn-danger btn-sm" onClick={() => setConfirm(cls)}>Delete</button>
-          </div>
-        </div>
-      ))}
+      {activeClasses.length === 0 ? (
+        <div className="empty"><div className="empty-icon">📚</div>{archivedClasses.length ? "All classes are archived." : "No classes yet. Create your first class to get started."}</div>
+      ) : activeClasses.map(renderItem)}
+      {archivedClasses.length > 0 && (
+        <>
+          <button className="section-rule" onClick={() => setShowArchived(v => !v)}>
+            Archived ({archivedClasses.length}) {showArchived ? "▾" : "▸"}
+          </button>
+          {showArchived && archivedClasses.map(renderItem)}
+        </>
+      )}
       {confirmDelete && (
         <ConfirmModal title="Delete Class" body={`Delete "${confirmDelete.name}"? This cannot be undone.`}
           onConfirm={() => deleteClass(confirmDelete.id)} onCancel={() => setConfirm(null)} />
@@ -753,8 +792,8 @@ function GradeAnalyzer({ classes, settings, analyzerState, setAnalyzerState }) {
               const isExpanded  = expandedCatId === cat.id;
               const hasAssign   = assignments.length > 0;
 
-              const modeColor = entry.mode === "known" ? "#7a7890"
-                : entry.mode === "analyze" ? "#ffd166" : "#3ecf8e";
+              const modeColor = entry.mode === "known" ? "#7a6e55"
+                : entry.mode === "analyze" ? "#a8750a" : "#2f7d57";
 
               return (
                 <div key={cat.id} className={`cat-card mode-${entry.mode}${isExpanded ? " expanded" : ""}`}>
@@ -772,9 +811,9 @@ function GradeAnalyzer({ classes, settings, analyzerState, setAnalyzerState }) {
                       </span>
                       {hasAssign && (
                         <span style={{
-                          background: "rgba(245,166,35,0.12)", border: "1px solid rgba(245,166,35,0.25)",
+                          background: "rgba(168,128,31,0.12)", border: "1px solid rgba(168,128,31,0.25)",
                           borderRadius: 4, padding: "1px 6px",
-                          fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, color: "#f5a623",
+                          fontFamily: "'Inter',sans-serif", fontSize: 10, color: "#a8801f",
                         }}>
                           {assignments.length} assign.
                         </span>
@@ -782,7 +821,7 @@ function GradeAnalyzer({ classes, settings, analyzerState, setAnalyzerState }) {
                     </div>
 
                     {/* Weight */}
-                    <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 12, color: "#7a7890", textAlign: "right" }}>
+                    <div style={{ fontFamily: "'Inter',sans-serif", fontSize: 12, color: "#7a6e55", textAlign: "right" }}>
                       {cat.weight}%
                     </div>
 
@@ -843,7 +882,7 @@ function GradeAnalyzer({ classes, settings, analyzerState, setAnalyzerState }) {
                       </div>
 
                       {assignments.length === 0 ? (
-                        <div style={{ color: "#4a4860", fontSize: 12, textAlign: "center", padding: "12px 0" }}>
+                        <div style={{ color: "#a79b7d", fontSize: 12, textAlign: "center", padding: "12px 0" }}>
                           No assignments yet — click "+ Add" to track individual scores
                         </div>
                       ) : (
@@ -1327,7 +1366,7 @@ function Sandbox({ classes, settings, analyzerState }) {
               </div>
             )}
             {analyzeCategories.length > 0 && !editingTarget && (
-              <div style={{ marginTop: 4, color: "#7a7890", fontSize: 10, fontFamily: "'IBM Plex Mono',monospace" }}>
+              <div style={{ marginTop: 4, color: "#7a6e55", fontSize: 10, fontFamily: "'Inter',sans-serif" }}>
                 Click grade to set target
               </div>
             )}
@@ -1388,7 +1427,7 @@ function Sandbox({ classes, settings, analyzerState }) {
       )}
 
       {solverFeedback && (
-        <div style={{ color: "#f5a623", fontSize: 12, margin: "4px 0 12px" }}>{solverFeedback}</div>
+        <div style={{ color: "#a8801f", fontSize: 12, margin: "4px 0 12px" }}>{solverFeedback}</div>
       )}
 
       {/* Category sliders */}
@@ -1408,7 +1447,7 @@ function Sandbox({ classes, settings, analyzerState }) {
             sliderVal  = Math.round(displayVal);
           }
 
-          const modeColor = mode === "known" ? "#7a7890" : mode === "analyze" ? "#ffd166" : "#3ecf8e";
+          const modeColor = mode === "known" ? "#7a6e55" : mode === "analyze" ? "#a8750a" : "#2f7d57";
 
           return (
             <div key={cat.id} style={{ marginBottom: 20 }}>
@@ -1419,13 +1458,13 @@ function Sandbox({ classes, settings, analyzerState }) {
                   }} />
                   <div>
                     <span style={{ fontWeight: 500 }}>{cat.name}</span>
-                    <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 11, color: "#7a7890", marginLeft: 8 }}>
+                    <span style={{ fontFamily: "'Inter',sans-serif", fontSize: 11, color: "#7a6e55", marginLeft: 8 }}>
                       {cat.weight}%
                     </span>
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-                  <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, color: modeColor, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                  <span style={{ fontFamily: "'Inter',sans-serif", fontSize: 10, color: modeColor, letterSpacing: "0.06em", textTransform: "uppercase" }}>
                     {locked ? "🔒 " : ""}
                     {mode}
                   </span>
@@ -1449,7 +1488,7 @@ function Sandbox({ classes, settings, analyzerState }) {
                   ) : (
                     <span
                       style={{
-                        fontFamily: "'IBM Plex Mono',monospace",
+                        fontFamily: "'Inter',sans-serif",
                         fontSize: 22,
                         fontWeight: 600,
                         color: modeColor,
@@ -1515,7 +1554,7 @@ function Settings({ settings, setSettings }) {
             <div className="setting-input-wrap">
               <input className="input input-num" style={{ width: 80 }} type="number" min="0" max="100"
                 value={settings[r.key]} onChange={e => update(r.key, e.target.value)} />
-              <span style={{ color: "#7a7890", fontSize: 13 }}>%</span>
+              <span style={{ color: "#7a6e55", fontSize: 13 }}>%</span>
             </div>
           </div>
         ))}
@@ -1639,6 +1678,7 @@ export default function App() {
     };
   }, [classes, settings, analyzerState, loaded, user]);
 
+  const activeClasses = classes.filter(c => !c.archived);
   const tabs = [
     { id: "builder",  label: "Class Builder"  },
     { id: "analyzer", label: "Grade Analyzer" },
@@ -1696,8 +1736,8 @@ export default function App() {
         </nav>
         <main className="main">
           {page === "builder"  && <ClassBuilder  classes={classes} setClasses={setClasses} />}
-          {page === "analyzer" && <GradeAnalyzer classes={classes} settings={settings} analyzerState={analyzerState} setAnalyzerState={setAnalyzerState} />}
-          {page === "sandbox"  && <Sandbox       classes={classes} settings={settings} analyzerState={analyzerState} />}
+          {page === "analyzer" && <GradeAnalyzer classes={activeClasses} settings={settings} analyzerState={analyzerState} setAnalyzerState={setAnalyzerState} />}
+          {page === "sandbox"  && <Sandbox       classes={activeClasses} settings={settings} analyzerState={analyzerState} />}
           {page === "settings" && <Settings      settings={settings} setSettings={setSettings} />}
         </main>
       </div>
