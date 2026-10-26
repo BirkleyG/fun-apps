@@ -492,7 +492,7 @@ function StatsCard({ categories, settings }) {
 
 function ClassBuilder({ classes, setClasses }) {
   const [editingId, setEditingId]   = useState(null);
-  const [form, setForm]             = useState({ name: "", categories: [] });
+  const [form, setForm]             = useState({ name: "", categories: [], dropRules: [] });
   const [errors, setErrors]         = useState({});
   const [confirmDelete, setConfirm] = useState(null);
   const [mode, setMode]             = useState("list");
@@ -502,18 +502,30 @@ function ClassBuilder({ classes, setClasses }) {
 
   function startCreate() {
     setEditingId(null);
-    setForm({ name: "", categories: [{ id: uid(), name: "", weight: "" }] });
+    setForm({ name: "", categories: [{ id: uid(), name: "", weight: "" }], dropRules: [] });
     setErrors({});
     setMode("edit");
   }
   function startEdit(cls) {
     setEditingId(cls.id);
-    setForm({ name: cls.name, categories: cls.categories.map(c => ({ ...c })) });
+    setForm({ name: cls.name, categories: cls.categories.map(c => ({ ...c })), dropRules: (cls.dropRules || []).map(r => ({ ...r, categoryIds: [...r.categoryIds] })) });
     setErrors({});
     setMode("edit");
   }
   function addCat()    { setForm(f => ({ ...f, categories: [...f.categories, { id: uid(), name: "", weight: "" }] })); }
-  function removeCat(id) { setForm(f => ({ ...f, categories: f.categories.filter(c => c.id !== id) })); }
+  function removeCat(id) {
+    setForm(f => ({
+      ...f,
+      categories: f.categories.filter(c => c.id !== id),
+      dropRules: f.dropRules.map(r => ({ ...r, categoryIds: r.categoryIds.filter(x => x !== id) })),
+    }));
+  }
+  function addRule() { setForm(f => ({ ...f, dropRules: [...f.dropRules, { id: uid(), count: 1, categoryIds: [] }] })); }
+  function updateRule(id, patch) { setForm(f => ({ ...f, dropRules: f.dropRules.map(r => r.id === id ? { ...r, ...patch } : r) })); }
+  function removeRule(id) { setForm(f => ({ ...f, dropRules: f.dropRules.filter(r => r.id !== id) })); }
+  function toggleRuleCat(rule, catId) {
+    updateRule(rule.id, { categoryIds: rule.categoryIds.includes(catId) ? rule.categoryIds.filter(x => x !== catId) : [...rule.categoryIds, catId] });
+  }
   function updateCat(id, field, val) {
     setForm(f => ({ ...f, categories: f.categories.map(c => c.id === id ? { ...c, [field]: val } : c) }));
   }
@@ -526,21 +538,27 @@ function ClassBuilder({ classes, setClasses }) {
       const w = parseFloat(c.weight);
       if (isNaN(w) || w < 0 || w > 100) e[`w_${c.id}`] = "0–100";
     });
+    form.dropRules.forEach(r => {
+      if (!(parseInt(r.count) >= 1)) e[`rc_${r.id}`] = "Drop at least 1";
+      if (r.categoryIds.length === 0) e[`rcat_${r.id}`] = "Pick at least one category";
+    });
     if (form.categories.length > 0 && Math.abs(weightTotal - 100) > 0.01) e.weightTotal = "Weights must sum to 100%";
     return e;
   }
+  function cleanRules() { return form.dropRules.map(r => ({ ...r, count: parseInt(r.count) })); }
   function save() {
     const e = validate();
     if (Object.keys(e).length) { setErrors(e); return; }
     const now = new Date().toISOString();
     if (editingId) {
       setClasses(cs => cs.map(c => c.id === editingId
-        ? { ...c, name: form.name, categories: form.categories.map(c => ({ ...c, weight: parseFloat(c.weight) })), updatedAt: now }
+        ? { ...c, name: form.name, categories: form.categories.map(c => ({ ...c, weight: parseFloat(c.weight) })), dropRules: cleanRules(), updatedAt: now }
         : c));
     } else {
       setClasses(cs => [...cs, {
         id: uid(), name: form.name,
         categories: form.categories.map(c => ({ ...c, weight: parseFloat(c.weight) })),
+        dropRules: cleanRules(),
         createdAt: now, updatedAt: now,
       }]);
     }
@@ -550,9 +568,12 @@ function ClassBuilder({ classes, setClasses }) {
     const now = new Date().toISOString();
     setClasses(cs => {
       const i = cs.findIndex(c => c.id === cls.id);
+      const idMap = {};
+      const categories = cls.categories.map(c => { idMap[c.id] = uid(); return { ...c, id: idMap[c.id] }; });
       const copy = {
         id: uid(), name: `${cls.name} (copy)`,
-        categories: cls.categories.map(c => ({ ...c, id: uid() })),
+        categories,
+        dropRules: (cls.dropRules || []).map(r => ({ ...r, id: uid(), categoryIds: r.categoryIds.map(id => idMap[id]).filter(Boolean) })),
         createdAt: now, updatedAt: now,
       };
       return [...cs.slice(0, i + 1), copy, ...cs.slice(i + 1)];
@@ -569,7 +590,7 @@ function ClassBuilder({ classes, setClasses }) {
     <div key={cls.id} className={`class-item ${cls.archived ? "archived" : ""}`} onClick={() => startEdit(cls)}>
       <div>
         <div className="class-name">{cls.name}</div>
-        <div className="class-meta">{cls.categories.length} cats · {cls.categories.map(c => `${c.name} (${c.weight}%)`).join(", ")}</div>
+        <div className="class-meta">{cls.categories.length} cats · {cls.categories.map(c => `${c.name} (${c.weight}%)`).join(", ")}{cls.dropRules?.length ? ` · ${cls.dropRules.length} drop rule${cls.dropRules.length === 1 ? "" : "s"}` : ""}</div>
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }} onClick={e => e.stopPropagation()}>
         <button className="btn btn-ghost btn-sm" onClick={() => startEdit(cls)}>Edit</button>
@@ -621,6 +642,44 @@ function ClassBuilder({ classes, setClasses }) {
           </div>
         )}
       </div>
+      <div className="card">
+        <div className="card-header">
+          <div>
+            <div className="card-title">Drop Rules</div>
+            <div className="page-subtitle" style={{ marginTop: 2 }}>Drop the lowest scores across one or more categories combined</div>
+          </div>
+          <button className="btn btn-ghost btn-sm" onClick={addRule} disabled={form.categories.length === 0}>+ Rule</button>
+        </div>
+        {form.dropRules.length === 0 && (
+          <div style={{ color: "#a79b7d", fontSize: 13, textAlign: "center", padding: "12px 0" }}>
+            No drop rules. e.g. "Drop lowest 2 of Homework + Quizzes".
+          </div>
+        )}
+        {form.dropRules.map(rule => (
+          <div key={rule.id} className="class-item" style={{ cursor: "default", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+            <div className="flex-center gap-8">
+              <span className="label" style={{ marginBottom: 0 }}>Drop lowest</span>
+              <input className={`input input-sm input-num ${errors[`rc_${rule.id}`] ? "error" : ""}`} style={{ width: 64 }}
+                type="number" min="1" value={rule.count} onChange={e => updateRule(rule.id, { count: e.target.value })} />
+            </div>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <span className="label">From (combined)</span>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                {form.categories.map(c => (
+                  <label key={c.id} className="scoring-toggle">
+                    <input type="checkbox" checked={rule.categoryIds.includes(c.id)} onChange={() => toggleRuleCat(rule, c.id)} />
+                    <span className="box">✓</span>
+                    <span className="text">{c.name || "Untitled"}</span>
+                  </label>
+                ))}
+              </div>
+              {errors[`rcat_${rule.id}`] && <div className="error-text">{errors[`rcat_${rule.id}`]}</div>}
+              {errors[`rc_${rule.id}`] && <div className="error-text">{errors[`rc_${rule.id}`]}</div>}
+            </div>
+            <button className="btn btn-danger btn-sm" onClick={() => removeRule(rule.id)}>✕</button>
+          </div>
+        ))}
+      </div>
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
         <button className="btn btn-ghost" onClick={() => setMode("list")}>Cancel</button>
         <button className="btn btn-primary" onClick={save}>{editingId ? "Save Changes" : "Create Class"}</button>
@@ -654,17 +713,48 @@ function ClassBuilder({ classes, setClasses }) {
 }
 
 // ─── Assignment grade calculator ─────────────────────────────────────────────
-function calcAssignmentGrade(assignments, scoringMode = "pooled") {
-  const valid = assignments.filter(a => parseFloat(a.total) > 0);
+const assignmentPct = a => ((parseFloat(a.earned) || 0) / parseFloat(a.total)) * 100;
+
+// Assignment ids dropped by the class's drop rules: lowest % first, pooled across the rule's categories.
+// A category always keeps at least one scored assignment.
+function getDropped(cls, classEntries) {
+  const dropped = new Set();
+  (cls?.dropRules || []).forEach(rule => {
+    const pool = [];
+    rule.categoryIds.forEach(catId => {
+      (classEntries[catId]?.assignments || []).forEach(a => {
+        if (parseFloat(a.total) > 0) pool.push({ a, catId });
+      });
+    });
+    const remaining = {};
+    pool.forEach(p => { remaining[p.catId] = (remaining[p.catId] || 0) + 1; });
+    pool.sort((x, y) => assignmentPct(x.a) - assignmentPct(y.a));
+    let left = parseInt(rule.count) || 0;
+    for (const { a, catId } of pool) {
+      if (left <= 0) break;
+      if (dropped.has(a.id) || remaining[catId] <= 1) continue;
+      dropped.add(a.id);
+      remaining[catId]--;
+      left--;
+    }
+  });
+  return dropped;
+}
+
+// Category grade from an entry: skips dropped assignments and adds bonus points.
+function calcEntry(entry, dropped = new Set()) {
+  const valid = (entry.assignments || []).filter(a => parseFloat(a.total) > 0 && !dropped.has(a.id));
   if (valid.length === 0) return null;
-  const mode = scoringMode === "average" ? "average" : "pooled";
+  const bonus = parseFloat(entry.bonus) || 0;
+  const mode = entry.scoringMode === "average" ? "average" : "pooled";
   if (mode === "average") {
-    const pctSum = valid.reduce((s, a) => s + (((parseFloat(a.earned) || 0) / parseFloat(a.total)) * 100), 0);
-    return { pct: pctSum / valid.length, mode, count: valid.length };
+    const avgTotal = valid.reduce((s, a) => s + parseFloat(a.total), 0) / valid.length;
+    const pctSum = valid.reduce((s, a) => s + assignmentPct(a), 0);
+    return { pct: (pctSum + (bonus / avgTotal) * 100) / valid.length, mode, count: valid.length, bonus };
   }
-  const totalEarned   = valid.reduce((s, a) => s + (parseFloat(a.earned) || 0), 0);
-  const totalPossible = valid.reduce((s, a) => s + parseFloat(a.total), 0);
-  return { pct: (totalEarned / totalPossible) * 100, earned: totalEarned, possible: totalPossible, mode, count: valid.length };
+  const earned   = valid.reduce((s, a) => s + (parseFloat(a.earned) || 0), 0) + bonus;
+  const possible = valid.reduce((s, a) => s + parseFloat(a.total), 0);
+  return { pct: (earned / possible) * 100, earned, possible, mode, count: valid.length, bonus };
 }
 
 // ─── PAGE: Grade Analyzer ─────────────────────────────────────────────────────
@@ -736,7 +826,7 @@ function GradeAnalyzer({ classes, settings, analyzerState, setAnalyzerState }) {
     const cur = clsEntries[catId] || { ...BLANK_ENTRY };
     const assignments = (cur.assignments || []).map(a => a.id === aId ? { ...a, [field]: val } : a);
     // Recompute grade from assignments
-    const calc = calcAssignmentGrade(assignments, cur.scoringMode);
+    const calc = calcEntry({ ...cur, assignments });
     patchEntry(catId, { assignments, grade: calc !== null ? String(calc.pct) : cur.grade });
   }
 
@@ -744,16 +834,17 @@ function GradeAnalyzer({ classes, settings, analyzerState, setAnalyzerState }) {
     const clsEntries = entries[selectedClassId] || {};
     const cur = clsEntries[catId] || { ...BLANK_ENTRY };
     const assignments = (cur.assignments || []).filter(a => a.id !== aId);
-    const calc = calcAssignmentGrade(assignments, cur.scoringMode);
+    const calc = calcEntry({ ...cur, assignments });
     patchEntry(catId, { assignments, grade: calc !== null ? String(calc.pct) : "" });
   }
 
   const classEntries = cls ? (entries[cls.id] || {}) : {};
+  const dropped = getDropped(cls, classEntries);
 
   // Build categories with effective grade (from assignments if available)
   const analyzeCategories = cls ? cls.categories.map(c => {
     const entry = classEntries[c.id] || { ...BLANK_ENTRY };
-    const calc = calcAssignmentGrade(entry.assignments || [], entry.scoringMode);
+    const calc = calcEntry(entry, dropped);
     const effectiveGrade = calc !== null ? String(calc.pct) : entry.grade;
     return { ...c, grade: effectiveGrade, mode: entry.mode };
   }) : [];
@@ -788,7 +879,7 @@ function GradeAnalyzer({ classes, settings, analyzerState, setAnalyzerState }) {
             {cls.categories.map(cat => {
               const entry       = classEntries[cat.id] || { ...BLANK_ENTRY };
               const assignments = entry.assignments || [];
-              const calc        = calcAssignmentGrade(assignments, entry.scoringMode);
+              const calc        = calcEntry(entry, dropped);
               const isExpanded  = expandedCatId === cat.id;
               const hasAssign   = assignments.length > 0;
 
@@ -875,6 +966,12 @@ function GradeAnalyzer({ classes, settings, analyzerState, setAnalyzerState }) {
                             </span>
                           </label>
                         </div>
+                        <div className="flex-center gap-8" onClick={e => e.stopPropagation()}>
+                          <span className="label" style={{ marginBottom: 0 }}>Bonus pts</span>
+                          <input className="input input-sm input-num" style={{ width: 70 }} type="number" min="0"
+                            value={entry.bonus ?? ""} placeholder="0"
+                            onChange={e => patchEntry(cat.id, { bonus: e.target.value })} />
+                        </div>
                         <button className="btn btn-ghost btn-sm" style={{ fontSize: 12 }}
                           onClick={() => addAssignment(cat.id)}>
                           + Add
@@ -902,7 +999,7 @@ function GradeAnalyzer({ classes, settings, analyzerState, setAnalyzerState }) {
                               ? ((parseFloat(a.earned) || 0) / parseFloat(a.total) * 100)
                               : null;
                             return (
-                              <div key={a.id} className="assignment-row">
+                              <div key={a.id} className="assignment-row" style={dropped.has(a.id) ? { opacity: 0.5 } : undefined}>
                                 <input
                                   className="input input-sm"
                                   value={a.name}
@@ -925,7 +1022,7 @@ function GradeAnalyzer({ classes, settings, analyzerState, setAnalyzerState }) {
                                   type="number" min="0"
                                 />
                                 <div className="assignment-pct">
-                                  {pct !== null ? `${pct.toFixed(2)}%` : "—"}
+                                  {dropped.has(a.id) ? "dropped" : pct !== null ? `${pct.toFixed(2)}%` : "—"}
                                 </div>
                                 <button className="btn btn-danger btn-sm" style={{ padding: "4px 7px", fontSize: 11 }}
                                   onClick={() => removeAssignment(cat.id, a.id)}>
@@ -940,6 +1037,7 @@ function GradeAnalyzer({ classes, settings, analyzerState, setAnalyzerState }) {
                             <div className="pts-result">
                               <span className="computed-grade">{calc.pct.toFixed(2)}%</span>
                               <span className="pts-fraction">
+                                {calc.bonus ? `+${calc.bonus} bonus · ` : ""}
                                 {calc.mode === "average"
                                   ? `Avg of ${calc.count} assignment${calc.count === 1 ? "" : "s"}`
                                   : `${calc.earned % 1 === 0 ? calc.earned : calc.earned.toFixed(2)} / ${calc.possible} pts`}
@@ -975,6 +1073,7 @@ function Sandbox({ classes, settings, analyzerState }) {
   const { selectedClassId, entries } = analyzerState;
   const cls = classes.find(c => c.id === selectedClassId);
   const classEntries = cls ? (entries[cls.id] || {}) : {};
+  const dropped = getDropped(cls, classEntries);
 
   const [sandboxGrades, setSandboxGrades] = useState({});
   const [seededFor, setSeededFor]         = useState(null);
@@ -1017,7 +1116,7 @@ function Sandbox({ classes, settings, analyzerState }) {
     const seeds = {};
     cls.categories.forEach(cat => {
       const entry = classEntries[cat.id] || { grade: "", mode: "known", scoringMode: "pooled" };
-      const calc  = calcAssignmentGrade(entry.assignments || [], entry.scoringMode);
+      const calc  = calcEntry(entry, dropped);
       const effectiveGrade = calc !== null ? calc.pct : clampSandboxGrade(entry.grade, 0);
       if (entry.mode === "analyze") {
         seeds[cat.id] = clampSandboxGrade(settings.worstCaseFill, 0);
@@ -1045,14 +1144,14 @@ function Sandbox({ classes, settings, analyzerState }) {
     });
     const withGrades = knownEst.filter(cat => {
       const e = classEntries[cat.id];
-      const calc = calcAssignmentGrade(e.assignments || [], e.scoringMode);
+      const calc = calcEntry(e, dropped);
       return calc !== null || e.grade !== "";
     });
     const wSum = withGrades.reduce((s, c) => s + c.weight, 0);
     if (wSum === 0) return settings.worstCaseFill;
     return withGrades.reduce((s, c) => {
       const e = classEntries[c.id];
-      const calc = calcAssignmentGrade(e.assignments || [], e.scoringMode);
+      const calc = calcEntry(e, dropped);
       const g = calc !== null ? calc.pct : parseFloat(e.grade);
       return s + (c.weight / wSum) * g;
     }, 0);
@@ -1103,7 +1202,7 @@ function Sandbox({ classes, settings, analyzerState }) {
     return cls.categories.reduce((sum, cat) => {
       const entry = classEntries[cat.id] || { grade: "", mode: "known", scoringMode: "pooled" };
       if (entry.mode === "analyze") return sum;
-      const calc = calcAssignmentGrade(entry.assignments || [], entry.scoringMode);
+      const calc = calcEntry(entry, dropped);
       if (entry.mode === "known") {
         const knownGrade = calc !== null ? calc.pct : (entry.grade !== "" ? parseFloat(entry.grade) : null);
         return sum + (knownGrade !== null ? (cat.weight / 100) * knownGrade : 0);
@@ -1281,7 +1380,7 @@ function Sandbox({ classes, settings, analyzerState }) {
   const totalGrade = cls
     ? cls.categories.reduce((sum, cat) => {
         const entry = classEntries[cat.id] || { grade: "", mode: "known", scoringMode: "pooled" };
-        const calc  = calcAssignmentGrade(entry.assignments || [], entry.scoringMode);
+        const calc  = calcEntry(entry, dropped);
         const knownGrade = calc !== null ? calc.pct : (entry.grade !== "" ? parseFloat(entry.grade) : null);
         if (entry.mode === "known") {
           return sum + (knownGrade !== null ? (cat.weight / 100) * knownGrade : 0);
